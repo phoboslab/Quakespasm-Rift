@@ -1,0 +1,264 @@
+# GNU Makefile for QuakeSpasm for Mac OS X, Oct. 25, 2012.
+# Usage: "make -f Makefile.darwin"
+# You need the SDL library fully installed.
+# "make DEBUG=1" to build a debug client.
+# "make SDL_CONFIG=/path/to/sdl-config" for unusual SDL installations.
+# "make SDLNET=1" to use SDL_net (NOT recommended) instead of platform
+# specific code.
+
+### Embed custom Quakespasm console background picture
+USE_QS_CONBACK=1
+
+### Enable/Disable codecs for streaming music support
+USE_CODEC_WAVE=1
+USE_CODEC_MP3=1
+USE_CODEC_VORBIS=1
+
+# which library to use for mp3 decoding: mad or mpg123
+MP3LIB=mad
+# which library to use for ogg decoding: vorbis or tremor
+VORBISLIB=vorbis
+
+# ---------------------------
+# Helper functions
+# ---------------------------
+
+check_gcc = $(shell if echo | $(CC) $(1) -Werror -S -o /dev/null -xc - > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi;)
+
+# ---------------------------
+
+HOST_OS := $(shell uname|sed -e s/_.*//|tr '[:upper:]' '[:lower:]')
+MACH_TYPE= $(shell sh detect.sh arch)
+
+DEBUG   ?= 0
+SDLNET  ?= 0
+
+# ---------------------------
+# build variables
+# ---------------------------
+
+CC ?= gcc
+LINKER = $(CC)
+LIPO ?= lipo
+
+STRIP ?= strip
+
+CPUFLAGS=
+LDFLAGS =
+DFLAGS ?=
+CFLAGS ?= -Wall
+# require 10.5 for 64 bit builds
+ifeq ($(MACH_TYPE),ppc64)
+CFLAGS  +=-mmacosx-version-min=10.5
+LDFLAGS +=-mmacosx-version-min=10.5
+endif
+ifeq ($(MACH_TYPE),x86_64)
+# require 10.6 for amd64 builds, not 10.5 (SDL's requirement.)
+# bundle1.o is needed for dyld_stub_binding_helper
+CFLAGS  +=-mmacosx-version-min=10.6
+LDFLAGS +=-mmacosx-version-min=10.6 -Wl,-lbundle1.o
+endif
+CFLAGS += $(CPUFLAGS)
+
+ifneq ($(DEBUG),0)
+DFLAGS += -DDEBUG
+CFLAGS += -g
+do_strip=
+else
+DFLAGS += -DNDEBUG
+CFLAGS += -O2
+CFLAGS += $(call check_gcc,-fweb,)
+CFLAGS += $(call check_gcc,-frename-registers,)
+cmd_strip=$(STRIP) $(1)
+define do_strip
+	$(call cmd_strip,$(1));
+endef
+endif
+
+# not relying on sdl-config command and assuming
+# /Library/Frameworks/SDL.framework is available
+SDL_CFLAGS =-D_GNU_SOURCE=1 -D_THREAD_SAFE
+SDL_CFLAGS+=-DSDL_FRAMEWORK -DNO_SDL_CONFIG
+SDL_LIBS   =-Wl,-framework,SDL -Wl,-framework,Cocoa
+
+ifeq ($(SDLNET),1)
+NET_LIBS   :=-Wl,-framework,SDL_net
+CFLAGS     +=-D_USE_SDLNET
+else
+NET_LIBS   :=
+endif
+
+ifeq ($(USE_QS_CONBACK),1)
+CFLAGS+= -DUSE_QS_CONBACK
+endif
+
+ifneq ($(VORBISLIB),vorbis)
+ifneq ($(VORBISLIB),tremor)
+$(error Invalid VORBISLIB setting)
+endif
+endif
+ifneq ($(MP3LIB),mpg123)
+ifneq ($(MP3LIB),mad)
+$(error Invalid MP3LIB setting)
+endif
+endif
+ifeq ($(MP3LIB),mad)
+mp3_obj=snd_mp3.o
+lib_mp3dec=-lmad
+endif
+ifeq ($(MP3LIB),mpg123)
+mp3_obj=snd_mpg123.o
+lib_mp3dec=-lmpg123
+endif
+ifeq ($(VORBISLIB),vorbis)
+cpp_vorbisdec=
+lib_vorbisdec=-lvorbisfile -lvorbis -logg
+endif
+ifeq ($(VORBISLIB),tremor)
+cpp_vorbisdec=-DVORBIS_USE_TREMOR
+lib_vorbisdec=-lvorbisidec -logg
+endif
+
+CODECLIBS  :=
+ifeq ($(USE_CODEC_WAVE),1)
+CFLAGS+= -DUSE_CODEC_WAVE
+endif
+ifeq ($(USE_CODEC_VORBIS),1)
+CFLAGS+= -DUSE_CODEC_VORBIS $(cpp_vorbisdec)
+CODEC_INC = -I../MacOSX/codecs/include
+CODEC_LINK= -L../MacOSX/codecs/lib
+CODECLIBS+= $(lib_vorbisdec)
+endif
+ifeq ($(USE_CODEC_MP3),1)
+CFLAGS+= -DUSE_CODEC_MP3
+CODEC_INC = -I../MacOSX/codecs/include
+CODEC_LINK= -L../MacOSX/codecs/lib
+CODECLIBS+= $(lib_mp3dec)
+endif
+CFLAGS+= $(CODEC_INC)
+
+COMMON_LIBS:= -Wl,-framework,IOKit -Wl,-framework,OpenGL
+
+LIBS := $(COMMON_LIBS) $(NET_LIBS) $(CODEC_LINK) $(CODECLIBS)
+
+# ---------------------------
+# targets
+# ---------------------------
+
+.PHONY:	clean debug release
+
+DEFAULT_TARGET := quakespasm
+
+# ---------------------------
+# rules
+# ---------------------------
+
+%.o:	%.c
+	$(CC) $(DFLAGS) -c $(CFLAGS) $(SDL_CFLAGS) -o $@ $^
+%.o:	%.m
+	$(CC) $(DFLAGS) -c $(CFLAGS) $(SDL_CFLAGS) -o $@ $^
+%.o:	../MacOSX/%.m
+	$(CC) $(DFLAGS) -c -I../MacOSX $(CFLAGS) $(SDL_CFLAGS) -o $@ $^
+
+# ----------------------------------------------------------------------------
+# objects
+# ----------------------------------------------------------------------------
+
+MUSIC_OBJS:= bgmusic.o \
+	snd_codec.o \
+	snd_wave.o \
+	snd_vorbis.o \
+	$(mp3_obj)
+COMOBJ_SND := snd_dma.o snd_mix.o snd_mem.o $(MUSIC_OBJS)
+SYSOBJ_SND := snd_sdl.o
+SYSOBJ_CDA := cd_sdl.o
+SYSOBJ_INPUT := in_sdl.o
+SYSOBJ_GL_VID:= gl_vidsdl.o
+ifeq ($(SDLNET),1)
+SYSOBJ_NET := net_sdl.o net_sdlnet.o
+else
+SYSOBJ_NET := net_bsd.o net_udp.o
+endif
+SYSOBJ_LAUNCHER := AppController.o QuakeArgument.o QuakeArguments.o ScreenInfo.o SDLApplication.o
+SYSOBJ_SYS := pl_osx.o sys_sdl_unix.o
+SYSOBJ_MAIN:= main_sdl.o SDLMain.o
+
+GLOBJS = \
+	gl_refrag.o \
+	gl_rlight.o \
+	gl_rmain.o \
+	gl_fog.o \
+	gl_rmisc.o \
+	r_part.o \
+	r_world.o \
+	gl_screen.o \
+	gl_sky.o \
+	gl_warp.o \
+	$(SYSOBJ_GL_VID) \
+	gl_draw.o \
+	image.o \
+	gl_texmgr.o \
+	gl_mesh.o \
+	r_sprite.o \
+	r_alias.o \
+	r_brush.o \
+	gl_model.o
+
+OBJS := strlcat.o \
+	strlcpy.o \
+	$(GLOBJS) \
+	$(SYSOBJ_INPUT) \
+	$(COMOBJ_SND) \
+	$(SYSOBJ_SND) \
+	$(SYSOBJ_CDA) \
+	$(SYSOBJ_NET) \
+	net_dgrm.o \
+	net_loop.o \
+	net_main.o \
+	chase.o \
+	cl_demo.o \
+	cl_input.o \
+	cl_main.o \
+	cl_parse.o \
+	cl_tent.o \
+	console.o \
+	keys.o \
+	menu.o \
+	sbar.o \
+	view.o \
+	wad.o \
+	cmd.o \
+	common.o \
+	crc.o \
+	cvar.o \
+	cfgfile.o \
+	host.o \
+	host_cmd.o \
+	mathlib.o \
+	pr_cmds.o \
+	pr_edict.o \
+	pr_exec.o \
+	sv_main.o \
+	sv_move.o \
+	sv_phys.o \
+	sv_user.o \
+	world.o \
+	conback.o \
+	zone.o \
+	$(SYSOBJ_SYS) $(SYSOBJ_LAUNCHER) $(SYSOBJ_MAIN)
+
+# ------------------------
+# darwin build rules
+# ------------------------
+
+quakespasm:	$(OBJS)
+	$(LINKER) $(OBJS) $(LDFLAGS) $(LIBS) $(SDL_LIBS) -o $@
+	$(call do_strip,$@)
+
+release:	quakespasm
+debug:
+	$(error Use "make DEBUG=1")
+
+clean:
+	rm -f $(shell find . \( -name '*~' -o -name '#*#' -o -name '*.o' -o -name '*.res' -o -name $(DEFAULT_TARGET) \) -print)
+

@@ -1,0 +1,171 @@
+support for user directories, based on uhexen2 and tyrquake:
+** against quakespasm svn revision 725.
+** on-the-fly game directory switching not supported yet.
+** minimally tested, needs more work.
+
+Index: Quake/sys_sdl_unix.c
+===================================================================
+--- Quake/sys_sdl_unix.c	(revision 699)
++++ Quake/sys_sdl_unix.c	(working copy)
+@@ -20,6 +20,8 @@
+ 
+ */
+ 
++#define USE_PASSWORD_FILE 1
++
+ #include "quakedef.h"
+ 
+ #include <sys/types.h>
+@@ -29,6 +31,9 @@
+ #include <sys/time.h>
+ #include <fcntl.h>
+ #include <time.h>
++#if USE_PASSWORD_FILE
++#include <pwd.h>
++#endif	/* USE_PASSWORD_FILE */
+ 
+ #if defined(SDL_FRAMEWORK) || defined(NO_SDL_CONFIG)
+ #include <SDL/SDL.h>
+@@ -143,9 +148,43 @@
+ 	return -1;
+ }
+ 
++#define SYS_USERDIR	".quakespasm"
++static char	userdir[MAX_OSPATH];
++
++static void Sys_GetUserdir (char *dst, size_t dstsize)
++{
++	size_t		n;
++	const char	*home_dir = NULL;
++#if USE_PASSWORD_FILE
++	struct passwd	*pwent;
++
++	pwent = getpwuid( getuid() );
++	if (pwent == NULL)
++		perror("getpwuid");
++	else
++		home_dir = pwent->pw_dir;
++#endif
++	if (home_dir == NULL)
++		home_dir = getenv("HOME");
++	if (home_dir == NULL)
++		Sys_Error ("Couldn't determine userspace directory");
++
++/* what would be a maximum path for a file in the user's directory...
++ * $HOME/SYS_USERDIR/game_dir/dirname1/dirname2/dirname3/filename.ext
++ * still fits in the MAX_OSPATH == 256 definition, but just in case :
++ */
++	n = strlen(home_dir) + strlen(SYS_USERDIR) + 50;
++	if (n >= dstsize)
++		Sys_Error ("Insufficient array size for userspace directory");
++
++	q_snprintf (dst, dstsize, "%s/%s", home_dir, SYS_USERDIR);
++}
++
+ void Sys_Init (void)
+ {
+-	host_parms->userdir = host_parms->basedir; /* TODO: implement properly! */
++	Sys_GetUserdir(userdir, sizeof(userdir));
++	Sys_mkdir (userdir);
++	host_parms->userdir = userdir;
+ }
+ 
+ void Sys_mkdir (const char *path)
+Index: Quake/common.c
+===================================================================
+--- Quake/common.c	(revision 658)
++++ Quake/common.c	(working copy)
+@@ -1854,32 +1854,34 @@ pack_t *COM_LoadPackFile (const char *pa
+ COM_AddGameDirectory -- johnfitz -- modified based on topaz's tutorial
+ =================
+ */
+-static void COM_AddGameDirectory (const char *dir)
++static void COM_AddGameDirectory (const char *base, const char *dir)
+ {
+ 	int i;
+ 	unsigned int path_id;
+ 	searchpath_t *search;
+ 	pack_t *pak;
+ 	char pakfile[MAX_OSPATH];
++	qboolean been_here = false;
+ 
+-	q_strlcpy (com_gamedir, dir, sizeof(com_gamedir));
++	q_strlcpy (com_gamedir, va("%s/%s", base, dir), sizeof(com_gamedir));
+ 
+ 	// assign a path_id to this game directory
+ 	if (com_searchpaths)
+ 		path_id = com_searchpaths->path_id << 1;
+ 	else	path_id = 1U;
+ 
++_add_path:
+ 	// add the directory to the search path
+ 	search = (searchpath_t *) Z_Malloc(sizeof(searchpath_t));
+ 	search->path_id = path_id;
+-	q_strlcpy (search->filename, dir, sizeof(search->filename));
++	q_strlcpy (search->filename, com_gamedir, sizeof(search->filename));
+ 	search->next = com_searchpaths;
+ 	com_searchpaths = search;
+ 
+ 	// add any pak files in the format pak0.pak pak1.pak, ...
+ 	for (i = 0; ; i++)
+ 	{
+-		q_snprintf (pakfile, sizeof(pakfile), "%s/pak%i.pak", dir, i);
++		q_snprintf (pakfile, sizeof(pakfile), "%s/pak%i.pak", com_gamedir, i);
+ 		pak = COM_LoadPackFile (pakfile);
+ 		if (!pak)
+ 			break;
+@@ -1889,6 +1891,14 @@ static void COM_AddGameDirectory (const 
+ 		search->next = com_searchpaths;
+ 		com_searchpaths = search;
+ 	}
++
++	if (!been_here && host_parms->userdir != host_parms->basedir)
++	{
++		been_here = true;
++		q_strlcpy(com_gamedir, va("%s/%s", host_parms->userdir, dir), sizeof(com_gamedir));
++		Sys_mkdir(com_gamedir);
++		goto _add_path;
++	}
+ }
+ 
+ #if defined(USE_QS_CONBACK)
+@@ -1943,8 +1953,7 @@ void COM_InitFilesystem (void) //johnfit
+ 	}
+ 
+ 	// start up with GAMENAME by default (id1)
+-	COM_AddGameDirectory (va("%s/"GAMENAME, com_basedir));
+-	q_strlcpy (com_gamedir, va("%s/"GAMENAME, com_basedir), sizeof(com_gamedir));
++	COM_AddGameDirectory (com_basedir, GAMENAME);
+ 
+ #if defined(USE_QS_CONBACK)
+ 	if (!fitzmode)
+@@ -1958,17 +1967,17 @@ void COM_InitFilesystem (void) //johnfit
+ 	com_nummissionpacks = 0;
+ 	if (COM_CheckParm ("-rogue"))
+ 	{
+-		COM_AddGameDirectory (va("%s/rogue", com_basedir));
++		COM_AddGameDirectory (com_basedir, "rogue");
+ 		com_nummissionpacks++;
+ 	}
+ 	if (COM_CheckParm ("-hipnotic"))
+ 	{
+-		COM_AddGameDirectory (va("%s/hipnotic", com_basedir));
++		COM_AddGameDirectory (com_basedir, "hipnotic");
+ 		com_nummissionpacks++;
+ 	}
+ 	if (COM_CheckParm ("-quoth"))
+ 	{
+-		COM_AddGameDirectory (va("%s/quoth", com_basedir));
++		COM_AddGameDirectory (com_basedir, "quoth");
+ 		com_nummissionpacks++;
+ 	}
+ 	//johnfitz
+@@ -1977,7 +1986,7 @@ void COM_InitFilesystem (void) //johnfit
+ 	if (i && i < com_argc-1)
+ 	{
+ 		com_modified = true;
+-		COM_AddGameDirectory (va("%s/%s", com_basedir, com_argv[i + 1]));
++		COM_AddGameDirectory (com_basedir, com_argv[i + 1]);
+ 	}
+ 
+ 	COM_CheckRegistered ();
