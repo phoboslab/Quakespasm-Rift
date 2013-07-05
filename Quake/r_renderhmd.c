@@ -435,7 +435,7 @@ void RenderScreenForEye(hmd_eye_t *eye)
 	r_refdef.fov_y = viewport_fov_y;
 
 	// Cheap hack to make the UI readable in HMD mode
-	hmd_screen_2d[0] = r_refdef.vrect.width/2 - eye->offset * r_refdef.vrect.width * 0.28;
+	hmd_screen_2d[0] = r_refdef.vrect.width/2.7 - eye->offset * r_refdef.vrect.width * 0.28;
 	hmd_screen_2d[1] = r_refdef.vrect.height/3.5;
 	hmd_screen_2d[2] = (r_refdef.vrect.width / 2)/2;
 	hmd_screen_2d[3] = (r_refdef.vrect.height / 2);
