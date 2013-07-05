@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2013 Dominic Szablewski
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -21,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_main.c
 
 #include "quakedef.h"
+#include "r_renderhmd.h"
 
 qboolean	r_cache_thrash;		// compatability
 
@@ -100,6 +102,12 @@ cvar_t	r_lerpmove = {"r_lerpmove", "1", CVAR_NONE};
 cvar_t	r_nolerp_list = {"r_nolerp_list", "progs/flame.mdl,progs/flame2.mdl,progs/braztall.mdl,progs/brazshrt.mdl,progs/longtrch.mdl,progs/flame_pyre.mdl,progs/v_saw.mdl,progs/v_xfist.mdl,progs/h2stuff/newfire.mdl", CVAR_NONE};
 extern cvar_t	r_vfog;
 //johnfitz
+
+//phoboslab -- cvars for oculus rift
+cvar_t  r_oculusrift = {"r_oculusrift", "0", CVAR_NONE};
+//phoboslab
+
+
 
 cvar_t	gl_zfix = {"gl_zfix", "1", CVAR_ARCHIVE}; // QuakeSpasm z-fighting fix
 
@@ -280,8 +288,11 @@ void R_SetFrustum (float fovx, float fovy)
 {
 	int		i;
 
-	if (r_stereo.value)
+	if (r_stereo.value )
 		fovx += 10; //silly hack so that polygons don't drop out becuase of stereo skew
+	
+	if (r_oculusrift.value )
+		fovx += 25; // meh
 
 	TurnVector(frustum[0].normal, vpn, vright, fovx/2 - 90); //left plane
 	TurnVector(frustum[1].normal, vpn, vright, 90 - fovx/2); //right plane
@@ -299,15 +310,19 @@ void R_SetFrustum (float fovx, float fovy)
 /*
 =============
 GL_SetFrustum -- johnfitz -- written to replace MYgluPerspective
+phoboslab -- fixed for oculus renderer
 =============
 */
 #define NEARCLIP 4
 float frustum_skew = 0.0; //used by r_stereo
 void GL_SetFrustum(float fovx, float fovy)
 {
-	float xmax, ymax;
-	xmax = NEARCLIP * tan( fovx * M_PI / 360.0 );
-	ymax = NEARCLIP * tan( fovy * M_PI / 360.0 );
+	GLfloat xmax, ymax;
+	GLfloat aspect = fovx/fovy;
+
+	ymax = NEARCLIP * tan(fovy * M_PI / 360.0);
+	xmax = ymax * aspect;
+
 	glFrustum(-xmax + frustum_skew, xmax + frustum_skew, -ymax, ymax, NEARCLIP, gl_farclip.value);
 }
 
@@ -772,6 +787,7 @@ void R_RenderScene (void)
 R_RenderView
 ================
 */
+extern float hmd_view_offset;
 void R_RenderView (void)
 {
 	double	time1, time2;
@@ -829,6 +845,7 @@ void R_RenderView (void)
 	}
 	else
 	{
+		VectorMA (r_refdef.vieworg, hmd_view_offset, vright, r_refdef.vieworg);
 		R_RenderScene ();
 	}
 	//johnfitz
@@ -854,4 +871,5 @@ void R_RenderView (void)
 					rs_dynamiclightmaps);
 	//johnfitz
 }
+
 

@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // screen.c -- master for refresh, status bar, console, chat, notify, etc
 
 #include "quakedef.h"
+#include "r_renderhmd.h"
 
 /*
 
@@ -87,6 +88,10 @@ cvar_t		scr_crosshairscale = {"scr_crosshairscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_showfps = {"scr_showfps", "0", CVAR_NONE};
 cvar_t		scr_clock = {"scr_clock", "0", CVAR_NONE};
 //johnfitz
+
+//phoboslab -- cvars for oculus rift
+extern cvar_t r_oculusrift;
+//
 
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
 cvar_t		scr_fov = {"fov","90",CVAR_NONE};	// 10 - 170
@@ -988,38 +993,19 @@ WARNING: be very careful calling this from elsewhere, because the refresh
 needs almost the entire 256k of stack space!
 ==================
 */
-void SCR_UpdateScreen (void)
+extern float hmd_screen_2d[4];
+void SCR_UpdateScreenContent (void)
 {
-	vid.numpages = (gl_triplebuffer.value) ? 3 : 2;
-
-	if (scr_disabled_for_loading)
-	{
-		if (realtime - scr_disabled_time > 60)
-		{
-			scr_disabled_for_loading = false;
-			Con_Printf ("load failed.\n");
-		}
-		else
-			return;
-	}
-
-	if (!scr_initialized || !con_initialized)
-		return;				// not initialized yet
-
-
-	GL_BeginRendering (&glx, &gly, &glwidth, &glheight);
-
+	int oldglx = glx, 
+		oldgly = gly,
+		oldglwidth = glwidth, 
+		oldglheight = glheight,
+		oldconwidth = vid.conwidth,
+		oldconheight = vid.conheight,
+		oldscr_con = scr_con_current;
 	//
-	// determine size of refresh window
-	//
-	if (vid.recalc_refdef)
-		SCR_CalcRefdef ();
-
-//
 // do 3D refresh drawing, and then update the screen
 //
-	SCR_SetUpToDrawConsole ();
-
 	V_RenderView ();
 
 	GL_Set2D ();
@@ -1052,6 +1038,18 @@ void SCR_UpdateScreen (void)
 	}
 	else
 	{
+		if (r_oculusrift.value) {
+			// phoboslab -- extremely cheap hacks to make the UI readable in
+			// HMD mode
+			glx = hmd_screen_2d[0];
+			gly = hmd_screen_2d[1];
+			glwidth = hmd_screen_2d[2];
+			glheight = hmd_screen_2d[3];
+			vid.conheight = glheight;
+			vid.conwidth = glwidth;
+			scr_con_current /= 2;
+		}
+
 		SCR_DrawCrosshair (); //johnfitz
 		SCR_DrawRam ();
 		SCR_DrawNet ();
@@ -1064,10 +1062,54 @@ void SCR_UpdateScreen (void)
 		SCR_DrawClock (); //johnfitz
 		SCR_DrawConsole ();
 		M_Draw ();
+
+		if (r_oculusrift.value) {
+			glx = oldglx;
+			gly = oldgly;
+			glwidth = oldglwidth;
+			glheight = oldglheight;
+			vid.conwidth = oldconwidth;
+			vid.conheight = oldconheight;
+			scr_con_current = oldscr_con;
+		}
 	}
 
 	V_UpdateBlend (); //johnfitz -- V_UpdatePalette cleaned up and renamed
+}
+
+void SCR_UpdateScreen (void)
+{
+	vid.numpages = (gl_triplebuffer.value) ? 3 : 2;
+
+	if (scr_disabled_for_loading)
+	{
+		if (realtime - scr_disabled_time > 60)
+		{
+			scr_disabled_for_loading = false;
+			Con_Printf ("load failed.\n");
+		}
+		else
+			return;
+	}
+
+	if (!scr_initialized || !con_initialized)
+		return;				// not initialized yet
+
+
+	GL_BeginRendering (&glx, &gly, &glwidth, &glheight);
+
+	//
+	// determine size of refresh window
+	//
+	if (vid.recalc_refdef)
+		SCR_CalcRefdef ();
+
+	SCR_SetUpToDrawConsole ();
+	
+	if (r_oculusrift.value)
+		SCR_UpdateHMDScreenContent(); // phoboslab
+	else
+		SCR_UpdateScreenContent();
 
 	GL_EndRendering ();
 }
-

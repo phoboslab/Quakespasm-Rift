@@ -58,7 +58,12 @@ cvar_t	v_idlescale = {"v_idlescale", "0", CVAR_NONE};
 
 cvar_t	crosshair = {"crosshair", "0", CVAR_ARCHIVE};
 
+
 cvar_t	gl_cshiftpercent = {"gl_cshiftpercent", "100", CVAR_NONE};
+
+//phoboslab -- cvars for oculus rift
+extern cvar_t r_oculusrift;
+//
 
 float	v_dmg_time, v_dmg_roll, v_dmg_pitch;
 
@@ -179,7 +184,7 @@ void V_DriftPitch (void)
 {
 	float		delta, move;
 
-	if (noclip_anglehack || !cl.onground || cls.demoplayback )
+	if (noclip_anglehack || !cl.onground || cls.demoplayback || r_oculusrift.value)
 	//FIXME: noclip_anglehack is set on the server, so in a nonlocal game this won't work.
 	{
 		cl.driftmove = 0;
@@ -723,6 +728,7 @@ void V_CalcIntermissionRefdef (void)
 V_CalcRefdef
 ==================
 */
+
 void V_CalcRefdef (void)
 {
 	entity_t	*ent, *view;

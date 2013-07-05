@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2013 Dominic Szablewski
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -22,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_misc.c
 
 #include "quakedef.h"
+#include "r_renderhmd.h"
 
 //johnfitz -- new cvars
 extern cvar_t r_stereo;
@@ -44,6 +46,10 @@ extern cvar_t r_lerpmodels;
 extern cvar_t r_lerpmove;
 extern cvar_t r_nolerp_list;
 //johnfitz
+
+//phoboslab -- cvars for oculus rift
+extern cvar_t r_oculusrift;
+//
 
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
 
@@ -94,6 +100,21 @@ static void R_VisChanged (cvar_t *var)
 {
 	extern int vis_changed;
 	vis_changed = 1;
+}
+
+/*
+====================
+R_OculusRift -- phoboslab
+====================
+*/
+static void R_OculusRift_f (cvar_t *var)
+{
+	if (r_oculusrift.value) {
+		r_oculusrift.value = R_InitHMDRenderer(&oculus_rift_hmd);
+	}
+	else {
+		R_ReleaseHMDRenderer();
+	}
 }
 
 /*
@@ -168,6 +189,11 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_nolerp_list);
 	Cvar_SetCallback (&r_nolerp_list, R_NoLerpList_f);
 	//johnfitz
+
+	//phoboslab -- cvars for oculus rift
+	Cvar_RegisterVariable (&r_oculusrift);
+	Cvar_SetCallback (&r_oculusrift, R_OculusRift_f);
+	//phoboslab
 
 	Cvar_RegisterVariable (&gl_zfix); // QuakeSpasm z-fighting fix
 
