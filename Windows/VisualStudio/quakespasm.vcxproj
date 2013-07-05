@@ -123,7 +123,7 @@
       <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libovrd.lib;libvorbisfile.lib;libvorbis.lib;libogg.lib;libmad.lib;WSOCK32.lib;OPENGL32.lib;winmm.lib;SDL.lib;SDLmain.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libovr.lib;libvorbisfile.lib;libvorbis.lib;libogg.lib;libmad.lib;WSOCK32.lib;OPENGL32.lib;winmm.lib;SDL.lib;SDLmain.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>G:\OculusSDK\LibOVR\Lib\Win32;..\codecs\x86;C:\SDL\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
