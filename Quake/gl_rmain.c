@@ -331,6 +331,7 @@ void GL_SetFrustum(float fovx, float fovy)
 R_SetupGL
 =============
 */
+extern float *hmd_projection_matrix; // phoboslab
 void R_SetupGL (void)
 {
 	//johnfitz -- rewrote this section
@@ -342,7 +343,12 @@ void R_SetupGL (void)
 				r_refdef.vrect.height);
 	//johnfitz
 
-    GL_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
+	if (hmd_projection_matrix) {
+		glLoadMatrixf(hmd_projection_matrix);
+	}
+	else {
+		GL_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
+	}
 
 //	glCullFace(GL_BACK); //johnfitz -- glquake used CCW with backwards culling -- let's do it right
 

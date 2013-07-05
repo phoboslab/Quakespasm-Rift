@@ -33,11 +33,11 @@ typedef struct {
 typedef struct {
 	float offset;
 	float lens_shift;
-	float frustum_skew;
 	struct {
 		float left, top, width, height;
 	} viewport;
 	fbo_t fbo;
+	float projection_matrix[16];
 } hmd_eye_t;
 
 
@@ -126,8 +126,8 @@ hmd_settings_t oculus_rift_hmd = {
 };
 
 
-static hmd_eye_t left_eye = {0, 0, 0, {0, 0, 0.5, 1}, 0};
-static hmd_eye_t right_eye = {0, 0, 0, {0.5, 0, 0.5, 1}, 0};
+static hmd_eye_t left_eye = {0, 0, {0, 0, 0.5, 1}, 0};
+static hmd_eye_t right_eye = {0, 0, {0.5, 0, 0.5, 1}, 0};
 static float viewport_fov_x;
 static float viewport_fov_y;
 
@@ -295,6 +295,28 @@ void DeleteFBO(fbo_t fbo) {
 }
 
 
+void CreatePerspectiveMatrix(float *out, float fovy, float aspect, float nearf, float farf, float h) {
+	float f = 1.0f / tanf(fovy / 2.0f);
+    float nf = 1.0f / (nearf - farf);
+    out[0] = f / aspect;
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[4] = 0;
+    out[5] = f;
+    out[6] = 0;
+    out[7] = 0;
+    out[8] = -h;
+    out[9] = 0;
+    out[10] = (farf + nearf) * nf;
+    out[11] = -1;
+    out[12] = 0;
+    out[13] = 0;
+    out[14] = (2.0f * farf * nearf) * nf;
+    out[15] = 0;
+}
+
+extern cvar_t gl_farclip;
 static qboolean rift_enabled;
 
 qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
@@ -304,6 +326,7 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 	float *dk;
 	float dist_scale, lens_shift;
 	float world_scale;
+	float fovy;
 	shader_support = InitShaderExtension();   
 
     if (!shader_support) {
@@ -326,9 +349,9 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 	dk = hmd->distortion_k;
 	dist_scale = (dk[0] + dk[1] * pow(r,2) + dk[2] * pow(r,4) + dk[3] * pow(r,6));
 	lens_shift = 4 * (hmd->h_screen_size/4 - hmd->lens_separation_distance/2) / hmd->h_screen_size;
-	viewport_fov_y = 2 * atan2(hmd->v_screen_size * dist_scale, 2 * hmd->eye_to_screen_distance) * 180 / M_PI;
+	fovy = 2 * atan2(hmd->v_screen_size * dist_scale, 2 * hmd->eye_to_screen_distance);
+	viewport_fov_y = fovy * 180 / M_PI;
 	viewport_fov_x = viewport_fov_y * aspect;
-	
 
 	// Set up eyes
 	world_scale = 8;
@@ -336,12 +359,12 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 	left_eye.offset = -world_scale * hmd->interpupillary_distance/2.0f;
 	left_eye.lens_shift = lens_shift;
 	left_eye.fbo = CreateFBO(glwidth*left_eye.viewport.width, glheight*left_eye.viewport.height);
-	left_eye.frustum_skew = h;
+	CreatePerspectiveMatrix(left_eye.projection_matrix, fovy, aspect, 4, gl_farclip.value, h);
 
 	right_eye.offset = world_scale * hmd->interpupillary_distance/2.0f;
 	right_eye.lens_shift = -lens_shift;
 	right_eye.fbo = CreateFBO(glwidth*right_eye.viewport.width, glheight*right_eye.viewport.height);
-	left_eye.frustum_skew = -h;
+	CreatePerspectiveMatrix(right_eye.projection_matrix, fovy, aspect, 4, gl_farclip.value, -h);
 
 	
 	// Get uniform location and set some values
@@ -383,10 +406,11 @@ void R_ReleaseHMDRenderer()
 
 
 extern vec3_t vright;
-extern float frustum_skew;
 extern cvar_t r_stereodepth;
+
 float hmd_screen_2d[4] = {0,0,0,0};
 float hmd_view_offset;
+float *hmd_projection_matrix = NULL;
 
 void RenderScreenForEye(hmd_eye_t *eye)
 {
@@ -401,20 +425,17 @@ void RenderScreenForEye(hmd_eye_t *eye)
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, eye->fbo.framebuffer);
 	glClear(GL_DEPTH_BUFFER_BIT);
 
-	// Yay, 12 is the magic value. The generated frustum matrix should be translated by the
-	// eye->frustum_skew. Instead, the skew is incorporated directly. Multiplying by something about
-	// 12 seems to fix it in this case, but I'm not sure what the correct conversion would be.
-	// See GL_SetFrustum()
-	frustum_skew = eye->frustum_skew * 12; 
+
+	hmd_projection_matrix = eye->projection_matrix;
 	hmd_view_offset = eye->offset;
+
 	srand((int) (cl.time * 1000)); //sync random stuff between eyes
 
 	r_refdef.fov_x = viewport_fov_x;
 	r_refdef.fov_y = viewport_fov_y;
 
-
 	// Cheap hack to make the UI readable in HMD mode
-	hmd_screen_2d[0] = r_refdef.vrect.width/2.3 - eye->offset * r_refdef.vrect.width * 0.28;
+	hmd_screen_2d[0] = r_refdef.vrect.width/2 - eye->offset * r_refdef.vrect.width * 0.28;
 	hmd_screen_2d[1] = r_refdef.vrect.height/3.5;
 	hmd_screen_2d[2] = (r_refdef.vrect.width / 2)/2;
 	hmd_screen_2d[3] = (r_refdef.vrect.height / 2);
@@ -425,7 +446,7 @@ void RenderScreenForEye(hmd_eye_t *eye)
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 	r_refdef.vrect.width = oldwidth;
 	r_refdef.vieworg[0] = oldvieworg[0]; r_refdef.vieworg[1] = oldvieworg[1]; r_refdef.vieworg[2] = oldvieworg[2];
-	frustum_skew = 0;
+	hmd_projection_matrix = NULL;
 }
 
 void RenderEyeOnScreen(hmd_eye_t *eye)
@@ -472,8 +493,6 @@ void SCR_UpdateHMDScreenContent()
 
 	lastYaw = orientation[YAW];
 
-
-	
 
 	// Render the scene for each eye into their FBOs
 	RenderScreenForEye(&left_eye);
