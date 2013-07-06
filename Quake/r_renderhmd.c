@@ -319,14 +319,17 @@ void CreatePerspectiveMatrix(float *out, float fovy, float aspect, float nearf, 
 extern cvar_t gl_farclip;
 static qboolean rift_enabled;
 
+static const float player_height_units = 56;
+static const float player_height_m = 1.80;
+
 qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 {
 	qboolean sdkInitialized = false;
 	float aspect, r, h;
 	float *dk;
 	float dist_scale, lens_shift;
-	float world_scale;
 	float fovy;
+
 	shader_support = InitShaderExtension();   
 
     if (!shader_support) {
@@ -354,14 +357,12 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 	viewport_fov_x = viewport_fov_y * aspect;
 
 	// Set up eyes
-	world_scale = 8;
-
-	left_eye.offset = -world_scale * hmd->interpupillary_distance/2.0f;
+	left_eye.offset = -player_height_units * (hmd->interpupillary_distance/player_height_m) * 0.5;
 	left_eye.lens_shift = lens_shift;
 	left_eye.fbo = CreateFBO(glwidth*left_eye.viewport.width, glheight*left_eye.viewport.height);
 	CreatePerspectiveMatrix(left_eye.projection_matrix, fovy, aspect, 4, gl_farclip.value, h);
 
-	right_eye.offset = world_scale * hmd->interpupillary_distance/2.0f;
+	right_eye.offset = player_height_units * (hmd->interpupillary_distance/player_height_m) * 0.5;
 	right_eye.lens_shift = -lens_shift;
 	right_eye.fbo = CreateFBO(glwidth*right_eye.viewport.width, glheight*right_eye.viewport.height);
 	CreatePerspectiveMatrix(right_eye.projection_matrix, fovy, aspect, 4, gl_farclip.value, -h);
@@ -417,9 +418,6 @@ void RenderScreenForEye(hmd_eye_t *eye)
 	// Remember the current vrect.width and vieworg; we have to modify it here
 	// for each eye
 	int oldwidth = r_refdef.vrect.width;
-	//float oldgunx = cl.viewent.model->pas
-	vec3_t oldvieworg = {r_refdef.vieworg[0], r_refdef.vieworg[1], r_refdef.vieworg[2]};
-
 	r_refdef.vrect.width *= eye->viewport.width;
 
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, eye->fbo.framebuffer);
@@ -435,7 +433,7 @@ void RenderScreenForEye(hmd_eye_t *eye)
 	r_refdef.fov_y = viewport_fov_y;
 
 	// Cheap hack to make the UI readable in HMD mode
-	hmd_screen_2d[0] = r_refdef.vrect.width/2.7 - eye->offset * r_refdef.vrect.width * 0.28;
+	hmd_screen_2d[0] = r_refdef.vrect.width/2.6 - eye->offset * r_refdef.vrect.width * 0.11;
 	hmd_screen_2d[1] = r_refdef.vrect.height/3.5;
 	hmd_screen_2d[2] = (r_refdef.vrect.width / 2)/2;
 	hmd_screen_2d[3] = (r_refdef.vrect.height / 2);
@@ -445,8 +443,8 @@ void RenderScreenForEye(hmd_eye_t *eye)
 
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 	r_refdef.vrect.width = oldwidth;
-	r_refdef.vieworg[0] = oldvieworg[0]; r_refdef.vieworg[1] = oldvieworg[1]; r_refdef.vieworg[2] = oldvieworg[2];
 	hmd_projection_matrix = NULL;
+	hmd_view_offset = 0;
 }
 
 void RenderEyeOnScreen(hmd_eye_t *eye)
