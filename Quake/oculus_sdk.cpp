@@ -30,7 +30,7 @@ int InitOculusSDK()
 
 	fusion = new OVR::SensorFusion();
 	fusion->AttachToSensor(sensor);
-	fusion->SetPredictionEnabled(true);
+	fusion->SetPrediction(0.04f, true);
 	fusion->SetYawCorrectionEnabled(true);
 	return 1;
 }
@@ -40,7 +40,8 @@ void GetOculusView(float view[3])
 	if (!fusion) {
 		return;
 	}
-	OVR::Quatf q = fusion->GetOrientation();
+	OVR::Quatf q = fusion->GetPredictedOrientation();
+	
 	q.GetEulerAngles<OVR::Axis_Y, OVR::Axis_X, OVR::Axis_Z>(&view[1], &view[0], &view[2]);
 
 	view[0] = (-view[0] * 180.0f) / M_PI;
