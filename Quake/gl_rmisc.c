@@ -49,6 +49,7 @@ extern cvar_t r_nolerp_list;
 
 //phoboslab -- cvars for oculus rift
 extern cvar_t r_oculusrift;
+extern cvar_t r_oculusrift_supersample;
 //
 
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
@@ -114,6 +115,15 @@ static void R_OculusRift_f (cvar_t *var)
 	}
 	else {
 		R_ReleaseHMDRenderer();
+	}
+}
+
+static void R_OculusRift_SuperSample_f (cvar_t *var)
+{
+	if (r_oculusrift.value) {
+		// Re-init oculus tracker when, if active
+		R_ReleaseHMDRenderer();
+		R_InitHMDRenderer(&oculus_rift_hmd);
 	}
 }
 
@@ -193,6 +203,8 @@ void R_Init (void)
 	//phoboslab -- cvars for oculus rift
 	Cvar_RegisterVariable (&r_oculusrift);
 	Cvar_SetCallback (&r_oculusrift, R_OculusRift_f);
+	Cvar_RegisterVariable (&r_oculusrift_supersample);
+	Cvar_SetCallback (&r_oculusrift_supersample, R_OculusRift_SuperSample_f);
 	//phoboslab
 
 	Cvar_RegisterVariable (&gl_zfix); // QuakeSpasm z-fighting fix
