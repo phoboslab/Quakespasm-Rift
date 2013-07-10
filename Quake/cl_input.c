@@ -253,37 +253,37 @@ void CL_AdjustAngles (void)
 
 	if (!(in_strafe.state & 1))
 	{
-		cl.viewangles[YAW] -= speed*cl_yawspeed.value*CL_KeyState (&in_right);
-		cl.viewangles[YAW] += speed*cl_yawspeed.value*CL_KeyState (&in_left);
-		cl.viewangles[YAW] = anglemod(cl.viewangles[YAW]);
+		cl.aimangles[YAW] -= speed*cl_yawspeed.value*CL_KeyState (&in_right);
+		cl.aimangles[YAW] += speed*cl_yawspeed.value*CL_KeyState (&in_left);
+		cl.aimangles[YAW] = anglemod(cl.aimangles[YAW]);
 	}
 	if (in_klook.state & 1)
 	{
 		V_StopPitchDrift ();
-		cl.viewangles[PITCH] -= speed*cl_pitchspeed.value * CL_KeyState (&in_forward);
-		cl.viewangles[PITCH] += speed*cl_pitchspeed.value * CL_KeyState (&in_back);
+		cl.aimangles[PITCH] -= speed*cl_pitchspeed.value * CL_KeyState (&in_forward);
+		cl.aimangles[PITCH] += speed*cl_pitchspeed.value * CL_KeyState (&in_back);
 	}
 
 	up = CL_KeyState (&in_lookup);
 	down = CL_KeyState(&in_lookdown);
 
-	cl.viewangles[PITCH] -= speed*cl_pitchspeed.value * up;
-	cl.viewangles[PITCH] += speed*cl_pitchspeed.value * down;
+	cl.aimangles[PITCH] -= speed*cl_pitchspeed.value * up;
+	cl.aimangles[PITCH] += speed*cl_pitchspeed.value * down;
 
 	if (up || down)
 		V_StopPitchDrift ();
 
 	//johnfitz -- variable pitch clamping
-	if (cl.viewangles[PITCH] > cl_maxpitch.value)
-		cl.viewangles[PITCH] = cl_maxpitch.value;
-	if (cl.viewangles[PITCH] < cl_minpitch.value)
-		cl.viewangles[PITCH] = cl_minpitch.value;
+	if (cl.aimangles[PITCH] > cl_maxpitch.value)
+		cl.aimangles[PITCH] = cl_maxpitch.value;
+	if (cl.aimangles[PITCH] < cl_minpitch.value)
+		cl.aimangles[PITCH] = cl_minpitch.value;
 	//johnfitz
 
-	if (cl.viewangles[ROLL] > 50)
-		cl.viewangles[ROLL] = 50;
-	if (cl.viewangles[ROLL] < -50)
-		cl.viewangles[ROLL] = -50;
+	if (cl.aimangles[ROLL] > 50)
+		cl.aimangles[ROLL] = 50;
+	if (cl.aimangles[ROLL] < -50)
+		cl.aimangles[ROLL] = -50;
 
 }
 

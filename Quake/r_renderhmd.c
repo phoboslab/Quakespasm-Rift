@@ -488,6 +488,7 @@ void RenderEyeOnScreen(hmd_eye_t *eye)
 
 
 static float lastYaw;
+static float lastPitch; 
 extern viddef_t	vid;
 
 
@@ -498,15 +499,20 @@ void SCR_UpdateHMDScreenContent()
 	// Get current orientation of the HMD
 	GetOculusView(orientation);
 	
-	cl.viewangles[PITCH] = orientation[PITCH];
-	cl.viewangles[YAW] = cl.viewangles[YAW] + orientation[YAW] - lastYaw;
+	cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH]; // - lastPitch; 
+	cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW]; // - lastYaw;
 	cl.viewangles[ROLL] = orientation[ROLL];
 
 	r_refdef.viewangles[PITCH] = cl.viewangles[PITCH];
 	r_refdef.viewangles[YAW] = cl.viewangles[YAW];
 	r_refdef.viewangles[ROLL] = cl.viewangles[ROLL];
 
+	r_refdef.aimangles[PITCH] = cl.aimangles[PITCH];
+	r_refdef.aimangles[YAW] = cl.aimangles[YAW];
+	r_refdef.aimangles[ROLL] = cl.aimangles[ROLL];
+
 	lastYaw = orientation[YAW];
+	lastPitch = orientation[PITCH]; 
 
 
 	// Render the scene for each eye into their FBOs
