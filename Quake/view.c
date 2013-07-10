@@ -784,7 +784,7 @@ void V_CalcRefdef (void)
 	V_BoundOffsets ();
 
 // set up gun position
-	VectorCopy (cl.viewangles, view->angles);
+	VectorCopy (cl.aimangles, view->angles);
 
 	CalcGunAngle ();
 
