@@ -488,7 +488,6 @@ void RenderEyeOnScreen(hmd_eye_t *eye)
 
 
 static float lastYaw;
-static float lastPitch; 
 extern viddef_t	vid;
 
 
@@ -499,9 +498,23 @@ void SCR_UpdateHMDScreenContent()
 	// Get current orientation of the HMD
 	GetOculusView(orientation);
 	
-	cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH]; // - lastPitch; 
-	cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW]; // - lastYaw;
-	cl.viewangles[ROLL] = orientation[ROLL];
+	// mode 1: set view to current aim + the position of the hmd
+	if(r_oculusrift.value == 1)
+	{
+		cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH]; 
+		cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW]; 
+		cl.viewangles[ROLL] = orientation[ROLL];
+	}
+
+	// mode 2: aim with head, lock mouse pitch 
+	else if(r_oculusrift.value == 2)
+	{
+		cl.viewangles[PITCH] = cl.aimangles[PITCH] = orientation[PITCH];
+		cl.viewangles[YAW] = cl.aimangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
+		cl.viewangles[ROLL] = cl.aimangles[ROLL] = orientation[ROLL];
+
+		lastYaw = orientation[YAW];
+	}
 
 	r_refdef.viewangles[PITCH] = cl.viewangles[PITCH];
 	r_refdef.viewangles[YAW] = cl.viewangles[YAW];
@@ -510,10 +523,6 @@ void SCR_UpdateHMDScreenContent()
 	r_refdef.aimangles[PITCH] = cl.aimangles[PITCH];
 	r_refdef.aimangles[YAW] = cl.aimangles[YAW];
 	r_refdef.aimangles[ROLL] = cl.aimangles[ROLL];
-
-	lastYaw = orientation[YAW];
-	lastPitch = orientation[PITCH]; 
-
 
 	// Render the scene for each eye into their FBOs
 	RenderScreenForEye(&left_eye);

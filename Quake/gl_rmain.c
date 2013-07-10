@@ -538,10 +538,15 @@ void R_DrawViewModel (void)
 		return;
 	//johnfitz
 
+
 	// hack the depth range to prevent view model from poking into walls
-	glDepthRange (0, 0.3);
+	
+	// JM - turned off this hack because it doesn't look right in 3d
+	// also the axe going right into enemies is awesome
+	
+	//glDepthRange (0, 0.3);
 	R_DrawAliasModel (currententity);
-	glDepthRange (0, 1);
+	//glDepthRange (0, 1);
 }
 
 /*
