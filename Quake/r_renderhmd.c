@@ -166,8 +166,6 @@ static qboolean CompileShader(GLhandleARB shader, const char *source)
 
 static qboolean CompileShaderProgram(shader_t *shader)
 {
-    const int num_tmus_bound = 4;
-
     glGetError();
 
     shader->program = glCreateProgramObjectARB();
