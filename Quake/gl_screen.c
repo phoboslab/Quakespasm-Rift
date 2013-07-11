@@ -1109,7 +1109,13 @@ void SCR_UpdateScreen (void)
 	if (r_oculusrift.value)
 		SCR_UpdateHMDScreenContent(); // phoboslab
 	else
+	{
+		VectorCopy (cl.aimangles, cl.viewangles);
+		VectorCopy (cl.aimangles, r_refdef.viewangles);
+		VectorCopy (cl.aimangles, r_refdef.aimangles);
+
 		SCR_UpdateScreenContent();
+	}
 
 	GL_EndRendering ();
 }

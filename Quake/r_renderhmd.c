@@ -502,13 +502,8 @@ void SCR_UpdateHMDScreenContent()
 	cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW]; 
 	cl.viewangles[ROLL] = orientation[ROLL];
 
-	r_refdef.viewangles[PITCH] = cl.viewangles[PITCH];
-	r_refdef.viewangles[YAW] = cl.viewangles[YAW];
-	r_refdef.viewangles[ROLL] = cl.viewangles[ROLL];
-
-	r_refdef.aimangles[PITCH] = cl.aimangles[PITCH];
-	r_refdef.aimangles[YAW] = cl.aimangles[YAW];
-	r_refdef.aimangles[ROLL] = cl.aimangles[ROLL];
+	VectorCopy (cl.viewangles, r_refdef.viewangles);
+	VectorCopy (cl.aimangles, r_refdef.aimangles);
 
 	// Render the scene for each eye into their FBOs
 	RenderScreenForEye(&left_eye);
@@ -553,7 +548,7 @@ void R_ShowHMDCrosshair ()
 	// calc the line and draw
 	VectorCopy (cl.viewent.origin, start);
 
-	start[2] -= cl.viewheight;
+	start[2] -= cl.viewheight - 10;
 
 	AngleVectors (cl.aimangles, forward, right, up);
 
