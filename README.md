@@ -1,5 +1,7 @@
 ## Quake Rift Aim Mod
 
+[Download Here](https://github.com/swax/Quakespasm-Rift/releases)
+
 This is a mod to the rift quakespasm mod by @phoboslab that I think works well for fast paced fps gaming.
 
 A laser sight is added because that's the 3d equivalent of a crosshair in 2d.
