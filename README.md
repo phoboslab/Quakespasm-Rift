@@ -2,7 +2,7 @@
 
 [Download Here](https://github.com/swax/Quakespasm-Rift/releases)
 
-This is a mod to the rift quakespasm mod by @phoboslab that I think works well for fast paced fps gaming.
+This is a mod to the rift quakespasm mod by [@phoboslab](https://github.com/phoboslab) that I think works well for fast paced fps gaming.
 
 A laser sight is added because that's the 3d equivalent of a crosshair in 2d.
 
@@ -13,6 +13,6 @@ Also like 2d, you don't need to move your head much except for better situationa
 Use ~ to access the console and type 'r_oculusrift 1' to activate the rift view. 
 
 Enjoy,
-@swax
+[@swax](https://github.com/swax) 
 
 PS Valve - Please make this 'vr_moveaim_mode 9' in tf2 :smile:
