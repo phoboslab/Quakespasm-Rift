@@ -516,48 +516,6 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 	}
 }
 
-void R_DrawHMDCrosshair (void)
-{
-
-
-}
-
-void R_ShowHMDCrosshair (entity_t *e)
-{
-	vec3_t forward, up, right;
-	vec3_t start, end, impact;
-
-	// setup gl
-	glDisable (GL_DEPTH_TEST);
-	glPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
-	GL_PolygonOffset (OFFSET_SHOWTRIS);
-	glDisable (GL_TEXTURE_2D);
-	glDisable (GL_CULL_FACE);
-	glColor3f (1,0,0);
-
-	// calc the line and draw
-	VectorCopy (cl.viewent.origin, start);
-
-	AngleVectors (cl.aimangles, forward, right, up);
-
-	VectorMA (start, 4096, forward, end);
-
-	TraceLine (start, end, impact);
-
-	// cleanup gl
-	glBegin (GL_LINES);
-	glVertex3f (start[0], start[1], start[2]);
-	glVertex3f (impact[0], impact[1], impact[2]);
-	glEnd ();
-
-	glColor3f (1,0,0);
-	glEnable (GL_TEXTURE_2D);
-	glEnable (GL_CULL_FACE);
-	glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
-	GL_PolygonOffset (OFFSET_NONE);
-	glEnable (GL_DEPTH_TEST);
-}
-
 /*
 =============
 R_DrawViewModel -- johnfitz -- gutted
@@ -580,7 +538,8 @@ void R_DrawViewModel (void)
 		return;
 	//johnfitz
 
-	R_ShowHMDCrosshair(currententity);
+	if(r_oculusrift.value)
+		R_ShowHMDCrosshair();
 
 	// hack the depth range to prevent view model from poking into walls
 	

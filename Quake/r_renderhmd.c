@@ -497,24 +497,10 @@ void SCR_UpdateHMDScreenContent()
 
 	// Get current orientation of the HMD
 	GetOculusView(orientation);
-	
-	// mode 1: set view to current aim + the position of the hmd
-	if(r_oculusrift.value == 1)
-	{
-		cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH]; 
-		cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW]; 
-		cl.viewangles[ROLL] = orientation[ROLL];
-	}
 
-	// mode 2: aim with head, lock mouse pitch 
-	else if(r_oculusrift.value == 2)
-	{
-		cl.viewangles[PITCH] = cl.aimangles[PITCH] = orientation[PITCH];
-		cl.viewangles[YAW] = cl.aimangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
-		cl.viewangles[ROLL] = cl.aimangles[ROLL] = orientation[ROLL];
-
-		lastYaw = orientation[YAW];
-	}
+	cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH]; 
+	cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW]; 
+	cl.viewangles[ROLL] = orientation[ROLL];
 
 	r_refdef.viewangles[PITCH] = cl.viewangles[PITCH];
 	r_refdef.viewangles[YAW] = cl.viewangles[YAW];
@@ -543,4 +529,45 @@ void SCR_UpdateHMDScreenContent()
 	RenderEyeOnScreen(&left_eye);
 	RenderEyeOnScreen(&right_eye);
 	glUseProgramObjectARB(0);
+}
+
+void R_ShowHMDCrosshair ()
+{
+	vec3_t forward, up, right;
+	vec3_t start, end, impact;
+
+	if((int)(sv_player->v.weapon) == IT_AXE)
+		return;
+
+	// setup gl
+	glDisable (GL_DEPTH_TEST);
+	glPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
+	GL_PolygonOffset (OFFSET_SHOWTRIS);
+	glDisable (GL_TEXTURE_2D);
+	glDisable (GL_CULL_FACE);
+	glColor3f (1,0,0);
+
+	// calc the line and draw
+	VectorCopy (cl.viewent.origin, start);
+
+	start[2] -= cl.viewheight;
+
+	AngleVectors (cl.aimangles, forward, right, up);
+
+	VectorMA (start, 4096, forward, end);
+
+	TraceLine (start, end, impact);
+
+	// cleanup gl
+	glBegin (GL_LINES);
+	glVertex3f (start[0], start[1], start[2]);
+	glVertex3f (impact[0], impact[1], impact[2]);
+	glEnd ();
+
+	glColor3f (1,0,0);
+	glEnable (GL_TEXTURE_2D);
+	glEnable (GL_CULL_FACE);
+	glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
+	GL_PolygonOffset (OFFSET_NONE);
+	glEnable (GL_DEPTH_TEST);
 }

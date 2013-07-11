@@ -10,4 +10,6 @@ qboolean R_InitHMDRenderer(struct hmd_settings_t *hmd);
 void R_ReleaseHMDRenderer();
 void SCR_UpdateHMDScreenContent();
 
+void R_ShowHMDCrosshair();
+
 #endif
