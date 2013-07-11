@@ -534,16 +534,18 @@ void R_ShowHMDCrosshair ()
 	if((int)(sv_player->v.weapon) == IT_AXE)
 		return;
 
-	//if(!keydown(K_MOUSE3))
+	//only show sight when right click is pressed
+	//if(!Key_Pressed(K_MOUSE2))
 	//	return;
 
 	// setup gl
 	glDisable (GL_DEPTH_TEST);
 	glPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
 	GL_PolygonOffset (OFFSET_SHOWTRIS);
+	glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDisable (GL_TEXTURE_2D);
 	glDisable (GL_CULL_FACE);
-	glColor3f (1,0,0);
 
 	// calc the line and draw
 	VectorCopy (cl.viewent.origin, start);
@@ -556,15 +558,19 @@ void R_ShowHMDCrosshair ()
 
 	TraceLine (start, end, impact);
 
-	// cleanup gl
+	// draw
+	glColor4f (1, 0, 0, 0.4);
+
 	glBegin (GL_LINES);
 	glVertex3f (start[0], start[1], start[2]);
 	glVertex3f (impact[0], impact[1], impact[2]);
 	glEnd ();
 
-	glColor3f (1,0,0);
+	// cleanup gl
+	glColor3f (1,1,1);
 	glEnable (GL_TEXTURE_2D);
 	glEnable (GL_CULL_FACE);
+	glDisable(GL_BLEND);
 	glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
 	GL_PolygonOffset (OFFSET_NONE);
 	glEnable (GL_DEPTH_TEST);

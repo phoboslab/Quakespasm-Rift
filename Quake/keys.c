@@ -883,6 +883,11 @@ void Key_Init (void)
 	Cmd_AddCommand ("unbindall",Key_Unbindall_f);
 }
 
+qboolean Key_Pressed(int key)
+{
+	return keydown[key];
+}
+
 /*
 ===================
 Key_Event

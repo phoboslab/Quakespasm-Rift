@@ -1050,7 +1050,9 @@ void SCR_UpdateScreenContent (void)
 			scr_con_current /= 2;
 		}
 
-		SCR_DrawCrosshair (); //johnfitz
+		if (!r_oculusrift.value)
+			SCR_DrawCrosshair (); //johnfitz
+
 		SCR_DrawRam ();
 		SCR_DrawNet ();
 		SCR_DrawTurtle ();
