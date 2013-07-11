@@ -539,6 +539,9 @@ void R_ShowHMDCrosshair ()
 	if((int)(sv_player->v.weapon) == IT_AXE)
 		return;
 
+	//if(!keydown(K_MOUSE3))
+	//	return;
+
 	// setup gl
 	glDisable (GL_DEPTH_TEST);
 	glPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
