@@ -1,3 +1,5 @@
+## Quake Rift Aim Mod
+
 This is a mod to the rift quakespasm mod by @phoboslab that I think works well for fast paced fps gaming.
 
 A laser sight is added because that's the 3d equivalent of a crosshair in 2d.
@@ -11,4 +13,4 @@ Use ~ to access the console and type 'r_oculusrift 1' to activate the rift view.
 Enjoy,
 @swax
 
-PS Valve - Please make this 'vr_moveaim_mode 9' in tf2 :D
+PS Valve - Please make this 'vr_moveaim_mode 9' in tf2 :smile:
