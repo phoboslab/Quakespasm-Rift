@@ -530,8 +530,8 @@ void R_ShowHMDCrosshair ()
 {
 	vec3_t forward, up, right;
 	vec3_t start, end, impact;
-
-	if((int)(sv_player->v.weapon) == IT_AXE)
+	
+	if(sv_player && (int)(sv_player->v.weapon) == IT_AXE)
 		return;
 
 	//only show sight when right click is pressed
