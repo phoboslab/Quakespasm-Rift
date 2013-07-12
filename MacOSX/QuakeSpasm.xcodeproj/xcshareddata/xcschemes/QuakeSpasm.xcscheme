@@ -18,6 +18,20 @@
                BlueprintName = "QuakeSpasm">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "274FAA9C178F7FC800B17C7A"
+               BuildableName = "libovr.a"
+               BlueprintName = "ovr"
+               ReferencedContainer = "container:../Libs/LibOVR/Projects/MacOS/LibOVR.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -60,7 +74,7 @@
       <CommandLineArguments>
          <CommandLineArgument
             argument = "-basedir /Applications/Quake"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-nolauncher"
