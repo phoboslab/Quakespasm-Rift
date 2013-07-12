@@ -112,9 +112,11 @@ static void R_OculusRift_f (cvar_t *var)
 {
 	if (r_oculusrift.value) {
 		r_oculusrift.value = R_InitHMDRenderer(&oculus_rift_hmd);
+		R_InitOculusRift();
 	}
 	else {
 		R_ReleaseHMDRenderer();
+		R_ReleaseOculusRift();
 	}
 }
 

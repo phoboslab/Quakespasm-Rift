@@ -321,9 +321,25 @@ static qboolean rift_enabled;
 static const float player_height_units = 56;
 static const float player_height_m = 1.80;
 
+qboolean R_InitOculusRift()
+{
+	rift_enabled = InitOculusSDK();
+
+	if (!rift_enabled) {
+		Con_Printf("Failed to Initialize Oculus SDK");
+	}
+
+	return rift_enabled;
+}
+
+void R_ReleaseOculusRift()
+{
+	ReleaseOculusSDK();
+	rift_enabled = false;
+}
+
 qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 {
-	qboolean sdkInitialized = false;
 	float aspect, r, h;
 	float *dk;
 	float dist_scale, lens_shift;
@@ -338,9 +354,7 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
         return false;
     }
 	
-	rift_enabled = CompileShaderProgram(&lens_warp_shader);
-
-	if (!rift_enabled) {
+	if (!CompileShaderProgram(&lens_warp_shader)) {
 		Con_Printf("Failed to Compile Shaders");
 		return false;
 	}
@@ -381,25 +395,14 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 	glUniform2fARB(lens_warp_shader_uniforms.scale, 1.0f/dist_scale, 1.0f * aspect/dist_scale);
 	glUseProgramObjectARB(0);
 
-	sdkInitialized = InitOculusSDK();
-
-	if (!sdkInitialized) {
-		Con_Printf("Failed to Initialize Oculus SDK");
-		return false;
-	}
-
 	return true;
 }
 
 void R_ReleaseHMDRenderer()
 {
-	if (rift_enabled) {
 		DestroyShaderProgram(&lens_warp_shader);
 		DeleteFBO(left_eye.fbo);
 		DeleteFBO(right_eye.fbo);
-	}
-	ReleaseOculusSDK();
-	rift_enabled = false;
 
 	vid.recalc_refdef = true;
 }
@@ -493,6 +496,7 @@ void SCR_UpdateHMDScreenContent()
 {
 	vec3_t orientation;
 
+	if (rift_enabled) {
 	// Get current orientation of the HMD
 	GetOculusView(orientation);
 	
@@ -505,7 +509,7 @@ void SCR_UpdateHMDScreenContent()
 	r_refdef.viewangles[ROLL] = cl.viewangles[ROLL];
 
 	lastYaw = orientation[YAW];
-
+	}
 
 	// Render the scene for each eye into their FBOs
 	RenderScreenForEye(&left_eye);
