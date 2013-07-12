@@ -77,6 +77,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "-sndspeed 44100"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "-nolauncher"
             isEnabled = "NO">
          </CommandLineArgument>
