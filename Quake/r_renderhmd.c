@@ -133,7 +133,7 @@ static float viewport_fov_y;
 
 extern cvar_t r_oculusrift;
 extern cvar_t r_oculusrift_supersample;
-
+extern cvar_t r_oculusrift_prediction;
 
 extern int glx, gly, glwidth, glheight;
 extern void SCR_UpdateScreenContent();
@@ -331,6 +331,9 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 
 	float ss = r_oculusrift_supersample.value;
 
+	// convert milliseconds to seconds
+	float prediction = r_oculusrift_prediction.value / 1000.0f;
+
 	shader_support = InitShaderExtension();   
 
     if (!shader_support) {
@@ -388,6 +391,7 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 		return false;
 	}
 
+	SetOculusPrediction(prediction);
 	return true;
 }
 

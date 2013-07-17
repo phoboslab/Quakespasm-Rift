@@ -8,6 +8,7 @@ extern "C" {
 int InitOculusSDK();
 void GetOculusView(float view[3]);
 void ReleaseOculusSDK();
+void SetOculusPrediction(float time);
 
 #ifdef __cplusplus
 }

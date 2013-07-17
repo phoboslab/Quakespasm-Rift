@@ -106,6 +106,7 @@ extern cvar_t	r_vfog;
 //phoboslab -- cvars for oculus rift
 cvar_t  r_oculusrift = {"r_oculusrift", "0", CVAR_NONE};
 cvar_t  r_oculusrift_supersample = {"r_oculusrift_supersample", "2", CVAR_NONE};
+cvar_t  r_oculusrift_prediction = {"r_oculusrift_prediction","40", CVAR_NONE};
 //phoboslab
 
 

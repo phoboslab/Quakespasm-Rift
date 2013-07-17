@@ -40,6 +40,8 @@ void GetOculusView(float view[3])
 	if (!fusion) {
 		return;
 	}
+
+	// GetPredictedOrientation() works even if prediction is disabled
 	OVR::Quatf q = fusion->GetPredictedOrientation();
 	
 	q.GetEulerAngles<OVR::Axis_Y, OVR::Axis_X, OVR::Axis_Z>(&view[1], &view[0], &view[2]);
@@ -68,4 +70,18 @@ void ReleaseOculusSDK()
 		fusion = NULL;
 	}
 	OVR::System::Destroy();
+}
+
+void SetOculusPrediction(float time)
+{
+	if (!fusion) {
+		return;
+	}
+	if (time > 0.0f) {
+		// cap prediction time at 75ms
+		fusion->SetPrediction(time < 0.075f ? time : 0.075f, true);
+	} else {
+		fusion->SetPrediction(0.0f,false);
+	}
+
 }
