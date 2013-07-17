@@ -11,6 +11,7 @@ static OVR::DeviceManager *manager;
 static OVR::HMDDevice *hmd;
 static OVR::SensorDevice *sensor;
 static OVR::SensorFusion *fusion;
+static OVR::Util::MagCalibration *magnet;
 
 int InitOculusSDK()
 {
@@ -30,8 +31,10 @@ int InitOculusSDK()
 
 	fusion = new OVR::SensorFusion();
 	fusion->AttachToSensor(sensor);
-	fusion->SetPrediction(0.04f, true);
 	fusion->SetYawCorrectionEnabled(true);
+
+	magnet = new OVR::Util::MagCalibration();
+
 	return 1;
 }
 
@@ -40,6 +43,12 @@ void GetOculusView(float view[3])
 	if (!fusion) {
 		return;
 	}
+
+	if (magnet && magnet->IsAutoCalibrating()) {
+		magnet->UpdateAutoCalibration(*fusion);
+	}
+
+	// GetPredictedOrientation() works even if prediction is disabled
 	OVR::Quatf q = fusion->GetPredictedOrientation();
 	
 	q.GetEulerAngles<OVR::Axis_Y, OVR::Axis_X, OVR::Axis_Z>(&view[1], &view[0], &view[2]);
@@ -67,5 +76,38 @@ void ReleaseOculusSDK()
 		delete fusion;
 		fusion = NULL;
 	}
+
+	if (magnet) {
+		delete magnet;
+		magnet = NULL;
+	}
+
 	OVR::System::Destroy();
+}
+
+void SetOculusPrediction(float time)
+{
+	if (!fusion) {
+		return;
+	}
+	if (time > 0.0f) {
+		// cap prediction time at 75ms
+		fusion->SetPrediction(time < 0.075f ? time : 0.075f, true);
+	} else {
+		fusion->SetPrediction(0.0f,false);
+	}
+
+}
+
+void SetOculusDriftCorrect(int enable)
+{
+	if (!fusion || !magnet) {
+		return;
+	}
+
+	if (enable) {
+		magnet->BeginAutoCalibration(*fusion);
+	} else {
+		magnet->ClearCalibration(*fusion);
+	}
 }
