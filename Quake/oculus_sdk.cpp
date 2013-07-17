@@ -31,11 +31,9 @@ int InitOculusSDK()
 
 	fusion = new OVR::SensorFusion();
 	fusion->AttachToSensor(sensor);
-	fusion->SetPrediction(0.04f, true);
 	fusion->SetYawCorrectionEnabled(true);
 
 	magnet = new OVR::Util::MagCalibration();
-	magnet->BeginAutoCalibration(*fusion);
 
 	return 1;
 }
