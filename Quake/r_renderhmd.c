@@ -408,7 +408,13 @@ void R_ReleaseHMDRenderer()
 	vid.recalc_refdef = true;
 }
 
-
+void R_SetHMDPredictionTime()
+{
+	if (rift_enabled) {
+		float prediction = r_oculusrift_prediction.value / 1000.0f;
+		SetOculusPrediction(prediction);
+	}
+}
 
 
 extern vec3_t vright;

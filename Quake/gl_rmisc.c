@@ -131,9 +131,7 @@ static void R_OculusRift_SuperSample_f (cvar_t *var)
 static void R_OculusRift_Prediction_f (cvar_t *var)
 {
 	if (r_oculusrift.value) {
-		// Re-init oculus tracker when, if active
-		R_ReleaseHMDRenderer();
-		R_InitHMDRenderer(&oculus_rift_hmd);
+		R_SetHMDPredictionTime();
 	}
 }
 
