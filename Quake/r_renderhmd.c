@@ -134,6 +134,7 @@ static float viewport_fov_y;
 extern cvar_t r_oculusrift;
 extern cvar_t r_oculusrift_supersample;
 extern cvar_t r_oculusrift_prediction;
+extern cvar_t r_oculusrift_driftcorrect;
 
 extern int glx, gly, glwidth, glheight;
 extern void SCR_UpdateScreenContent();
@@ -333,6 +334,7 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 
 	// convert milliseconds to seconds
 	float prediction = r_oculusrift_prediction.value / 1000.0f;
+	int driftcorrection = (int) r_oculusrift_driftcorrect.value;
 
 	shader_support = InitShaderExtension();   
 
@@ -392,6 +394,7 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 	}
 
 	SetOculusPrediction(prediction);
+	SetOculusDriftCorrect(driftcorrection);
 	return true;
 }
 
@@ -416,6 +419,12 @@ void R_SetHMDPredictionTime()
 	}
 }
 
+void R_SetHMDDriftCorrection()
+{
+	if (rift_enabled) {
+		SetOculusDriftCorrect((int) r_oculusrift_driftcorrect.value);
+	}
+}
 
 extern vec3_t vright;
 extern cvar_t r_stereodepth;

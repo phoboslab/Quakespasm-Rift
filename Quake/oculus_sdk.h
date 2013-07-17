@@ -9,6 +9,7 @@ int InitOculusSDK();
 void GetOculusView(float view[3]);
 void ReleaseOculusSDK();
 void SetOculusPrediction(float time);
+void SetOculusDriftCorrect(int enable);
 
 #ifdef __cplusplus
 }
