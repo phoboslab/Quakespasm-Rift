@@ -321,7 +321,7 @@ extern cvar_t gl_farclip;
 static qboolean rift_enabled;
 
 static const float player_height_units = 56;
-static const float player_height_m = 1.80;
+static const float player_height_m = 1.75;
 
 qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 {
@@ -558,13 +558,23 @@ void R_ShowHMDCrosshair ()
 
 	TraceLine (start, end, impact);
 
-	// draw
+	// draw point 
+	glColor4f (1, 0, 0, 0.5);
+	glPointSize( 3.0 );
+
+	glBegin(GL_POINTS);
+ 
+	glVertex3f (impact[0], impact[1], impact[2]);
+ 
+	glEnd();
+
+	/* draw line
 	glColor4f (1, 0, 0, 0.4);
 
 	glBegin (GL_LINES);
 	glVertex3f (start[0], start[1], start[2]);
 	glVertex3f (impact[0], impact[1], impact[2]);
-	glEnd ();
+	glEnd ();*/
 
 	// cleanup gl
 	glColor3f (1,1,1);

@@ -33,7 +33,7 @@ void Sbar_LoadPics (void);
 void Sbar_Changed (void);
 // call whenever any of the client stats represented on the sbar changes
 
-void Sbar_Draw (void);
+void Sbar_Draw (qboolean cancel);
 // called every frame by screen
 
 void Sbar_IntermissionOverlay (void);

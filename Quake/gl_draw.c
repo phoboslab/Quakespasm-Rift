@@ -779,6 +779,9 @@ void GL_SetCanvas (canvastype newcanvas)
 
 	currentcanvas = newcanvas;
 
+	if(newcanvas == CANVAS_SBAR)
+		return;
+
 	glMatrixMode(GL_PROJECTION);
     glLoadIdentity ();
 

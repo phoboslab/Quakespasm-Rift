@@ -920,9 +920,12 @@ void Sbar_DrawFace (void)
 Sbar_Draw
 ===============
 */
-void Sbar_Draw (void)
+void Sbar_Draw (qboolean cancel)
 {
 	float w; //johnfitz
+
+	if(cancel)
+		return;
 
 	if (scr_con_current == vid.height)
 		return;		// console is full screen
@@ -935,7 +938,7 @@ void Sbar_Draw (void)
 
 	sb_updates++;
 
-	GL_SetCanvas (CANVAS_DEFAULT); //johnfitz
+	//GL_SetCanvas (CANVAS_DEFAULT); //johnfitz
 
 	//johnfitz -- don't waste fillrate by clearing the area behind the sbar
 	w = CLAMP (320.0f, scr_sbarscale.value * 320.0f, (float)glwidth);

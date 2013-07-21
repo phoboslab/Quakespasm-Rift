@@ -996,6 +996,9 @@ needs almost the entire 256k of stack space!
 extern float hmd_screen_2d[4];
 void SCR_UpdateScreenContent (void)
 {
+	vec3_t forward, right, up, target;
+	float scale_hud = 0.04;
+
 	int oldglx = glx, 
 		oldgly = gly,
 		oldglwidth = glwidth, 
@@ -1003,10 +1006,38 @@ void SCR_UpdateScreenContent (void)
 		oldconwidth = vid.conwidth,
 		oldconheight = vid.conheight,
 		oldscr_con = scr_con_current;
-	//
+//
 // do 3D refresh drawing, and then update the screen
 //
 	V_RenderView ();
+
+	// test draw in 3d
+
+	glPushMatrix();
+	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another
+
+	AngleVectors (cl.aimangles, forward, right, up);
+
+	VectorMA (cl.viewent.origin, -0.75, forward, target);
+
+	glTranslatef (target[0],  target[1],  target[2]);
+	
+	glRotatef(cl.aimangles[YAW] - 90, 0, 0, 1); // rotate around z
+
+	glRotatef(90 + 45 + cl.aimangles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
+
+	glTranslatef (-(360.0 * scale_hud / 2), 0, 0); // center the status bar
+
+	glTranslatef (0,  0,  10); // move hud down a bit
+
+	glScalef(scale_hud, scale_hud, scale_hud);
+
+	Sbar_Draw (false);
+
+	glEnable (GL_DEPTH_TEST);
+	glPopMatrix();
+
+	// end test
 
 	GL_Set2D ();
 
@@ -1018,14 +1049,14 @@ void SCR_UpdateScreenContent (void)
 		if (con_forcedup)
 			Draw_ConsoleBackground ();
 		else
-			Sbar_Draw ();
+			Sbar_Draw (true);
 		Draw_FadeScreen ();
 		SCR_DrawNotifyString ();
 	}
 	else if (scr_drawloading) //loading
 	{
 		SCR_DrawLoading ();
-		Sbar_Draw ();
+		Sbar_Draw (true);
 	}
 	else if (cl.intermission == 1 && key_dest == key_game) //end of level
 	{
@@ -1058,7 +1089,7 @@ void SCR_UpdateScreenContent (void)
 		SCR_DrawTurtle ();
 		SCR_DrawPause ();
 		SCR_CheckDrawCenterString ();
-		Sbar_Draw ();
+		Sbar_Draw (true);
 		SCR_DrawDevStats (); //johnfitz
 		SCR_DrawFPS (); //johnfitz
 		SCR_DrawClock (); //johnfitz
