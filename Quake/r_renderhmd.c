@@ -590,9 +590,9 @@ void R_ShowHMDCrosshair ()
 
 	VectorMA (start, 4096, forward, end);
 
-	TraceLine (start, end, impact);
+	TraceLine (start, end, impact); // todo - trace to nearest entity
 
-	// draw point 
+	// point crosshair
 	glColor4f (1, 0, 0, 0.5);
 	glPointSize( 3.0 );
 
@@ -602,7 +602,7 @@ void R_ShowHMDCrosshair ()
  
 	glEnd();
 
-	/* draw line
+	/* laser crosshair
 	glColor4f (1, 0, 0, 0.4);
 
 	glBegin (GL_LINES);
