@@ -717,8 +717,10 @@ void V_CalcIntermissionRefdef (void)
 	view->model = NULL;
 
 	if(r_oculusrift.value)
+	{
+		VectorCopy (r_refdef.viewangles, r_refdef.aimangles);
 		V_AddOrientationToViewAngles(r_refdef.viewangles);
-
+	}
 
 // allways idle in intermission
 	old = v_idlescale.value;

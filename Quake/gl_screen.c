@@ -999,45 +999,20 @@ void DrawRift2d ()
 	vid.conwidth = 320;
 	vid.conheight = 200;
 
-
-	// determine if status bar should be drawn first
-	if (scr_drawdialog)
-	{
-		if (con_forcedup)
-			;
-		else
-			draw_sbar = true; 
-	}
-	else if (scr_drawloading)
-	{
-		draw_sbar = true; 
-	}
-	else if (cl.intermission == 1 && key_dest == key_game) //end of level
-	{
-	}
-	else if (cl.intermission == 2 && key_dest == key_game) //end of episode
-	{
-	}
-	else
-		draw_sbar = true;
-		
-	// draw the status bar
-	if(draw_sbar)
-		HMD_Sbar_Draw();
-
 	// draw 2d elements 1m from the users face, centered
 	glPushMatrix();
 	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another
+	glEnable (GL_BLEND);
 
-	AngleVectors (cl.aimangles, forward, right, up);
+	AngleVectors (r_refdef.aimangles, forward, right, up);
 
-	VectorMA (cl.viewent.origin, 32, forward, target);
+	VectorMA (r_refdef.vieworg, 32, forward, target);
 
 	glTranslatef (target[0],  target[1],  target[2]);
 	
-	glRotatef(cl.aimangles[YAW] - 90, 0, 0, 1); // rotate around z
+	glRotatef(r_refdef.aimangles[YAW] - 90, 0, 0, 1); // rotate around z
 
-	glRotatef(90 + cl.aimangles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
+	glRotatef(90 + r_refdef.aimangles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
 
 	glTranslatef (-(320.0 * scale_hud / 2), -(200.0 * scale_hud / 2), 0); // center the status bar
 
@@ -1049,14 +1024,14 @@ void DrawRift2d ()
 		if (con_forcedup)
 			Draw_ConsoleBackground ();
 		else
-			;//Sbar_Draw ();
+			draw_sbar = true; //Sbar_Draw ();
 		Draw_FadeScreen ();
 		SCR_DrawNotifyString ();
 	}
 	else if (scr_drawloading) //loading
 	{
 		SCR_DrawLoading ();
-		//Sbar_Draw ();
+		draw_sbar = true; //Sbar_Draw ();
 	}
 	else if (cl.intermission == 1 && key_dest == key_game) //end of level
 	{
@@ -1075,7 +1050,7 @@ void DrawRift2d ()
 		SCR_DrawTurtle ();
 		SCR_DrawPause ();
 		SCR_CheckDrawCenterString ();
-		//draw_sbar = true; //Sbar_Draw ();
+		draw_sbar = true; //Sbar_Draw ();
 		SCR_DrawDevStats (); //johnfitz
 		SCR_DrawFPS (); //johnfitz
 		SCR_DrawClock (); //johnfitz
@@ -1083,8 +1058,12 @@ void DrawRift2d ()
 		M_Draw ();
 	}
 
+	glDisable (GL_BLEND);
 	glEnable (GL_DEPTH_TEST);
 	glPopMatrix();
+
+	if(draw_sbar)
+		HMD_Sbar_Draw();
 
 	glwidth = oldglwidth;
 	glheight = oldglheight;

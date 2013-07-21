@@ -608,7 +608,7 @@ void HMD_Sbar_Draw()
 
 	AngleVectors (cl.aimangles, forward, right, up);
 
-	VectorMA (cl.viewent.origin, -0.6, forward, target);
+	VectorMA (cl.viewent.origin, -0.7, forward, target);
 
 	glTranslatef (target[0],  target[1],  target[2]);
 	
