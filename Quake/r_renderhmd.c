@@ -526,6 +526,18 @@ void SCR_UpdateHMDScreenContent()
 	glUseProgramObjectARB(0);
 }
 
+void V_AddOrientationToViewAngles(vec3_t angles)
+{
+	vec3_t orientation;
+
+	// Get current orientation of the HMD
+	GetOculusView(orientation);
+
+	angles[PITCH] = angles[PITCH] + orientation[PITCH]; 
+	angles[YAW] = angles[YAW] + orientation[YAW]; 
+	angles[ROLL] = orientation[ROLL];
+}
+
 void R_ShowHMDCrosshair ()
 {
 	vec3_t forward, up, right;
@@ -585,3 +597,34 @@ void R_ShowHMDCrosshair ()
 	GL_PolygonOffset (OFFSET_NONE);
 	glEnable (GL_DEPTH_TEST);
 }
+
+void HMD_Sbar_Draw()
+{	
+	vec3_t forward, right, up, target;
+	float scale_hud = 0.04;
+
+	glPushMatrix();
+	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another
+
+	AngleVectors (cl.aimangles, forward, right, up);
+
+	VectorMA (cl.viewent.origin, -0.6, forward, target);
+
+	glTranslatef (target[0],  target[1],  target[2]);
+	
+	glRotatef(cl.aimangles[YAW] - 90, 0, 0, 1); // rotate around z
+
+	glRotatef(90 + 45 + cl.aimangles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
+
+	glTranslatef (-(320.0 * scale_hud / 2), 0, 0); // center the status bar
+
+	glTranslatef (0,  0,  10); // move hud down a bit
+
+	glScalef(scale_hud, scale_hud, scale_hud);
+
+	Sbar_Draw ();
+
+	glEnable (GL_DEPTH_TEST);
+	glPopMatrix();
+}
+

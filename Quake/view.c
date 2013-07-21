@@ -716,6 +716,10 @@ void V_CalcIntermissionRefdef (void)
 	VectorCopy (ent->angles, r_refdef.viewangles);
 	view->model = NULL;
 
+	if(r_oculusrift.value)
+		V_AddOrientationToViewAngles(r_refdef.viewangles);
+
+
 // allways idle in intermission
 	old = v_idlescale.value;
 	v_idlescale.value = 1;
@@ -735,7 +739,7 @@ void V_CalcRefdef (void)
 	int			i;
 	vec3_t		forward, right, up;
 	vec3_t		angles;
-	float		bob;
+	float		bob = 0;
 	static float oldz = 0;
 	static vec3_t punch = {0,0,0}; //johnfitz -- v_gunkick
 	float delta; //johnfitz -- v_gunkick
@@ -753,7 +757,8 @@ void V_CalcRefdef (void)
 	ent->angles[YAW] = cl.viewangles[YAW];	// the model should face the view dir
 	ent->angles[PITCH] = -cl.viewangles[PITCH];	// the model should face the view dir
 
-	bob = 0;//V_CalcBob ();
+	if(!r_oculusrift.value)
+		bob = V_CalcBob ();
 
 // refresh position
 	VectorCopy (ent->origin, r_refdef.vieworg);

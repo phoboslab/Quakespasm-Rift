@@ -982,6 +982,116 @@ void SCR_TileClear (void)
 	}
 }
 
+void DrawRift2d ()
+{
+	BOOLEAN draw_sbar = false;
+	vec3_t forward, right, up, target;
+	float scale_hud = 0.13;
+
+	int oldglwidth = glwidth, 
+		oldglheight = glheight,
+		oldconwidth = vid.conwidth,
+		oldconheight = vid.conheight;
+
+	glwidth = 320;
+	glheight = 200;
+	
+	vid.conwidth = 320;
+	vid.conheight = 200;
+
+
+	// determine if status bar should be drawn first
+	if (scr_drawdialog)
+	{
+		if (con_forcedup)
+			;
+		else
+			draw_sbar = true; 
+	}
+	else if (scr_drawloading)
+	{
+		draw_sbar = true; 
+	}
+	else if (cl.intermission == 1 && key_dest == key_game) //end of level
+	{
+	}
+	else if (cl.intermission == 2 && key_dest == key_game) //end of episode
+	{
+	}
+	else
+		draw_sbar = true;
+		
+	// draw the status bar
+	if(draw_sbar)
+		HMD_Sbar_Draw();
+
+	// draw 2d elements 1m from the users face, centered
+	glPushMatrix();
+	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another
+
+	AngleVectors (cl.aimangles, forward, right, up);
+
+	VectorMA (cl.viewent.origin, 32, forward, target);
+
+	glTranslatef (target[0],  target[1],  target[2]);
+	
+	glRotatef(cl.aimangles[YAW] - 90, 0, 0, 1); // rotate around z
+
+	glRotatef(90 + cl.aimangles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
+
+	glTranslatef (-(320.0 * scale_hud / 2), -(200.0 * scale_hud / 2), 0); // center the status bar
+
+	glScalef(scale_hud, scale_hud, scale_hud);
+
+
+	if (scr_drawdialog) //new game confirm
+	{
+		if (con_forcedup)
+			Draw_ConsoleBackground ();
+		else
+			;//Sbar_Draw ();
+		Draw_FadeScreen ();
+		SCR_DrawNotifyString ();
+	}
+	else if (scr_drawloading) //loading
+	{
+		SCR_DrawLoading ();
+		//Sbar_Draw ();
+	}
+	else if (cl.intermission == 1 && key_dest == key_game) //end of level
+	{
+		Sbar_IntermissionOverlay ();
+	}
+	else if (cl.intermission == 2 && key_dest == key_game) //end of episode
+	{
+		Sbar_FinaleOverlay ();
+		SCR_CheckDrawCenterString ();
+	}
+	else
+	{
+		//SCR_DrawCrosshair (); //johnfitz
+		SCR_DrawRam ();
+		SCR_DrawNet ();
+		SCR_DrawTurtle ();
+		SCR_DrawPause ();
+		SCR_CheckDrawCenterString ();
+		//draw_sbar = true; //Sbar_Draw ();
+		SCR_DrawDevStats (); //johnfitz
+		SCR_DrawFPS (); //johnfitz
+		SCR_DrawClock (); //johnfitz
+		SCR_DrawConsole ();
+		M_Draw ();
+	}
+
+	glEnable (GL_DEPTH_TEST);
+	glPopMatrix();
+
+	glwidth = oldglwidth;
+	glheight = oldglheight;
+	vid.conwidth = oldconwidth;
+	vid.conheight =	oldconheight;
+}
+
 /*
 ==================
 SCR_UpdateScreen
@@ -996,114 +1106,62 @@ needs almost the entire 256k of stack space!
 extern float hmd_screen_2d[4];
 void SCR_UpdateScreenContent (void)
 {
-	vec3_t forward, right, up, target;
-	float scale_hud = 0.04;
 
-	int oldglx = glx, 
-		oldgly = gly,
-		oldglwidth = glwidth, 
-		oldglheight = glheight,
-		oldconwidth = vid.conwidth,
-		oldconheight = vid.conheight,
-		oldscr_con = scr_con_current;
 //
 // do 3D refresh drawing, and then update the screen
 //
 	V_RenderView ();
 
 	// test draw in 3d
-
-	glPushMatrix();
-	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another
-
-	AngleVectors (cl.aimangles, forward, right, up);
-
-	VectorMA (cl.viewent.origin, -0.75, forward, target);
-
-	glTranslatef (target[0],  target[1],  target[2]);
 	
-	glRotatef(cl.aimangles[YAW] - 90, 0, 0, 1); // rotate around z
-
-	glRotatef(90 + 45 + cl.aimangles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
-
-	glTranslatef (-(360.0 * scale_hud / 2), 0, 0); // center the status bar
-
-	glTranslatef (0,  0,  10); // move hud down a bit
-
-	glScalef(scale_hud, scale_hud, scale_hud);
-
-	Sbar_Draw (false);
-
-	glEnable (GL_DEPTH_TEST);
-	glPopMatrix();
-
-	// end test
-
-	GL_Set2D ();
-
-	//FIXME: only call this when needed
-	SCR_TileClear ();
-
-	if (scr_drawdialog) //new game confirm
+	if(r_oculusrift.value) // or check if origin not init'd yet
 	{
-		if (con_forcedup)
-			Draw_ConsoleBackground ();
-		else
-			Sbar_Draw (true);
-		Draw_FadeScreen ();
-		SCR_DrawNotifyString ();
-	}
-	else if (scr_drawloading) //loading
-	{
-		SCR_DrawLoading ();
-		Sbar_Draw (true);
-	}
-	else if (cl.intermission == 1 && key_dest == key_game) //end of level
-	{
-		Sbar_IntermissionOverlay ();
-	}
-	else if (cl.intermission == 2 && key_dest == key_game) //end of episode
-	{
-		Sbar_FinaleOverlay ();
-		SCR_CheckDrawCenterString ();
+		DrawRift2d();
 	}
 	else
 	{
-		if (r_oculusrift.value) {
-			// phoboslab -- extremely cheap hacks to make the UI readable in
-			// HMD mode
-			glx = hmd_screen_2d[0];
-			gly = hmd_screen_2d[1];
-			glwidth = hmd_screen_2d[2];
-			glheight = hmd_screen_2d[3];
-			vid.conheight = glheight;
-			vid.conwidth = glwidth;
-			scr_con_current /= 2;
+		GL_Set2D ();
+
+		//FIXME: only call this when needed
+		SCR_TileClear ();
+
+		if (scr_drawdialog) //new game confirm
+		{
+			if (con_forcedup)
+				Draw_ConsoleBackground ();
+			else
+				Sbar_Draw ();
+			Draw_FadeScreen ();
+			SCR_DrawNotifyString ();
 		}
-
-		if (!r_oculusrift.value)
+		else if (scr_drawloading) //loading
+		{
+			SCR_DrawLoading ();
+			Sbar_Draw ();
+		}
+		else if (cl.intermission == 1 && key_dest == key_game) //end of level
+		{
+			Sbar_IntermissionOverlay ();
+		}
+		else if (cl.intermission == 2 && key_dest == key_game) //end of episode
+		{
+			Sbar_FinaleOverlay ();
+			SCR_CheckDrawCenterString ();
+		}
+		else
+		{
 			SCR_DrawCrosshair (); //johnfitz
-
-		SCR_DrawRam ();
-		SCR_DrawNet ();
-		SCR_DrawTurtle ();
-		SCR_DrawPause ();
-		SCR_CheckDrawCenterString ();
-		Sbar_Draw (true);
-		SCR_DrawDevStats (); //johnfitz
-		SCR_DrawFPS (); //johnfitz
-		SCR_DrawClock (); //johnfitz
-		SCR_DrawConsole ();
-		M_Draw ();
-
-		if (r_oculusrift.value) {
-			glx = oldglx;
-			gly = oldgly;
-			glwidth = oldglwidth;
-			glheight = oldglheight;
-			vid.conwidth = oldconwidth;
-			vid.conheight = oldconheight;
-			scr_con_current = oldscr_con;
+			SCR_DrawRam ();
+			SCR_DrawNet ();
+			SCR_DrawTurtle ();
+			SCR_DrawPause ();
+			SCR_CheckDrawCenterString ();
+			Sbar_Draw ();
+			SCR_DrawDevStats (); //johnfitz
+			SCR_DrawFPS (); //johnfitz
+			SCR_DrawClock (); //johnfitz
+			SCR_DrawConsole ();
+			M_Draw ();
 		}
 	}
 

@@ -12,4 +12,8 @@ void SCR_UpdateHMDScreenContent();
 
 void R_ShowHMDCrosshair();
 
+void HMD_Sbar_Draw();
+
+void V_AddOrientationToViewAngles(vec3_t angles);
+
 #endif
