@@ -110,12 +110,13 @@ R_OculusRift -- phoboslab
 */
 static void R_OculusRift_f (cvar_t *var)
 {
-	if (r_oculusrift.value) {
-		r_oculusrift.value = R_InitHMDRenderer(&oculus_rift_hmd);
-	}
-	else {
-		R_ReleaseHMDRenderer();
-	}
+	R_ReleaseHMDRenderer();
+
+	if (!r_oculusrift.value) 
+		return;
+
+	if( !R_InitHMDRenderer(&oculus_rift_hmd) )
+		r_oculusrift.value = 0;
 }
 
 static void R_OculusRift_SuperSample_f (cvar_t *var)

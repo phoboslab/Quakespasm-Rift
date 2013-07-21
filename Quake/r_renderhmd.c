@@ -499,8 +499,17 @@ void SCR_UpdateHMDScreenContent()
 	GetOculusView(orientation);
 
 	cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH]; 
-	cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW]; 
-	cl.viewangles[ROLL] = orientation[ROLL];
+	cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW]; 
+	
+	/* prev aim mode
+	cl.viewangles[PITCH] = orientation[PITCH];
+
+	cl.aimangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
+	cl.viewangles[YAW] = cl.aimangles[YAW];
+
+	lastYaw = orientation[YAW];*/
+
+	cl.viewangles[ROLL]  = orientation[ROLL];
 
 	VectorCopy (cl.viewangles, r_refdef.viewangles);
 	VectorCopy (cl.aimangles, r_refdef.aimangles);
