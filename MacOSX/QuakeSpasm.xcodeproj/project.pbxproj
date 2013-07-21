@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		002F39FA09D0881F00EBEB88 /* SDL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 002F39F909D0881F00EBEB88 /* SDL.framework */; };
 		002F3A0009D0884600EBEB88 /* SDL.framework in Copy Frameworks into .app bundle */ = {isa = PBXBuildFile; fileRef = 002F39F909D0881F00EBEB88 /* SDL.framework */; };
 		002F3A2E09D0888800EBEB88 /* SDLMain.m in Sources */ = {isa = PBXBuildFile; fileRef = 002F3A2C09D0888800EBEB88 /* SDLMain.m */; };
 		002F3C0109D093BD00EBEB88 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 002F3C0009D093BD00EBEB88 /* OpenGL.framework */; };
@@ -87,7 +86,6 @@
 		48B9E7A70D340BEA0001CACF /* AppController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48B9E7A60D340BEA0001CACF /* AppController.m */; };
 		48B9E7C00D340EA80001CACF /* SDLApplication.m in Sources */ = {isa = PBXBuildFile; fileRef = 48B9E7BF0D340EA80001CACF /* SDLApplication.m */; };
 		48C85E3B0D3AD10E00797678 /* QuakeArgument.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C85E3A0D3AD10E00797678 /* QuakeArgument.m */; };
-		48E2EC7815FB500400B8D476 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 488EF23614B83A370021DD41 /* IOKit.framework */; };
 		48E2EC7D15FB507A00B8D476 /* libmad.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 48E2EC7915FB507A00B8D476 /* libmad.dylib */; };
 		48E2EC7E15FB507A00B8D476 /* libogg.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 48E2EC7A15FB507A00B8D476 /* libogg.dylib */; };
 		48E2EC7F15FB507A00B8D476 /* libvorbis.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 48E2EC7B15FB507A00B8D476 /* libvorbis.dylib */; };
@@ -100,6 +98,11 @@
 		8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165CFE840E0CC02AAC07 /* InfoPlist.strings */; };
 		8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
 		B021C20914A5FF7E003F18D6 /* cfgfile.c in Sources */ = {isa = PBXBuildFile; fileRef = B021C20714A5FF7E003F18D6 /* cfgfile.c */; };
+		B6305AB1178C95F2001C47D8 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6305AB0178C95F2001C47D8 /* IOKit.framework */; };
+		B6305AB2178C966E001C47D8 /* SDL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 002F39F909D0881F00EBEB88 /* SDL.framework */; };
+		B65AD10E178C937B00E59593 /* r_renderhmd.c in Sources */ = {isa = PBXBuildFile; fileRef = B65AD10C178C937B00E59593 /* r_renderhmd.c */; };
+		B65AD111178C938900E59593 /* oculus_sdk.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B65AD10F178C938900E59593 /* oculus_sdk.cpp */; };
+		B65AD113178C940700E59593 /* libovr.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B65AD112178C940700E59593 /* libovr.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -292,6 +295,13 @@
 		8D1107320486CEB800E47090 /* QuakeSpasm.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuakeSpasm.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B021C20714A5FF7E003F18D6 /* cfgfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cfgfile.c; path = ../Quake/cfgfile.c; sourceTree = SOURCE_ROOT; };
 		B021C20814A5FF7E003F18D6 /* cfgfile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cfgfile.h; path = ../Quake/cfgfile.h; sourceTree = SOURCE_ROOT; };
+		B6305AAE178C95E8001C47D8 /* SDL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL.framework; path = ../../../../../System/Library/Frameworks/SDL.framework; sourceTree = "<group>"; };
+		B6305AB0178C95F2001C47D8 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.8.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		B65AD10C178C937B00E59593 /* r_renderhmd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = r_renderhmd.c; path = ../Quake/r_renderhmd.c; sourceTree = "<group>"; };
+		B65AD10D178C937B00E59593 /* r_renderhmd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = r_renderhmd.h; path = ../Quake/r_renderhmd.h; sourceTree = "<group>"; };
+		B65AD10F178C938900E59593 /* oculus_sdk.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = oculus_sdk.cpp; path = ../Quake/oculus_sdk.cpp; sourceTree = "<group>"; };
+		B65AD110178C938900E59593 /* oculus_sdk.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = oculus_sdk.h; path = ../Quake/oculus_sdk.h; sourceTree = "<group>"; };
+		B65AD112178C940700E59593 /* libovr.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libovr.a; path = ../../LibOVR/Lib/MacOS/Release/libovr.a; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -299,12 +309,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B65AD113178C940700E59593 /* libovr.a in Frameworks */,
+				B6305AB2178C966E001C47D8 /* SDL.framework in Frameworks */,
+				B6305AB1178C95F2001C47D8 /* IOKit.framework in Frameworks */,
 				48E2EC7D15FB507A00B8D476 /* libmad.dylib in Frameworks */,
 				48E2EC7E15FB507A00B8D476 /* libogg.dylib in Frameworks */,
 				48E2EC7F15FB507A00B8D476 /* libvorbis.dylib in Frameworks */,
 				48E2EC8015FB507A00B8D476 /* libvorbisfile.dylib in Frameworks */,
-				48E2EC7815FB500400B8D476 /* IOKit.framework in Frameworks */,
-				002F39FA09D0881F00EBEB88 /* SDL.framework in Frameworks */,
 				002F3C6109D0951E00EBEB88 /* GLUT.framework in Frameworks */,
 				8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */,
 				002F3C0109D093BD00EBEB88 /* OpenGL.framework in Frameworks */,
@@ -346,6 +357,8 @@
 		29B97314FDCFA39411CA2CEA /* QuakeSpasm */ = {
 			isa = PBXGroup;
 			children = (
+				B6305AB0178C95F2001C47D8 /* IOKit.framework */,
+				B6305AAE178C95E8001C47D8 /* SDL.framework */,
 				48E2EC7915FB507A00B8D476 /* libmad.dylib */,
 				48E2EC7A15FB507A00B8D476 /* libogg.dylib */,
 				48E2EC7B15FB507A00B8D476 /* libvorbis.dylib */,
@@ -373,6 +386,7 @@
 		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				B65AD112178C940700E59593 /* libovr.a */,
 				1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */,
 				1058C7A2FEA54F0111CA2CBB /* Other Frameworks */,
 			);
@@ -458,6 +472,8 @@
 			isa = PBXGroup;
 			children = (
 				483A77E20D2EE91500CB2E4C /* Headers */,
+				B65AD10F178C938900E59593 /* oculus_sdk.cpp */,
+				B65AD10C178C937B00E59593 /* r_renderhmd.c */,
 				483A785A0D2EEAF000CB2E4C /* gl_draw.c */,
 				483A785B0D2EEAF000CB2E4C /* gl_fog.c */,
 				483A785C0D2EEAF000CB2E4C /* gl_mesh.c */,
@@ -591,6 +607,8 @@
 		483A77E20D2EE91500CB2E4C /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				B65AD110178C938900E59593 /* oculus_sdk.h */,
+				B65AD10D178C937B00E59593 /* r_renderhmd.h */,
 				483A77FF0D2EE9F300CB2E4C /* anorm_dots.h */,
 				483A78000D2EE9F300CB2E4C /* anorms.h */,
 				483A78010D2EE9F300CB2E4C /* bspfile.h */,
@@ -692,6 +710,7 @@
 				483A782C0D2EEA5400CB2E4C /* menu.c in Sources */,
 				483A782D0D2EEA5400CB2E4C /* pr_cmds.c in Sources */,
 				483A782E0D2EEA5400CB2E4C /* pr_edict.c in Sources */,
+				B65AD10E178C937B00E59593 /* r_renderhmd.c in Sources */,
 				483A782F0D2EEA5400CB2E4C /* pr_exec.c in Sources */,
 				483A78300D2EEA5400CB2E4C /* sbar.c in Sources */,
 				483A78320D2EEA5400CB2E4C /* view.c in Sources */,
@@ -725,6 +744,7 @@
 				483A78780D2EEAF000CB2E4C /* conback.c in Sources */,
 				483A78790D2EEAF000CB2E4C /* gl_texmgr.c in Sources */,
 				483A787A0D2EEAF000CB2E4C /* gl_vidsdl.c in Sources */,
+				B65AD111178C938900E59593 /* oculus_sdk.cpp in Sources */,
 				483A787B0D2EEAF000CB2E4C /* gl_warp.c in Sources */,
 				483A787C0D2EEAF000CB2E4C /* image.c in Sources */,
 				483A787D0D2EEAF000CB2E4C /* r_alias.c in Sources */,
@@ -783,10 +803,8 @@
 		C01FCF4B08A954540054247B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					x86_64,
-					i386,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1 = x86_64;
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -794,6 +812,7 @@
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)\"";
 				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -803,18 +822,22 @@
 				);
 				GCC_VERSION = com.apple.compilers.llvmgcc42;
 				HEADER_SEARCH_PATHS = (
-					codecs/include,
 					"$(HEADER_SEARCH_PATHS)",
+					/Users/dominic/xcode/LibOVR/Include,
 				);
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SRCROOT)\"",
+					"$(SRCROOT)",
 					"\"$(SRCROOT)/codecs/lib\"",
+					"$(SRCROOT)/../../LibOVR/Lib/MacOS/Release",
 				);
 				PRODUCT_NAME = QuakeSpasm;
-				SDKROOT = macosx10.5;
+				SDKROOT = macosx;
+				"SDKROOT[arch=i386]" = macosx;
+				"SDKROOT[arch=x86_64]" = macosx;
+				VALID_ARCHS = "i386 x86_64";
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = YES;
 			};
@@ -823,16 +846,14 @@
 		C01FCF4C08A954540054247B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					x86_64,
-					i386,
-					ppc,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1 = x86_64;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)\"";
+				GCC_ENABLE_CPP_RTTI = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -844,15 +865,16 @@
 				);
 				GCC_VERSION = com.apple.compilers.llvmgcc42;
 				HEADER_SEARCH_PATHS = (
-					codecs/include,
 					"$(HEADER_SEARCH_PATHS)",
+					/Users/dominic/xcode/LibOVR/Include,
 				);
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SRCROOT)\"",
+					"$(SRCROOT)",
 					"\"$(SRCROOT)/codecs/lib\"",
+					"$(SRCROOT)/../../LibOVR/Lib/MacOS/Release",
 				);
 				OTHER_CFLAGS = "";
 				"OTHER_CFLAGS[arch=ppc64]" = (
@@ -869,7 +891,11 @@
 					ppc,
 				);
 				PRODUCT_NAME = QuakeSpasm;
-				SDKROOT = macosx10.5;
+				SDKROOT = macosx;
+				"SDKROOT[arch=i386]" = macosx;
+				"SDKROOT[arch=ppc]" = macosx;
+				"SDKROOT[arch=x86_64]" = macosx;
+				VALID_ARCHS = "i386 x86_64";
 				WRAPPER_EXTENSION = app;
 			};
 			name = Release;

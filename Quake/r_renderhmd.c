@@ -133,7 +133,8 @@ static float viewport_fov_y;
 
 extern cvar_t r_oculusrift;
 extern cvar_t r_oculusrift_supersample;
-
+extern cvar_t r_oculusrift_prediction;
+extern cvar_t r_oculusrift_driftcorrect;
 
 extern int glx, gly, glwidth, glheight;
 extern void SCR_UpdateScreenContent();
@@ -166,8 +167,6 @@ static qboolean CompileShader(GLhandleARB shader, const char *source)
 
 static qboolean CompileShaderProgram(shader_t *shader)
 {
-    const int num_tmus_bound = 4;
-
     glGetError();
 
     shader->program = glCreateProgramObjectARB();
@@ -333,6 +332,10 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 
 	float ss = r_oculusrift_supersample.value;
 
+	// convert milliseconds to seconds
+	float prediction = r_oculusrift_prediction.value / 1000.0f;
+	int driftcorrection = (int) r_oculusrift_driftcorrect.value;
+
 	shader_support = InitShaderExtension();   
 
     if (!shader_support) {
@@ -390,6 +393,8 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 		return false;
 	}
 
+	SetOculusPrediction(prediction);
+	SetOculusDriftCorrect(driftcorrection);
 	return true;
 }
 
@@ -406,8 +411,20 @@ void R_ReleaseHMDRenderer()
 	vid.recalc_refdef = true;
 }
 
+void R_SetHMDPredictionTime()
+{
+	if (rift_enabled) {
+		float prediction = r_oculusrift_prediction.value / 1000.0f;
+		SetOculusPrediction(prediction);
+	}
+}
 
-
+void R_SetHMDDriftCorrection()
+{
+	if (rift_enabled) {
+		SetOculusDriftCorrect((int) r_oculusrift_driftcorrect.value);
+	}
+}
 
 extern vec3_t vright;
 extern cvar_t r_stereodepth;
