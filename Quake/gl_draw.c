@@ -784,7 +784,7 @@ void GL_SetCanvas (canvastype newcanvas)
 
 	currentcanvas = newcanvas;
 
-	if(r_oculusrift.value)
+	if(r_oculusrift.value && !con_forcedup)
 		return;
 
 	glMatrixMode(GL_PROJECTION);

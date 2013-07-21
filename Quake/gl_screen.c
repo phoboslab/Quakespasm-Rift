@@ -1093,7 +1093,7 @@ void SCR_UpdateScreenContent (void)
 
 	// test draw in 3d
 	
-	if(r_oculusrift.value) // or check if origin not init'd yet
+	if(r_oculusrift.value && !con_forcedup)
 	{
 		DrawRift2d();
 	}
@@ -1176,7 +1176,7 @@ void SCR_UpdateScreen (void)
 
 	SCR_SetUpToDrawConsole ();
 	
-	if (r_oculusrift.value)
+	if (r_oculusrift.value && !con_forcedup)
 		SCR_UpdateHMDScreenContent(); // phoboslab
 	else
 	{
