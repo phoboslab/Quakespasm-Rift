@@ -546,10 +546,6 @@ void R_ShowHMDCrosshair ()
 	if(sv_player && (int)(sv_player->v.weapon) == IT_AXE)
 		return;
 
-	//only show sight when right click is pressed
-	//if(!Key_Pressed(K_MOUSE2))
-	//	return;
-
 	// setup gl
 	glDisable (GL_DEPTH_TEST);
 	glPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
