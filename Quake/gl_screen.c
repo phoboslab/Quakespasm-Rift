@@ -984,7 +984,7 @@ void SCR_TileClear (void)
 
 void DrawRift2d ()
 {
-	bool draw_sbar = false;
+	qboolean draw_sbar = false;
 	vec3_t forward, right, up, target;
 	float scale_hud = 0.13;
 
