@@ -985,7 +985,7 @@ void SCR_TileClear (void)
 void DrawRift2d ()
 {
 	qboolean draw_sbar = false;
-	vec3_t forward, right, up, target;
+	vec3_t menu_angles, forward, right, up, target;
 	float scale_hud = 0.13;
 
 	int oldglwidth = glwidth, 
@@ -1004,15 +1004,20 @@ void DrawRift2d ()
 	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another
 	glEnable (GL_BLEND);
 
-	AngleVectors (r_refdef.aimangles, forward, right, up);
+	VectorCopy(r_refdef.aimangles, menu_angles)
+
+	if(r_oculusrift.value == 2)
+		menu_angles[PITCH] = 0;
+
+	AngleVectors (menu_angles, forward, right, up);
 
 	VectorMA (r_refdef.vieworg, 32, forward, target);
 
 	glTranslatef (target[0],  target[1],  target[2]);
 	
-	glRotatef(r_refdef.aimangles[YAW] - 90, 0, 0, 1); // rotate around z
+	glRotatef(menu_angles[YAW] - 90, 0, 0, 1); // rotate around z
 
-	glRotatef(90 + r_refdef.aimangles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
+	glRotatef(90 + menu_angles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
 
 	glTranslatef (-(320.0 * scale_hud / 2), -(200.0 * scale_hud / 2), 0); // center the status bar
 

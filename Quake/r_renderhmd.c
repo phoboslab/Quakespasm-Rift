@@ -515,16 +515,19 @@ void SCR_UpdateHMDScreenContent()
 	// Get current orientation of the HMD
 	GetOculusView(orientation);
 
-	cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH]; 
-	cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW]; 
-	
-	/* prev aim mode
-	cl.viewangles[PITCH] = orientation[PITCH];
+	if(r_oculusrift.value == 1)
+	{
+		cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH]; 
+		cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW]; 
+	}
+	else if(r_oculusrift.value == 2)
+	{
+		cl.viewangles[PITCH] = orientation[PITCH];
 
-	cl.aimangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
-	cl.viewangles[YAW] = cl.aimangles[YAW];
+		cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
 
-	lastYaw = orientation[YAW];*/
+		lastYaw = orientation[YAW];
+	}
 
 	cl.viewangles[ROLL]  = orientation[ROLL];
 
@@ -622,21 +625,26 @@ void R_ShowHMDCrosshair ()
 
 void HMD_Sbar_Draw()
 {	
-	vec3_t forward, right, up, target;
+	vec3_t sbar_angles, forward, right, up, target;
 	float scale_hud = 0.04;
 
 	glPushMatrix();
 	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another
 
-	AngleVectors (cl.aimangles, forward, right, up);
+	VectorCopy(cl.aimangles, sbar_angles)
+
+	if(r_oculusrift.value == 2)
+		sbar_angles[PITCH] = 0;
+
+	AngleVectors (sbar_angles, forward, right, up);
 
 	VectorMA (cl.viewent.origin, -0.7, forward, target);
 
 	glTranslatef (target[0],  target[1],  target[2]);
 	
-	glRotatef(cl.aimangles[YAW] - 90, 0, 0, 1); // rotate around z
+	glRotatef(sbar_angles[YAW] - 90, 0, 0, 1); // rotate around z
 
-	glRotatef(90 + 45 + cl.aimangles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
+	glRotatef(90 + 45 + sbar_angles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
 
 	glTranslatef (-(320.0 * scale_hud / 2), 0, 0); // center the status bar
 
