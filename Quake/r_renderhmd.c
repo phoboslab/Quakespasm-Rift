@@ -135,6 +135,7 @@ extern cvar_t r_oculusrift;
 extern cvar_t r_oculusrift_supersample;
 extern cvar_t r_oculusrift_prediction;
 extern cvar_t r_oculusrift_driftcorrect;
+extern cvar_t r_oculusrift_crosshair;
 
 extern int glx, gly, glwidth, glheight;
 extern void SCR_UpdateScreenContent();
@@ -596,22 +597,28 @@ void R_ShowHMDCrosshair ()
 	TraceLine (start, end, impact); // todo - trace to nearest entity
 
 	// point crosshair
-	glColor4f (1, 0, 0, 0.5);
-	glPointSize( 3.0 );
+	if(r_oculusrift_crosshair.value == 1)
+	{
+		glColor4f (1, 0, 0, 0.5);
+		glPointSize( 3.0 );
 
-	glBegin(GL_POINTS);
+		glBegin(GL_POINTS);
  
-	glVertex3f (impact[0], impact[1], impact[2]);
+		glVertex3f (impact[0], impact[1], impact[2]);
  
-	glEnd();
+		glEnd();
+	}
 
-	/* laser crosshair
-	glColor4f (1, 0, 0, 0.4);
+	// laser crosshair
+	else if(r_oculusrift_crosshair.value == 2)
+	{ 
+		glColor4f (1, 0, 0, 0.4);
 
-	glBegin (GL_LINES);
-	glVertex3f (start[0], start[1], start[2]);
-	glVertex3f (impact[0], impact[1], impact[2]);
-	glEnd ();*/
+		glBegin (GL_LINES);
+		glVertex3f (start[0], start[1], start[2]);
+		glVertex3f (impact[0], impact[1], impact[2]);
+		glEnd ();
+	}
 
 	// cleanup gl
 	glColor3f (1,1,1);

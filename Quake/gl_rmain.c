@@ -108,6 +108,7 @@ cvar_t  r_oculusrift = {"r_oculusrift", "0", CVAR_NONE};
 cvar_t  r_oculusrift_supersample = {"r_oculusrift_supersample", "2", CVAR_NONE};
 cvar_t  r_oculusrift_prediction = {"r_oculusrift_prediction","40", CVAR_NONE};
 cvar_t  r_oculusrift_driftcorrect = {"r_oculusrift_driftcorrect","1", CVAR_NONE};
+cvar_t  r_oculusrift_crosshair = {"r_oculusrift_crosshair","1", CVAR_NONE};
 //phoboslab
 
 
@@ -540,7 +541,7 @@ void R_DrawViewModel (void)
 		return;
 	//johnfitz
 
-	if(r_oculusrift.value)
+	if(r_oculusrift.value && r_oculusrift_crosshair.value)
 		R_ShowHMDCrosshair();
 
 	// hack the depth range to prevent view model from poking into walls
