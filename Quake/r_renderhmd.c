@@ -22,6 +22,7 @@ typedef struct {
 	float lens_separation_distance;
 	float eye_to_screen_distance;
 	float distortion_k[4];
+	float chrom_abr[4];
 } hmd_settings_t;
 
 
@@ -71,7 +72,10 @@ static qboolean shader_support_initialized;
 
 
 // Lens Warp Shader
-static shader_t lens_warp_shader = {
+
+static shader_t *lens_warp_shader = NULL;
+
+static shader_t lens_warp_shader_norm = {
 	0, 0, 0,
 	
 	// vertex shader (identity)
@@ -103,6 +107,62 @@ static shader_t lens_warp_shader = {
 	"}\n"
 };
 
+static shader_t lens_warp_shader_chrm = {
+	0, 0, 0,
+	
+	// vertex shader (identity)
+	"varying vec2 vUv;\n"
+	"void main(void) {\n"
+		"gl_Position = gl_Vertex;\n"
+		"vUv = vec2(gl_MultiTexCoord0);\n"
+	"}\n",
+
+	// fragment shader
+	"varying vec2 vUv;\n"
+    "uniform vec2 lensCenter;\n"
+    "uniform vec2 scale;\n"
+    "uniform vec2 scaleIn;\n"
+    "uniform vec4 hmdWarpParam;\n"
+    "uniform vec4 chromAbParam;\n"
+    "uniform sampler2D texture;\n"
+    "\n"
+    // Scales input texture coordinates for distortion.
+    // ScaleIn maps texture coordinates to Scales to ([-1, 1]), although top/bottom will be
+    // larger due to aspect ratio.
+    "void main()\n"
+    "{\n"
+	"	vec2 uv = (vUv*2.0)-1.0;\n" // range from [0,1] to [-1,1]
+	"	vec2 theta = (uv-lensCenter)*scaleIn;\n"
+	"	float rSq = theta.x*theta.x + theta.y*theta.y;\n"
+	"	vec2 theta1 = theta*(hmdWarpParam.x + hmdWarpParam.y*rSq + hmdWarpParam.z*rSq*rSq + hmdWarpParam.w*rSq*rSq*rSq);\n"
+    "   \n"
+    "   // Detect whether blue texture coordinates are out of range since these will scaled out the furthest.\n"
+    "   vec2 thetaBlue = theta1 * (chromAbParam.z + chromAbParam.w * rSq);\n"
+    "   vec2 tcBlue = lensCenter + scale * thetaBlue;\n"
+	"	tcBlue = (tcBlue+1.0)/2.0;\n" // range from [-1,1] to [0,1]
+    "   if (any(bvec2(clamp(tcBlue, vec2(0.0,0.0), vec2(1.0,1.0))-tcBlue)))\n"
+    "   {\n"
+    "       gl_FragColor = vec4(0.0,0.0,0.0,1.0);\n"
+    "       return;\n"
+    "   }\n"
+    "   \n"
+    "   // Now do blue texture lookup.\n"
+    "   float blue = texture2D(texture, tcBlue).b;\n"
+    "   \n"
+    "   // Do green lookup (no scaling).\n"
+    "   vec2  tcGreen = lensCenter + scale * theta1;\n"
+	"	tcGreen = (tcGreen+1.0)/2.0;\n" // range from [-1,1] to [0,1]
+    "   vec4  center = texture2D(texture, tcGreen);\n"
+    "   \n"
+    "   // Do red scale and lookup.\n"
+    "   vec2  thetaRed = theta1 * (chromAbParam.x + chromAbParam.y * rSq);\n"
+    "   vec2  tcRed = lensCenter + scale * thetaRed;\n"
+	"	tcRed = (tcRed+1.0)/2.0;\n" // range from [-1,1] to [0,1]
+    "   float red = texture2D(texture, tcRed).r;\n"
+    "   \n"
+    "   gl_FragColor = vec4(red, center.g, blue, center.a);\n"
+    "}\n"
+};
 
 // Uniform locations for the Shader
 static struct {
@@ -110,6 +170,7 @@ static struct {
 	GLuint scale_in;
 	GLuint lens_center;
 	GLuint hmd_warp_param;
+	GLuint chrom_ab_param;
 } lens_warp_shader_uniforms;
 
 
@@ -122,7 +183,8 @@ hmd_settings_t oculus_rift_hmd = {
 	0.064,   // interpupillary_distance
 	0.064,   // lens_separation_distance
 	0.041,   // eye_to_screen_distance
-	{1.0, 0.22, 0.24, 0.0} // distortion_k
+	{1.0, 0.22, 0.24, 0.0}, // distortion_k
+	{0.996, -0.004, 1.014,0.0}
 };
 
 
@@ -136,6 +198,7 @@ extern cvar_t r_oculusrift_supersample;
 extern cvar_t r_oculusrift_prediction;
 extern cvar_t r_oculusrift_driftcorrect;
 extern cvar_t r_oculusrift_crosshair;
+extern cvar_t r_oculusrift_chromabr;
 
 extern int glx, gly, glwidth, glheight;
 extern void SCR_UpdateScreenContent();
@@ -168,30 +231,32 @@ static qboolean CompileShader(GLhandleARB shader, const char *source)
 
 static qboolean CompileShaderProgram(shader_t *shader)
 {
-    glGetError();
+	glGetError();
+	if (shader)
+	{
 
-    shader->program = glCreateProgramObjectARB();
+		shader->program = glCreateProgramObjectARB();
 
-    shader->vert_shader = glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);
-    if (!CompileShader(shader->vert_shader, shader->vert_source)) {
-        return SDL_FALSE;
-    }
+		shader->vert_shader = glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);
+		if (!CompileShader(shader->vert_shader, shader->vert_source)) {
+			return SDL_FALSE;
+		}
 
-    shader->frag_shader = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
-    if (!CompileShader(shader->frag_shader, shader->frag_source)) {
-        return SDL_FALSE;
-    }
+		shader->frag_shader = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
+		if (!CompileShader(shader->frag_shader, shader->frag_source)) {
+			return SDL_FALSE;
+		}
 
-    glAttachObjectARB(shader->program, shader->vert_shader);
-    glAttachObjectARB(shader->program, shader->frag_shader);
-    glLinkProgramARB(shader->program); 
-
-    return (glGetError() == GL_NO_ERROR);
+		glAttachObjectARB(shader->program, shader->vert_shader);
+		glAttachObjectARB(shader->program, shader->frag_shader);
+		glLinkProgramARB(shader->program); 
+	}
+	return (glGetError() == GL_NO_ERROR);
 }
 
 static void DestroyShaderProgram(shader_t *shader)
 {
-    if (shader_support) {
+    if (shader_support && shader) {
         glDeleteObjectARB(shader->vert_shader);
         glDeleteObjectARB(shader->frag_shader);
         glDeleteObjectARB(shader->program);
@@ -327,7 +392,7 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 {
 	qboolean sdkInitialized = false;
 	float aspect, r, h;
-	float *dk;
+	float *dk, *chrm;
 	float dist_scale, lens_shift;
 	float fovy;
 
@@ -344,9 +409,17 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
         return false;
     }
 	
-	rift_enabled = CompileShaderProgram(&lens_warp_shader);
+	if (r_oculusrift_chromabr.value)
+	{
+		lens_warp_shader = &lens_warp_shader_chrm;
+	} else {
+		lens_warp_shader = &lens_warp_shader_norm;
+	}
+
+	rift_enabled = CompileShaderProgram(lens_warp_shader);
 
 	if (!rift_enabled) {
+		lens_warp_shader = NULL;
 		Con_Printf("Failed to Compile Shaders");
 		return false;
 	}
@@ -357,6 +430,7 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 	h = 4.0f * (hmd->h_screen_size/4.0f - hmd->interpupillary_distance/2.0f) / hmd->h_screen_size;
 
 	dk = hmd->distortion_k;
+	chrm = hmd->chrom_abr;
 	dist_scale = (dk[0] + dk[1] * pow(r,2) + dk[2] * pow(r,4) + dk[3] * pow(r,6));
 	lens_shift = 4 * (hmd->h_screen_size/4 - hmd->lens_separation_distance/2) / hmd->h_screen_size;
 	fovy = 2 * atan2(hmd->v_screen_size * dist_scale, 2 * hmd->eye_to_screen_distance);
@@ -376,12 +450,14 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 
 	
 	// Get uniform location and set some values
-	glUseProgramObjectARB(lens_warp_shader.program);
-	lens_warp_shader_uniforms.scale = glGetUniformLocationARB(lens_warp_shader.program, "scale");
-	lens_warp_shader_uniforms.scale_in = glGetUniformLocationARB(lens_warp_shader.program, "scaleIn");
-	lens_warp_shader_uniforms.lens_center = glGetUniformLocationARB(lens_warp_shader.program, "lensCenter");
-	lens_warp_shader_uniforms.hmd_warp_param = glGetUniformLocationARB(lens_warp_shader.program, "hmdWarpParam");
+	glUseProgramObjectARB(lens_warp_shader->program);
+	lens_warp_shader_uniforms.scale = glGetUniformLocationARB(lens_warp_shader->program, "scale");
+	lens_warp_shader_uniforms.scale_in = glGetUniformLocationARB(lens_warp_shader->program, "scaleIn");
+	lens_warp_shader_uniforms.lens_center = glGetUniformLocationARB(lens_warp_shader->program, "lensCenter");
+	lens_warp_shader_uniforms.hmd_warp_param = glGetUniformLocationARB(lens_warp_shader->program, "hmdWarpParam");
+	lens_warp_shader_uniforms.chrom_ab_param = glGetUniformLocationARB(lens_warp_shader->program, "chromAbParam");
 
+	glUniform4fARB(lens_warp_shader_uniforms.chrom_ab_param,chrm[0],chrm[1],chrm[2],chrm[3]);
 	glUniform4fARB(lens_warp_shader_uniforms.hmd_warp_param, dk[0], dk[1], dk[2], dk[3]);
 	glUniform2fARB(lens_warp_shader_uniforms.scale_in, 1.0f, 1.0f/aspect);
 	glUniform2fARB(lens_warp_shader_uniforms.scale, 1.0f/dist_scale, 1.0f * aspect/dist_scale);
@@ -402,7 +478,9 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 void R_ReleaseHMDRenderer()
 {
 	if (rift_enabled) {
-		DestroyShaderProgram(&lens_warp_shader);
+	
+		DestroyShaderProgram(lens_warp_shader);
+		lens_warp_shader = NULL;
 		DeleteFBO(left_eye.fbo);
 		DeleteFBO(right_eye.fbo);
 	}
@@ -550,7 +628,7 @@ void SCR_UpdateHMDScreenContent()
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 
-	glUseProgramObjectARB(lens_warp_shader.program);
+	glUseProgramObjectARB(lens_warp_shader->program);
 	RenderEyeOnScreen(&left_eye);
 	RenderEyeOnScreen(&right_eye);
 	glUseProgramObjectARB(0);
