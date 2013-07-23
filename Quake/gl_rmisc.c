@@ -54,6 +54,7 @@ extern cvar_t r_oculusrift_prediction;
 extern cvar_t r_oculusrift_driftcorrect;
 extern cvar_t r_oculusrift_crosshair;
 extern cvar_t r_oculusrift_chromabr;
+extern cvar_t r_oculusrift_aimmode;
 //
 
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
@@ -240,6 +241,7 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_oculusrift_crosshair);
 	Cvar_RegisterVariable (&r_oculusrift_chromabr);
 	Cvar_SetCallback (&r_oculusrift_chromabr, R_OculusRift_ChromAbr_f);
+	Cvar_RegisterVariable (&r_oculusrift_aimmode);
 	//phoboslab
 
 	Cvar_RegisterVariable (&gl_zfix); // QuakeSpasm z-fighting fix

@@ -110,6 +110,7 @@ cvar_t  r_oculusrift_prediction = {"r_oculusrift_prediction","40", CVAR_NONE};
 cvar_t  r_oculusrift_driftcorrect = {"r_oculusrift_driftcorrect","1", CVAR_NONE};
 cvar_t  r_oculusrift_crosshair = {"r_oculusrift_crosshair","1", CVAR_NONE};
 cvar_t  r_oculusrift_chromabr = {"r_oculusrift_chromabr","0", CVAR_NONE};
+cvar_t  r_oculusrift_aimmode = {"r_oculusrift_aimmode","1", CVAR_NONE};
 //phoboslab
 
 

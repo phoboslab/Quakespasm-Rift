@@ -199,6 +199,7 @@ extern cvar_t r_oculusrift_prediction;
 extern cvar_t r_oculusrift_driftcorrect;
 extern cvar_t r_oculusrift_crosshair;
 extern cvar_t r_oculusrift_chromabr;
+extern cvar_t r_oculusrift_aimmode;
 
 extern int glx, gly, glwidth, glheight;
 extern void SCR_UpdateScreenContent();
@@ -594,12 +595,12 @@ void SCR_UpdateHMDScreenContent()
 	// Get current orientation of the HMD
 	GetOculusView(orientation);
 
-	if(r_oculusrift.value == 1)
+	if(r_oculusrift_aimmode.value == 1)
 	{
 		cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH]; 
 		cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW]; 
 	}
-	else if(r_oculusrift.value == 2)
+	else if(r_oculusrift_aimmode.value == 2)
 	{
 		cl.viewangles[PITCH] = orientation[PITCH];
 
@@ -718,7 +719,7 @@ void HMD_Sbar_Draw()
 
 	VectorCopy(cl.aimangles, sbar_angles)
 
-	if(r_oculusrift.value == 2)
+	if(r_oculusrift_aimmode.value == 2)
 		sbar_angles[PITCH] = 0;
 
 	AngleVectors (sbar_angles, forward, right, up);

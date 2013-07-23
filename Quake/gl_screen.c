@@ -91,6 +91,7 @@ cvar_t		scr_clock = {"scr_clock", "0", CVAR_NONE};
 
 //phoboslab -- cvars for oculus rift
 extern cvar_t r_oculusrift;
+extern cvar_t r_oculusrift_aimmode;
 //
 
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
@@ -1006,7 +1007,7 @@ void DrawRift2d ()
 
 	VectorCopy(r_refdef.aimangles, menu_angles)
 
-	if(r_oculusrift.value == 2)
+	if(r_oculusrift_aimmode.value == 2)
 		menu_angles[PITCH] = 0;
 
 	AngleVectors (menu_angles, forward, right, up);
