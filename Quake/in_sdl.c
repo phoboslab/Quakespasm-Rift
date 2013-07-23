@@ -270,7 +270,7 @@ void IN_Move (usercmd_t *cmd)
 	if ( (in_strafe.state & 1) || (lookstrafe.value && (in_mlook.state & 1) ))
 		cmd->sidemove += m_side.value * dmx;
 	else
-		cl.viewangles[YAW] -= m_yaw.value * dmx;
+		cl.aimangles[YAW] -= m_yaw.value * dmx;
 
 	if (in_mlook.state & 1)
 	{
@@ -280,12 +280,12 @@ void IN_Move (usercmd_t *cmd)
 
 	if ( (in_mlook.state & 1) && !(in_strafe.state & 1))
 	{
-		cl.viewangles[PITCH] += m_pitch.value * dmy;
+		cl.aimangles[PITCH] += m_pitch.value * dmy;
 		/* johnfitz -- variable pitch clamping */
-		if (cl.viewangles[PITCH] > cl_maxpitch.value)
-			cl.viewangles[PITCH] = cl_maxpitch.value;
-		if (cl.viewangles[PITCH] < cl_minpitch.value)
-			cl.viewangles[PITCH] = cl_minpitch.value;
+		if (cl.aimangles[PITCH] > cl_maxpitch.value)
+			cl.aimangles[PITCH] = cl_maxpitch.value;
+		if (cl.aimangles[PITCH] < cl_minpitch.value)
+			cl.aimangles[PITCH] = cl_minpitch.value;
 	}
 	else
 	{

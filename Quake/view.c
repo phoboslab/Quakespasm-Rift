@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // view.c -- player eye positioning
 
 #include "quakedef.h"
+#include "r_renderhmd.h"
 
 /*
 
@@ -577,15 +578,15 @@ void CalcGunAngle (void)
 	static float oldyaw = 0;
 	static float oldpitch = 0;
 
-	yaw = r_refdef.viewangles[YAW];
-	pitch = -r_refdef.viewangles[PITCH];
+	yaw = r_refdef.aimangles[YAW];
+	pitch = -r_refdef.aimangles[PITCH];
 
-	yaw = angledelta(yaw - r_refdef.viewangles[YAW]) * 0.4;
+	yaw = angledelta(yaw - r_refdef.aimangles[YAW]) * 0.4;
 	if (yaw > 10)
 		yaw = 10;
 	if (yaw < -10)
 		yaw = -10;
-	pitch = angledelta(-pitch - r_refdef.viewangles[PITCH]) * 0.4;
+	pitch = angledelta(-pitch - r_refdef.aimangles[PITCH]) * 0.4;
 	if (pitch > 10)
 		pitch = 10;
 	if (pitch < -10)
@@ -616,8 +617,8 @@ void CalcGunAngle (void)
 	oldyaw = yaw;
 	oldpitch = pitch;
 
-	cl.viewent.angles[YAW] = r_refdef.viewangles[YAW] + yaw;
-	cl.viewent.angles[PITCH] = - (r_refdef.viewangles[PITCH] + pitch);
+	cl.viewent.angles[YAW] = r_refdef.aimangles[YAW] + yaw;
+	cl.viewent.angles[PITCH] = - (r_refdef.aimangles[PITCH] + pitch);
 
 	cl.viewent.angles[ROLL] -= v_idlescale.value * sin(cl.time*v_iroll_cycle.value) * v_iroll_level.value;
 	cl.viewent.angles[PITCH] -= v_idlescale.value * sin(cl.time*v_ipitch_cycle.value) * v_ipitch_level.value;
@@ -716,6 +717,12 @@ void V_CalcIntermissionRefdef (void)
 	VectorCopy (ent->angles, r_refdef.viewangles);
 	view->model = NULL;
 
+	if(r_oculusrift.value)
+	{
+		VectorCopy (r_refdef.viewangles, r_refdef.aimangles);
+		V_AddOrientationToViewAngles(r_refdef.viewangles);
+	}
+
 // allways idle in intermission
 	old = v_idlescale.value;
 	v_idlescale.value = 1;
@@ -735,7 +742,7 @@ void V_CalcRefdef (void)
 	int			i;
 	vec3_t		forward, right, up;
 	vec3_t		angles;
-	float		bob;
+	float		bob = 0;
 	static float oldz = 0;
 	static vec3_t punch = {0,0,0}; //johnfitz -- v_gunkick
 	float delta; //johnfitz -- v_gunkick
@@ -753,7 +760,8 @@ void V_CalcRefdef (void)
 	ent->angles[YAW] = cl.viewangles[YAW];	// the model should face the view dir
 	ent->angles[PITCH] = -cl.viewangles[PITCH];	// the model should face the view dir
 
-	bob = V_CalcBob ();
+	if(!r_oculusrift.value)
+		bob = V_CalcBob ();
 
 // refresh position
 	VectorCopy (ent->origin, r_refdef.vieworg);
@@ -784,7 +792,7 @@ void V_CalcRefdef (void)
 	V_BoundOffsets ();
 
 // set up gun position
-	VectorCopy (cl.viewangles, view->angles);
+	VectorCopy (cl.aimangles, view->angles);
 
 	CalcGunAngle ();
 

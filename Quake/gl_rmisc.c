@@ -52,6 +52,7 @@ extern cvar_t r_oculusrift;
 extern cvar_t r_oculusrift_supersample;
 extern cvar_t r_oculusrift_prediction;
 extern cvar_t r_oculusrift_driftcorrect;
+extern cvar_t r_oculusrift_crosshair;
 //
 
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
@@ -112,12 +113,13 @@ R_OculusRift -- phoboslab
 */
 static void R_OculusRift_f (cvar_t *var)
 {
-	if (r_oculusrift.value) {
-		r_oculusrift.value = R_InitHMDRenderer(&oculus_rift_hmd);
-	}
-	else {
-		R_ReleaseHMDRenderer();
-	}
+	R_ReleaseHMDRenderer();
+
+	if (!r_oculusrift.value) 
+		return;
+
+	if( !R_InitHMDRenderer(&oculus_rift_hmd) )
+		r_oculusrift.value = 0;
 }
 
 static void R_OculusRift_SuperSample_f (cvar_t *var)
@@ -226,6 +228,7 @@ void R_Init (void)
 	Cvar_SetCallback (&r_oculusrift_prediction, R_OculusRift_Prediction_f);
 	Cvar_RegisterVariable (&r_oculusrift_driftcorrect);
 	Cvar_SetCallback (&r_oculusrift_driftcorrect, R_OculusRift_DriftCorrect_f);
+	Cvar_RegisterVariable (&r_oculusrift_crosshair);
 	//phoboslab
 
 	Cvar_RegisterVariable (&gl_zfix); // QuakeSpasm z-fighting fix

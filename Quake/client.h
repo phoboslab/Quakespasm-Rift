@@ -160,6 +160,7 @@ typedef struct
 	vec3_t		mviewangles[2];	// during demo playback viewangles is lerped
 								// between these
 	vec3_t		viewangles;
+	vec3_t		aimangles;
 
 	vec3_t		mvelocity[2];	// update by server, used for lean+bob
 								// (0 is newest)

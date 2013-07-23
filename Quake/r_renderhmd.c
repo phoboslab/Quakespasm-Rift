@@ -135,6 +135,7 @@ extern cvar_t r_oculusrift;
 extern cvar_t r_oculusrift_supersample;
 extern cvar_t r_oculusrift_prediction;
 extern cvar_t r_oculusrift_driftcorrect;
+extern cvar_t r_oculusrift_crosshair;
 
 extern int glx, gly, glwidth, glheight;
 extern void SCR_UpdateScreenContent();
@@ -320,7 +321,7 @@ extern cvar_t gl_farclip;
 static qboolean rift_enabled;
 
 static const float player_height_units = 56;
-static const float player_height_m = 1.80;
+static const float player_height_m = 1.75;
 
 qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 {
@@ -514,17 +515,25 @@ void SCR_UpdateHMDScreenContent()
 
 	// Get current orientation of the HMD
 	GetOculusView(orientation);
-	
-	cl.viewangles[PITCH] = orientation[PITCH];
-	cl.viewangles[YAW] = cl.viewangles[YAW] + orientation[YAW] - lastYaw;
-	cl.viewangles[ROLL] = orientation[ROLL];
 
-	r_refdef.viewangles[PITCH] = cl.viewangles[PITCH];
-	r_refdef.viewangles[YAW] = cl.viewangles[YAW];
-	r_refdef.viewangles[ROLL] = cl.viewangles[ROLL];
+	if(r_oculusrift.value == 1)
+	{
+		cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH]; 
+		cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW]; 
+	}
+	else if(r_oculusrift.value == 2)
+	{
+		cl.viewangles[PITCH] = orientation[PITCH];
 
-	lastYaw = orientation[YAW];
+		cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
 
+		lastYaw = orientation[YAW];
+	}
+
+	cl.viewangles[ROLL]  = orientation[ROLL];
+
+	VectorCopy (cl.viewangles, r_refdef.viewangles);
+	VectorCopy (cl.aimangles, r_refdef.aimangles);
 
 	// Render the scene for each eye into their FBOs
 	RenderScreenForEye(&left_eye);
@@ -546,3 +555,113 @@ void SCR_UpdateHMDScreenContent()
 	RenderEyeOnScreen(&right_eye);
 	glUseProgramObjectARB(0);
 }
+
+void V_AddOrientationToViewAngles(vec3_t angles)
+{
+	vec3_t orientation;
+
+	// Get current orientation of the HMD
+	GetOculusView(orientation);
+
+	angles[PITCH] = angles[PITCH] + orientation[PITCH]; 
+	angles[YAW] = angles[YAW] + orientation[YAW]; 
+	angles[ROLL] = orientation[ROLL];
+}
+
+void R_ShowHMDCrosshair ()
+{
+	vec3_t forward, up, right;
+	vec3_t start, end, impact;
+	
+	if(sv_player && (int)(sv_player->v.weapon) == IT_AXE)
+		return;
+
+	// setup gl
+	glDisable (GL_DEPTH_TEST);
+	glPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
+	GL_PolygonOffset (OFFSET_SHOWTRIS);
+	glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDisable (GL_TEXTURE_2D);
+	glDisable (GL_CULL_FACE);
+
+	// calc the line and draw
+	VectorCopy (cl.viewent.origin, start);
+
+	start[2] -= cl.viewheight - 10;
+
+	AngleVectors (cl.aimangles, forward, right, up);
+
+	VectorMA (start, 4096, forward, end);
+
+	TraceLine (start, end, impact); // todo - trace to nearest entity
+
+	// point crosshair
+	if(r_oculusrift_crosshair.value == 1)
+	{
+		glColor4f (1, 0, 0, 0.5);
+		glPointSize( 3.0 );
+
+		glBegin(GL_POINTS);
+ 
+		glVertex3f (impact[0], impact[1], impact[2]);
+ 
+		glEnd();
+	}
+
+	// laser crosshair
+	else if(r_oculusrift_crosshair.value == 2)
+	{ 
+		glColor4f (1, 0, 0, 0.4);
+
+		glBegin (GL_LINES);
+		glVertex3f (start[0], start[1], start[2]);
+		glVertex3f (impact[0], impact[1], impact[2]);
+		glEnd ();
+	}
+
+	// cleanup gl
+	glColor3f (1,1,1);
+	glEnable (GL_TEXTURE_2D);
+	glEnable (GL_CULL_FACE);
+	glDisable(GL_BLEND);
+	glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
+	GL_PolygonOffset (OFFSET_NONE);
+	glEnable (GL_DEPTH_TEST);
+}
+
+void HMD_Sbar_Draw()
+{	
+	vec3_t sbar_angles, forward, right, up, target;
+	float scale_hud = 0.04;
+
+	glPushMatrix();
+	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another
+
+	VectorCopy(cl.aimangles, sbar_angles)
+
+	if(r_oculusrift.value == 2)
+		sbar_angles[PITCH] = 0;
+
+	AngleVectors (sbar_angles, forward, right, up);
+
+	VectorMA (cl.viewent.origin, -0.7, forward, target);
+
+	glTranslatef (target[0],  target[1],  target[2]);
+	
+	glRotatef(sbar_angles[YAW] - 90, 0, 0, 1); // rotate around z
+
+	glRotatef(90 + 45 + sbar_angles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
+
+	glTranslatef (-(320.0 * scale_hud / 2), 0, 0); // center the status bar
+
+	glTranslatef (0,  0,  10); // move hud down a bit
+
+	glScalef(scale_hud, scale_hud, scale_hud);
+
+	Sbar_Draw ();
+
+	glEnable (GL_DEPTH_TEST);
+	glPopMatrix();
+}
+
