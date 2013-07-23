@@ -10,6 +10,7 @@ qboolean R_InitHMDRenderer(struct hmd_settings_t *hmd);
 void R_ReleaseHMDRenderer();
 void R_SetHMDPredictionTime();
 void R_SetHMDDriftCorrection();
+void R_SetHMDChromaAbr();
 
 void SCR_UpdateHMDScreenContent();
 
