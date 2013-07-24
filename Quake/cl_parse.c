@@ -1019,7 +1019,7 @@ void CL_ParseServerMessage (void)
 
 		case svc_setangle:
 			for (i=0 ; i<3 ; i++)
-				cl.viewangles[i] = MSG_ReadAngle ();
+				cl.aimangles[i] = MSG_ReadAngle ();
 			break;
 
 		case svc_setview:
