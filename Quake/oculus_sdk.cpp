@@ -12,6 +12,7 @@ static OVR::HMDDevice *hmd;
 static OVR::SensorDevice *sensor;
 static OVR::SensorFusion *fusion;
 static OVR::Util::MagCalibration *magnet;
+static OVR::HMDInfo hmdinfo;
 
 int InitOculusSDK()
 {
@@ -110,4 +111,27 @@ void SetOculusDriftCorrect(int enable)
 	} else {
 		magnet->ClearCalibration(*fusion);
 	}
+}
+
+int GetOculusDeviceInfo(unsigned int *h_resolution, unsigned int *v_resolution, float *h_screen_size, 
+				        float *v_screen_size, float *interpupillary_distance, float *lens_separation_distance, 
+				        float *eye_to_screen_distance, float* distortion_k, float* chrom_abr)
+{
+	if(!hmd->GetDeviceInfo(&hmdinfo)) {
+		return 0;
+	}
+
+	*h_resolution = hmdinfo.HResolution;
+	*v_resolution = hmdinfo.VResolution;
+	*h_screen_size = hmdinfo.HScreenSize;
+	*v_screen_size = hmdinfo.VScreenSize;
+
+	*interpupillary_distance = hmdinfo.InterpupillaryDistance;
+	*lens_separation_distance = hmdinfo.LensSeparationDistance;
+	*eye_to_screen_distance = hmdinfo.EyeToScreenDistance;
+
+	memcpy(distortion_k, hmdinfo.DistortionK, sizeof(float) * 4);
+	memcpy(chrom_abr, hmdinfo.ChromaAbCorrection, sizeof(float) * 4);
+
+	return 1;
 }

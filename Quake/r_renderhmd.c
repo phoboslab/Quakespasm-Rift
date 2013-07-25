@@ -3,7 +3,6 @@
 #include "quakedef.h"
 #include "oculus_sdk.h"
 
-
 typedef struct {
     GLhandleARB program;
     GLhandleARB vert_shader;
@@ -14,8 +13,8 @@ typedef struct {
 
 
 typedef struct {
-	float h_resolution;
-	float v_resolution;
+	unsigned int h_resolution;
+	unsigned int v_resolution;
 	float h_screen_size;
 	float v_screen_size;
 	float interpupillary_distance;
@@ -40,7 +39,6 @@ typedef struct {
 	fbo_t fbo;
 	float projection_matrix[16];
 } hmd_eye_t;
-
 
 // GL Extensions
 static PFNGLATTACHOBJECTARBPROC glAttachObjectARB;
@@ -174,7 +172,7 @@ static struct {
 } lens_warp_shader_uniforms;
 
 
-// HMD Settings for OculusRift
+// HMD Settings for OculusRift - Default, overwritten by GetOculusDeviceInfo
 hmd_settings_t oculus_rift_hmd = {
 	1280,    // h_resolution
 	800,     // v_resolution
@@ -390,8 +388,9 @@ static qboolean rift_enabled;
 static const float player_height_units = 56;
 static const float player_height_m = 1.75;
 
-qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
+qboolean R_InitHMDRenderer()
 {
+	hmd_settings_t *hmd = &oculus_rift_hmd;
 	qboolean sdkInitialized = false;
 	float aspect, r, h;
 	float *dk, *chrm;
@@ -403,6 +402,17 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 	// convert milliseconds to seconds
 	float prediction = r_oculusrift_prediction.value / 1000.0f;
 	int driftcorrection = (int) r_oculusrift_driftcorrect.value;
+
+	sdkInitialized = InitOculusSDK();
+
+	if (!sdkInitialized) {
+		Con_Printf("Failed to Initialize Oculus SDK");
+		return false;
+	}
+
+	GetOculusDeviceInfo(&hmd->h_resolution, &hmd->v_resolution, &hmd->h_screen_size, 
+						&hmd->v_screen_size, &hmd->interpupillary_distance, &hmd->lens_separation_distance, 
+						&hmd->eye_to_screen_distance, hmd->distortion_k, hmd->chrom_abr);
 
 	shader_support = InitShaderExtension();   
 
@@ -465,12 +475,7 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 	glUniform2fARB(lens_warp_shader_uniforms.scale, 1.0f/dist_scale, 1.0f * aspect/dist_scale);
 	glUseProgramObjectARB(0);
 
-	sdkInitialized = InitOculusSDK();
 
-	if (!sdkInitialized) {
-		Con_Printf("Failed to Initialize Oculus SDK");
-		return false;
-	}
 
 	SetOculusPrediction(prediction);
 	SetOculusDriftCorrect(driftcorrection);

@@ -366,7 +366,7 @@ static void VID_Restart (void)
 	}
 
 	if (r_oculusrift.value) { // phoboslab
-		R_InitHMDRenderer(&oculus_rift_hmd);
+		R_InitHMDRenderer();
 	}
 }
 

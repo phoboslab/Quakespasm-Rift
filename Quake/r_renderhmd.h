@@ -6,7 +6,7 @@
 struct hmd_settings_t;
 extern struct hmd_settings_t oculus_rift_hmd;
 
-qboolean R_InitHMDRenderer(struct hmd_settings_t *hmd);
+qboolean R_InitHMDRenderer();
 void R_ReleaseHMDRenderer();
 void R_SetHMDPredictionTime();
 void R_SetHMDDriftCorrection();
