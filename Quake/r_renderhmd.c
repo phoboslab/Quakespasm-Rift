@@ -429,7 +429,7 @@ qboolean R_InitHMDRenderer(hmd_settings_t *hmd)
 	// Calculate lens distortion and fov
 	aspect = hmd->h_resolution / (2.0f * hmd->v_resolution);
 	r = -1.0f - (4.0f * (hmd->h_screen_size/4.0f - hmd->lens_separation_distance/2.0f) / hmd->h_screen_size);
-	h = 4.0f * (hmd->h_screen_size/4.0f - hmd->interpupillary_distance/2.0f) / hmd->h_screen_size;
+	h = 4.0f * (hmd->h_screen_size/4.0f - hmd->lens_separation_distance/2.0f) / hmd->h_screen_size;
 
 	dk = hmd->distortion_k;
 	chrm = hmd->chrom_abr;
