@@ -479,6 +479,10 @@ qboolean R_InitHMDRenderer()
 
 	SetOculusPrediction(prediction);
 	SetOculusDriftCorrect(driftcorrection);
+
+	Con_Printf("Your IPD is set to %.1fmm\n", hmd->interpupillary_distance * 1000);
+	Con_Printf("Use the Rift Configuration Utility to calibrate\n");
+
 	return true;
 }
 
