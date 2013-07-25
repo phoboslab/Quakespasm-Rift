@@ -111,6 +111,7 @@ cvar_t  r_oculusrift_driftcorrect = {"r_oculusrift_driftcorrect","1", CVAR_NONE}
 cvar_t  r_oculusrift_crosshair = {"r_oculusrift_crosshair","1", CVAR_NONE};
 cvar_t  r_oculusrift_chromabr = {"r_oculusrift_chromabr","0", CVAR_NONE};
 cvar_t  r_oculusrift_aimmode = {"r_oculusrift_aimmode","1", CVAR_NONE};
+cvar_t  r_oculusrift_showweapon = {"r_oculusrift_showweapon","1", CVAR_NONE};
 //phoboslab
 
 
@@ -551,6 +552,9 @@ void R_DrawViewModel (void)
 	// JM - turned off this hack because it doesn't look right in 3d
 	// also the axe going right into enemies is awesome
 	
+	if(r_oculusrift.value && !r_oculusrift_showweapon.value)
+		return;
+
 	//glDepthRange (0, 0.3);
 	R_DrawAliasModel (currententity);
 	//glDepthRange (0, 1);
