@@ -135,3 +135,9 @@ int GetOculusDeviceInfo(unsigned int *h_resolution, unsigned int *v_resolution, 
 
 	return 1;
 }
+
+void ResetOculusOrientation()
+{
+	if(fusion)
+		fusion->Reset();
+}

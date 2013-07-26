@@ -15,6 +15,8 @@ int GetOculusDeviceInfo(unsigned int *h_resolution, unsigned int *v_resolution, 
 					    float *v_screen_size, float *interpupillary_distance, float *lens_separation_distance, 
 				        float *eye_to_screen_distance, float* distortion_k, float* chrom_abr);
 
+void ResetOculusOrientation();
+
 #ifdef __cplusplus
 }
 #endif

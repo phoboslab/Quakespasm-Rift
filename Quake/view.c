@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "r_renderhmd.h"
+#include "oculus_sdk.h"
 
 /*
 
@@ -147,6 +148,13 @@ cvar_t	v_centerspeed = {"v_centerspeed","500", CVAR_NONE};
 
 void V_StartPitchDrift (void)
 {
+	if(r_oculusrift.value)
+	{
+		VectorCopy(cl.viewangles, cl.aimangles);
+		ResetOculusOrientation();
+		return;
+	}
+
 #if 1
 	if (cl.laststop == cl.time)
 	{
