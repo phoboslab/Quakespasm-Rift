@@ -539,10 +539,12 @@ void V_PolyBlend (void)
 	glEnable (GL_BLEND);
 
 	glMatrixMode(GL_PROJECTION);
-    glLoadIdentity ();
+	glPushMatrix();
+	glLoadIdentity ();
 	glOrtho (0, 1, 1, 0, -99999, 99999);
 	glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity ();
+	glPushMatrix();
+	glLoadIdentity ();
 
 	glColor4fv (v_blend);
 
@@ -552,6 +554,12 @@ void V_PolyBlend (void)
 	glVertex2f (1, 1);
 	glVertex2f (0, 1);
 	glEnd ();
+
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+
+	glMatrixMode(GL_MODELVIEW);
+	glPopMatrix();
 
 	glDisable (GL_BLEND);
 	glEnable (GL_DEPTH_TEST);
