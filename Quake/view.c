@@ -150,7 +150,8 @@ void V_StartPitchDrift (void)
 {
 	if(r_oculusrift.value)
 	{
-		VectorCopy(cl.viewangles, cl.aimangles);
+		cl.aimangles[YAW] = cl.viewangles[YAW];
+		cl.aimangles[PITCH] = cl.viewangles[PITCH];
 		ResetOculusOrientation();
 		return;
 	}
