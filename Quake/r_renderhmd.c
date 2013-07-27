@@ -607,15 +607,15 @@ void SCR_UpdateHMDScreenContent()
 
 	if(r_oculusrift_aimmode.value == 1)
 	{
-		cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH]; 
-		cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW]; 
-	}
-	else if(r_oculusrift_aimmode.value == 2)
-	{
 		cl.viewangles[PITCH] = cl.aimangles[PITCH] = orientation[PITCH];
 		cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
 
 		lastYaw = orientation[YAW];
+	}
+	else if(r_oculusrift_aimmode.value == 2)
+	{
+		cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH];
+		cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW];
 	}
 
 	cl.viewangles[ROLL]  = orientation[ROLL];
@@ -731,7 +731,7 @@ void HMD_Sbar_Draw()
 
 	VectorCopy(cl.aimangles, sbar_angles)
 
-	if(r_oculusrift_aimmode.value == 2)
+	if(r_oculusrift_aimmode.value == 1)
 		sbar_angles[PITCH] = 0;
 
 	AngleVectors (sbar_angles, forward, right, up);
