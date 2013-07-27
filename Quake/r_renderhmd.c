@@ -612,8 +612,7 @@ void SCR_UpdateHMDScreenContent()
 	}
 	else if(r_oculusrift_aimmode.value == 2)
 	{
-		cl.viewangles[PITCH] = orientation[PITCH];
-
+		cl.viewangles[PITCH] = cl.aimangles[PITCH] = orientation[PITCH];
 		cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
 
 		lastYaw = orientation[YAW];
