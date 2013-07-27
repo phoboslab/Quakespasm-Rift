@@ -13,6 +13,8 @@ void R_ReleaseHMDRenderer();
 
 void R_SetHMDPredictionTime();
 void R_SetHMDDriftCorrection();
+void R_SetHMDChromaAbr();
+void R_SetHMDIPD();
 
 void SCR_UpdateHMDScreenContent();
 void R_ShowHMDCrosshair();

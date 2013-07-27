@@ -162,6 +162,7 @@ static hmd_eye_t left_eye = {0, 0, {0, 0, 0.5, 1}, 0};
 static hmd_eye_t right_eye = {0, 0, {0.5, 0, 0.5, 1}, 0};
 static float viewport_fov_x;
 static float viewport_fov_y;
+static float hmd_ipd;
 
 static qboolean rift_enabled;
 static qboolean shader_support;
@@ -177,6 +178,7 @@ extern cvar_t r_oculusrift_driftcorrect;
 extern cvar_t r_oculusrift_crosshair;
 extern cvar_t r_oculusrift_chromabr;
 extern cvar_t r_oculusrift_aimmode;
+extern cvar_t r_oculusrift_ipd;
 
 extern cvar_t gl_farclip;
 extern cvar_t r_stereodepth;
@@ -374,6 +376,52 @@ void CreatePerspectiveMatrix(float *out, float fovy, float aspect, float nearf, 
 float hmd_view_offset;
 float *hmd_projection_matrix = NULL;
 
+void R_SetHMDIPD()
+{
+	if (rift_enabled)
+	{
+		if (r_oculusrift_ipd.value < 0.0 || r_oculusrift_ipd.value > 100.0)
+		{
+			Cvar_SetValueQuick(&r_oculusrift_ipd, hmd_ipd * 1000.0);
+			return;
+		}
+		
+		left_eye.offset = -player_height_units * (r_oculusrift_ipd.value/(player_height_m * 1000.0)) * 0.5;
+		right_eye.offset = -left_eye.offset;
+		Con_Printf("Your IPD is set to %.1fmm\n", r_oculusrift_ipd.value);
+
+	}
+}
+
+void R_SetHMDPredictionTime()
+{
+	if (rift_enabled) {
+
+		// set cap prediction time between 0ms and 75ms
+
+		float time =  r_oculusrift_prediction.value < 75.0f ?  r_oculusrift_prediction.value : 75.0f;
+		time = time > 0.0f ? time : 0.0f;
+
+		if (time != r_oculusrift_prediction.value)
+		{
+			Cvar_SetValueQuick(&r_oculusrift_prediction,time);
+			return;
+		}
+
+		time /= 1000.0f;
+		SetOculusPrediction(time);
+
+		Con_Printf("Motion prediction is set to %.1fms\n",r_oculusrift_prediction.value);
+	}
+}
+
+void R_SetHMDDriftCorrection()
+{
+	if (rift_enabled) {
+		SetOculusDriftCorrect((int) r_oculusrift_driftcorrect.value);
+	}
+}
+
 qboolean R_InitHMDRenderer()
 {
 	hmd_settings_t hmd;
@@ -381,7 +429,7 @@ qboolean R_InitHMDRenderer()
 	qboolean sdkInitialized = false;
 	float aspect, r, h;
 	float *dk, *chrm;
-	float dist_scale, lens_shift;
+	float dist_scale;
 	float fovy;
 
 	float ss = r_oculusrift_supersample.value;
@@ -420,28 +468,28 @@ qboolean R_InitHMDRenderer()
 		Con_Printf("Failed to Compile Shaders");
 		return false;
 	}
+	
+
+	hmd_ipd = hmd.interpupillary_distance;
 
 	// Calculate lens distortion and fov
 	aspect = hmd.h_resolution / (2.0f * hmd.v_resolution);
-	r = -1.0f - (4.0f * (hmd.h_screen_size/4.0f - hmd.lens_separation_distance/2.0f) / hmd.h_screen_size);
-	h = 4.0f * (hmd.h_screen_size/4.0f - hmd.lens_separation_distance/2.0f) / hmd.h_screen_size;
+	h = 1.0f - (2.0f * hmd.lens_separation_distance) / hmd.h_screen_size;
+	r = -1.0f - h;
 
 	dk = hmd.distortion_k;
 	chrm = hmd.chrom_abr;
 	dist_scale = (dk[0] + dk[1] * pow(r,2) + dk[2] * pow(r,4) + dk[3] * pow(r,6));
-	lens_shift = 4 * (hmd.h_screen_size/4 - hmd.lens_separation_distance/2) / hmd.h_screen_size;
 	fovy = 2 * atan2(hmd.v_screen_size * dist_scale, 2 * hmd.eye_to_screen_distance);
 	viewport_fov_y = fovy * 180 / M_PI;
 	viewport_fov_x = viewport_fov_y * aspect;
 
 	// Set up eyes
-	left_eye.offset = -player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
-	left_eye.lens_shift = lens_shift;
+	left_eye.lens_shift = h;
 	left_eye.fbo = CreateFBO(glwidth * left_eye.viewport.width * ss, glheight * left_eye.viewport.height * ss);
 	CreatePerspectiveMatrix(left_eye.projection_matrix, fovy, aspect, 4, gl_farclip.value, h);
 
-	right_eye.offset = player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
-	right_eye.lens_shift = -lens_shift;
+	right_eye.lens_shift = -h;
 	right_eye.fbo = CreateFBO(glwidth * right_eye.viewport.width * ss, glheight * right_eye.viewport.height * ss);
 	CreatePerspectiveMatrix(right_eye.projection_matrix, fovy, aspect, 4, gl_farclip.value, -h);
 
@@ -460,11 +508,9 @@ qboolean R_InitHMDRenderer()
 	glUniform2fARB(lens_warp.uniform.scale, 1.0f/dist_scale, 1.0f * aspect/dist_scale);
 	glUseProgramObjectARB(0);
 
-	SetOculusPrediction(prediction);
+	R_SetHMDIPD();
+	R_SetHMDPredictionTime();
 	SetOculusDriftCorrect(driftcorrection);
-
-	Con_Printf("Your IPD is set to %.1fmm\n", hmd.interpupillary_distance * 1000);
-	Con_Printf("Use the Rift Configuration Utility to calibrate\n");
 
 	return true;
 }
@@ -483,25 +529,6 @@ void R_ReleaseHMDRenderer()
 
 	vid.recalc_refdef = true;
 }
-
-void R_SetHMDPredictionTime()
-{
-	if (rift_enabled)
-	{
-		float prediction = r_oculusrift_prediction.value / 1000.0f;
-		SetOculusPrediction(prediction);
-	}
-}
-
-void R_SetHMDDriftCorrection()
-{
-	if (rift_enabled)
-	{
-		SetOculusDriftCorrect((int) r_oculusrift_driftcorrect.value);
-	}
-}
-
-
 
 void RenderScreenForEye(hmd_eye_t *eye)
 {

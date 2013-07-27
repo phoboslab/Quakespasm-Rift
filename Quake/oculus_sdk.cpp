@@ -34,7 +34,7 @@ int InitOculusSDK()
 	fusion->AttachToSensor(sensor);
 	fusion->SetYawCorrectionEnabled(true);
 
-	magnet = new OVR::Util::MagCalibration();
+	magnet = NULL;
 
 	return 1;
 }
@@ -92,8 +92,8 @@ void SetOculusPrediction(float time)
 		return;
 	}
 	if (time > 0.0f) {
-		// cap prediction time at 75ms
-		fusion->SetPrediction(time < 0.075f ? time : 0.075f, true);
+
+		fusion->SetPrediction(time, true);
 	} else {
 		fusion->SetPrediction(0.0f,false);
 	}
@@ -107,15 +107,22 @@ void SetOculusDriftCorrect(int enable)
 	}
 
 	if (enable) {
+		if (!magnet)
+				magnet = new OVR::Util::MagCalibration();
 		magnet->BeginAutoCalibration(*fusion);
 	} else {
-		magnet->ClearCalibration(*fusion);
+		if (magnet)
+		{
+			magnet->ClearCalibration(*fusion);
+			delete magnet;
+			magnet = NULL;
+		}
 	}
 }
 
 int GetOculusDeviceInfo(hmd_settings_t *hmd_settings)
 {
-	if(!hmd->GetDeviceInfo(&hmdinfo)) {
+	if(!hmd || !hmd->GetDeviceInfo(&hmdinfo)) {
 		return 0;
 	}
 
@@ -138,4 +145,9 @@ void ResetOculusOrientation()
 {
 	if(fusion)
 		fusion->Reset();
+
+	if (magnet && magnet->IsAutoCalibrating()) {
+		magnet->BeginAutoCalibration(*fusion);
+	}
+
 }
