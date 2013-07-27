@@ -1,18 +1,17 @@
-## RiftQuake
+# Quake for Oculus Rift
 
-[Download Here](https://github.com/swax/Quakespasm-Rift/releases)
+Based on [Quakespasm](http://quakespasm.sourceforge.net/). This enables support for the Oculus Rift for idsoftware's original Quake. You need the Oculus SDK and SDL to compile this.
 
-This is a mod to the rift quakespasm mod by [@phoboslab](https://github.com/phoboslab)
+More info: http://phoboslab.org/log/2013/07/quake-for-oculus-rift
 
-Improvements:
-* Minimal head movement. The center of the crosshair is always in front of your face. Moving your head looks around relative to the crosshair.
-* More accurate. Only your mouse controls the crosshair. Moving you head does not change your aim.
-* 3D Crosshair. Projected out in 3D space at whatever you're pointing at.
-* Menus and console rendered in the 3D world.
 
-Use ~ to access the console and type 'r_oculusrift 1' to activate the rift view. 
+Use ~ to access the console and type `r_oculusrift 1` to activate the rift view. You may want to disable view bobbing with `cl_bob 0`.
 
-Enjoy,
-[@swax](https://github.com/swax) 
+## Additional cvars:
+- `r_oculusrift_supersample` – Supersampling. Default 2.
+- `r_oculusrift_prediction` – Prediction time in milliseconds. Default 40.
+- `r_oculusrift_driftcorrect` – Use magnetic drift correction. Default 1.
+- `r_oculusrift_crosshair` – 0: disabled, 1: point, 2: laser sight
+- `r_oculusrift_chromabr` – Use chromatic aberration compensation. Default 0.
+- `r_oculusrift_aimmode` – 1: Head Aiming, 2: Head Aiming + mouse pitch, 3: Mouse aiming, 4: Mouse aiming + mouse pitch. Default 1.
 
-PS Valve - Please make this 'vr_moveaim_mode 9' in tf2 :smile:
