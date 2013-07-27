@@ -1007,7 +1007,7 @@ void DrawRift2d ()
 
 	VectorCopy(r_refdef.aimangles, menu_angles)
 
-	if(r_oculusrift_aimmode.value == 1)
+	if (r_oculusrift_aimmode.value == HMD_AIMMODE_HEAD_MYAW || r_oculusrift_aimmode.value == HMD_AIMMODE_HEAD_MYAW_MPITCH)
 		menu_angles[PITCH] = 0;
 
 	AngleVectors (menu_angles, forward, right, up);

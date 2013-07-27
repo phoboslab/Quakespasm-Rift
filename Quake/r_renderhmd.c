@@ -1,6 +1,7 @@
 // 2013 Dominic Szablewski - phoboslab.org
 
 #include "quakedef.h"
+#include "r_renderhmd.h"
 #include "oculus_sdk.h"
 
 typedef struct {
@@ -569,27 +570,46 @@ void RenderEyeOnScreen(hmd_eye_t *eye)
 
 void SCR_UpdateHMDScreenContent()
 {
-	static float lastYaw;
+	static float lastYaw, lastPitch;
 	vec3_t orientation;
 
 	// Get current orientation of the HMD
 	GetOculusView(orientation);
 
-	if(r_oculusrift_aimmode.value == 1)
+	switch( (int)r_oculusrift_aimmode.value )
 	{
-		cl.viewangles[PITCH] = cl.aimangles[PITCH] = orientation[PITCH];
-		cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
-
-		lastYaw = orientation[YAW];
-	}
-	else if(r_oculusrift_aimmode.value == 2)
-	{
-		cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH];
-		cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW];
+		// 1: (Default) Head Aiming; View YAW is mouse+head, PITCH is head
+		default:
+		case HMD_AIMMODE_HEAD_MYAW:
+			cl.viewangles[PITCH] = cl.aimangles[PITCH] = orientation[PITCH];
+			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
+			break;
+		
+		// 2: Head Aiming; View YAW and PITCH is mouse+head
+		case HMD_AIMMODE_HEAD_MYAW_MPITCH:
+			cl.viewangles[PITCH] = cl.aimangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH] - lastPitch;
+			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
+			break;
+		
+		// 3: Mouse Aiming; View YAW is mouse+head, PITCH is head
+		case HMD_AIMMODE_MOUSE_MYAW:
+			cl.viewangles[PITCH] = orientation[PITCH];
+			cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW];
+			break;
+		
+		// 4: Mouse Aiming; View YAW and PITCH is mouse+head
+		case HMD_AIMMODE_MOUSE_MYAW_MPITCH:
+			cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH];
+			cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW];
+			break;
 	}
 
 	cl.viewangles[ROLL]  = orientation[ROLL];
 
+	lastPitch = orientation[PITCH];
+	lastYaw = orientation[YAW];
+	
+	
 	VectorCopy (cl.viewangles, r_refdef.viewangles);
 	VectorCopy (cl.aimangles, r_refdef.aimangles);
 
@@ -695,7 +715,7 @@ void HMD_Sbar_Draw()
 
 	VectorCopy(cl.aimangles, sbar_angles)
 
-	if (r_oculusrift_aimmode.value == 1)
+	if (r_oculusrift_aimmode.value == HMD_AIMMODE_HEAD_MYAW || r_oculusrift_aimmode.value == HMD_AIMMODE_HEAD_MYAW_MPITCH)
 		sbar_angles[PITCH] = 0;
 
 	AngleVectors (sbar_angles, forward, right, up);
