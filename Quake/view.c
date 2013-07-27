@@ -707,7 +707,10 @@ void V_CalcViewRoll (void)
 
 	if (cl.stats[STAT_HEALTH] <= 0)
 	{
-		r_refdef.viewangles[ROLL] = 80;	// dead view angle
+		// only roll when the rift is not enabled
+		if (!r_oculusrift.value)
+			r_refdef.viewangles[ROLL] = 80;	// dead view angle
+		
 		return;
 	}
 
