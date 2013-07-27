@@ -177,7 +177,6 @@ extern cvar_t r_oculusrift_driftcorrect;
 extern cvar_t r_oculusrift_crosshair;
 extern cvar_t r_oculusrift_chromabr;
 extern cvar_t r_oculusrift_aimmode;
-extern cvar_t r_oculusrift_showweapon;
 
 extern cvar_t gl_farclip;
 extern cvar_t r_stereodepth;
@@ -706,9 +705,6 @@ void HMD_Sbar_Draw()
 {	
 	vec3_t sbar_angles, forward, right, up, target;
 	float scale_hud = 0.04;
-
-	if (!r_oculusrift_showweapon.value)
-		return;
 
 	glPushMatrix();
 	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another

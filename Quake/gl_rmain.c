@@ -111,7 +111,6 @@ cvar_t  r_oculusrift_driftcorrect = {"r_oculusrift_driftcorrect","1", CVAR_ARCHI
 cvar_t  r_oculusrift_crosshair = {"r_oculusrift_crosshair","1", CVAR_ARCHIVE};
 cvar_t  r_oculusrift_chromabr = {"r_oculusrift_chromabr","0", CVAR_ARCHIVE};
 cvar_t  r_oculusrift_aimmode = {"r_oculusrift_aimmode","1", CVAR_ARCHIVE};
-cvar_t  r_oculusrift_showweapon = {"r_oculusrift_showweapon","1", CVAR_ARCHIVE};
 //phoboslab
 
 
@@ -529,9 +528,15 @@ R_DrawViewModel -- johnfitz -- gutted
 */
 void R_DrawViewModel (void)
 {
-	if (!r_drawviewmodel.value || !r_drawentities.value || chase_active.value)
+	if (chase_active.value)
 		return;
 
+	if(r_oculusrift.value && r_oculusrift_crosshair.value)
+		R_ShowHMDCrosshair();
+
+	if (!r_drawviewmodel.value || !r_drawentities.value )
+		return;
+	
 	if (cl.items & IT_INVISIBILITY || cl.stats[STAT_HEALTH] <= 0)
 		return;
 
@@ -544,16 +549,11 @@ void R_DrawViewModel (void)
 		return;
 	//johnfitz
 
-	if(r_oculusrift.value && r_oculusrift_crosshair.value)
-		R_ShowHMDCrosshair();
 
 	// hack the depth range to prevent view model from poking into walls
 	
 	// JM - turned off this hack because it doesn't look right in 3d
 	// also the axe going right into enemies is awesome
-	
-	if(r_oculusrift.value && !r_oculusrift_showweapon.value)
-		return;
 
 	//glDepthRange (0, 0.3);
 	R_DrawAliasModel (currententity);
