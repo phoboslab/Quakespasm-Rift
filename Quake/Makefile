@@ -1,5 +1,6 @@
 # GNU Makefile for QuakeSpasm unix targets, Oct. 25, 2012
 # You need the SDL library fully installed.
+# "make OVR_SDK=/path/to/LibOVR" (from the Oculus SDK) to build
 # "make DEBUG=1" to build a debug client.
 # "make SDL_CONFIG=/path/to/sdl-config" for unusual SDL installations.
 # "make SDLNET=1" to use SDL_net (NOT recommended) instead of platform
@@ -35,7 +36,7 @@ SDLNET  ?= 0
 # build variables
 # ---------------------------
 
-CC ?= gcc
+CC = g++
 LINKER = $(CC)
 
 STRIP ?= strip
@@ -64,6 +65,15 @@ define do_strip
 	$(call cmd_strip,$(1));
 endef
 endif
+
+### OculusVR support
+CFLAGS  += -I$(LIBOVR)/Include/
+ifneq ($(DEBUG),0)
+LDFLAGS += -L$(LIBOVR)/Lib/Linux/Debug/x86_64/
+else
+LDFLAGS += -L$(LIBOVR)/Lib/Linux/Release/x86_64/
+endif
+LDFLAGS += -lovr -lX11 -lpthread -ludev -lXinerama
 
 ### X11BASE only gets used if its in an unusual place
 
@@ -163,6 +173,9 @@ DEFAULT_TARGET := quakespasm
 %.o:	%.c
 	$(CC) $(DFLAGS) -c $(CFLAGS) $(SDL_CFLAGS) -o $@ $^
 
+%.o:	%.cpp
+	$(CC) $(DFLAGS) -c $(CFLAGS) $(SDL_CFLAGS) -o $@ $^
+
 # ----------------------------------------------------------------------------
 # objects
 # ----------------------------------------------------------------------------
@@ -205,6 +218,7 @@ GLOBJS = \
 	r_sprite.o \
 	r_alias.o \
 	r_brush.o \
+	r_renderhmd.o \
 	gl_model.o
 
 OBJS := strlcat.o \
@@ -238,6 +252,7 @@ OBJS := strlcat.o \
 	host.o \
 	host_cmd.o \
 	mathlib.o \
+	oculus_sdk.o \
 	pr_cmds.o \
 	pr_edict.o \
 	pr_exec.o \
