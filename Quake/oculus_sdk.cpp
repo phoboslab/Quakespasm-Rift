@@ -113,25 +113,23 @@ void SetOculusDriftCorrect(int enable)
 	}
 }
 
-int GetOculusDeviceInfo(unsigned int *h_resolution, unsigned int *v_resolution, float *h_screen_size, 
-				        float *v_screen_size, float *interpupillary_distance, float *lens_separation_distance, 
-				        float *eye_to_screen_distance, float* distortion_k, float* chrom_abr)
+int GetOculusDeviceInfo(hmd_settings_t *hmd_settings)
 {
 	if(!hmd->GetDeviceInfo(&hmdinfo)) {
 		return 0;
 	}
 
-	*h_resolution = hmdinfo.HResolution;
-	*v_resolution = hmdinfo.VResolution;
-	*h_screen_size = hmdinfo.HScreenSize;
-	*v_screen_size = hmdinfo.VScreenSize;
+	hmd_settings->h_resolution = hmdinfo.HResolution;
+	hmd_settings->v_resolution = hmdinfo.VResolution;
+	hmd_settings->h_screen_size = hmdinfo.HScreenSize;
+	hmd_settings->v_screen_size = hmdinfo.VScreenSize;
 
-	*interpupillary_distance = hmdinfo.InterpupillaryDistance;
-	*lens_separation_distance = hmdinfo.LensSeparationDistance;
-	*eye_to_screen_distance = hmdinfo.EyeToScreenDistance;
+	hmd_settings->interpupillary_distance = hmdinfo.InterpupillaryDistance;
+	hmd_settings->lens_separation_distance = hmdinfo.LensSeparationDistance;
+	hmd_settings->eye_to_screen_distance = hmdinfo.EyeToScreenDistance;
 
-	memcpy(distortion_k, hmdinfo.DistortionK, sizeof(float) * 4);
-	memcpy(chrom_abr, hmdinfo.ChromaAbCorrection, sizeof(float) * 4);
+	memcpy(hmd_settings->distortion_k, hmdinfo.DistortionK, sizeof(float) * 4);
+	memcpy(hmd_settings->chrom_abr, hmdinfo.ChromaAbCorrection, sizeof(float) * 4);
 
 	return 1;
 }

@@ -12,17 +12,7 @@ typedef struct {
 } shader_t;
 
 
-typedef struct {
-	unsigned int h_resolution;
-	unsigned int v_resolution;
-	float h_screen_size;
-	float v_screen_size;
-	float interpupillary_distance;
-	float lens_separation_distance;
-	float eye_to_screen_distance;
-	float distortion_k[4];
-	float chrom_abr[4];
-} hmd_settings_t;
+
 
 
 typedef struct {
@@ -170,21 +160,6 @@ static struct {
 	GLuint hmd_warp_param;
 	GLuint chrom_ab_param;
 } lens_warp_shader_uniforms;
-
-
-// HMD Settings for OculusRift - Default, overwritten by GetOculusDeviceInfo
-hmd_settings_t oculus_rift_hmd = {
-	1280,    // h_resolution
-	800,     // v_resolution
-	0.14976, // h_screen_size
-	0.0936,  // v_screen_size
-	0.064,   // interpupillary_distance
-	0.064,   // lens_separation_distance
-	0.041,   // eye_to_screen_distance
-	{1.0, 0.22, 0.24, 0.0}, // distortion_k
-	{0.996, -0.004, 1.014,0.0}
-};
-
 
 static hmd_eye_t left_eye = {0, 0, {0, 0, 0.5, 1}, 0};
 static hmd_eye_t right_eye = {0, 0, {0.5, 0, 0.5, 1}, 0};
@@ -390,7 +365,8 @@ static const float player_height_m = 1.75;
 
 qboolean R_InitHMDRenderer()
 {
-	hmd_settings_t *hmd = &oculus_rift_hmd;
+	hmd_settings_t hmd;
+
 	qboolean sdkInitialized = false;
 	float aspect, r, h;
 	float *dk, *chrm;
@@ -410,9 +386,7 @@ qboolean R_InitHMDRenderer()
 		return false;
 	}
 
-	GetOculusDeviceInfo(&hmd->h_resolution, &hmd->v_resolution, &hmd->h_screen_size, 
-						&hmd->v_screen_size, &hmd->interpupillary_distance, &hmd->lens_separation_distance, 
-						&hmd->eye_to_screen_distance, hmd->distortion_k, hmd->chrom_abr);
+	GetOculusDeviceInfo(&hmd);
 
 	shader_support = InitShaderExtension();   
 
@@ -437,25 +411,25 @@ qboolean R_InitHMDRenderer()
 	}
 
 	// Calculate lens distortion and fov
-	aspect = hmd->h_resolution / (2.0f * hmd->v_resolution);
-	r = -1.0f - (4.0f * (hmd->h_screen_size/4.0f - hmd->lens_separation_distance/2.0f) / hmd->h_screen_size);
-	h = 4.0f * (hmd->h_screen_size/4.0f - hmd->lens_separation_distance/2.0f) / hmd->h_screen_size;
+	aspect = hmd.h_resolution / (2.0f * hmd.v_resolution);
+	r = -1.0f - (4.0f * (hmd.h_screen_size/4.0f - hmd.lens_separation_distance/2.0f) / hmd.h_screen_size);
+	h = 4.0f * (hmd.h_screen_size/4.0f - hmd.lens_separation_distance/2.0f) / hmd.h_screen_size;
 
-	dk = hmd->distortion_k;
-	chrm = hmd->chrom_abr;
+	dk = hmd.distortion_k;
+	chrm = hmd.chrom_abr;
 	dist_scale = (dk[0] + dk[1] * pow(r,2) + dk[2] * pow(r,4) + dk[3] * pow(r,6));
-	lens_shift = 4 * (hmd->h_screen_size/4 - hmd->lens_separation_distance/2) / hmd->h_screen_size;
-	fovy = 2 * atan2(hmd->v_screen_size * dist_scale, 2 * hmd->eye_to_screen_distance);
+	lens_shift = 4 * (hmd.h_screen_size/4 - hmd.lens_separation_distance/2) / hmd.h_screen_size;
+	fovy = 2 * atan2(hmd.v_screen_size * dist_scale, 2 * hmd.eye_to_screen_distance);
 	viewport_fov_y = fovy * 180 / M_PI;
 	viewport_fov_x = viewport_fov_y * aspect;
 
 	// Set up eyes
-	left_eye.offset = -player_height_units * (hmd->interpupillary_distance/player_height_m) * 0.5;
+	left_eye.offset = -player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
 	left_eye.lens_shift = lens_shift;
 	left_eye.fbo = CreateFBO(glwidth * left_eye.viewport.width * ss, glheight * left_eye.viewport.height * ss);
 	CreatePerspectiveMatrix(left_eye.projection_matrix, fovy, aspect, 4, gl_farclip.value, h);
 
-	right_eye.offset = player_height_units * (hmd->interpupillary_distance/player_height_m) * 0.5;
+	right_eye.offset = player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
 	right_eye.lens_shift = -lens_shift;
 	right_eye.fbo = CreateFBO(glwidth * right_eye.viewport.width * ss, glheight * right_eye.viewport.height * ss);
 	CreatePerspectiveMatrix(right_eye.projection_matrix, fovy, aspect, 4, gl_farclip.value, -h);
@@ -480,7 +454,7 @@ qboolean R_InitHMDRenderer()
 	SetOculusPrediction(prediction);
 	SetOculusDriftCorrect(driftcorrection);
 
-	Con_Printf("Your IPD is set to %.1fmm\n", hmd->interpupillary_distance * 1000);
+	Con_Printf("Your IPD is set to %.1fmm\n", hmd.interpupillary_distance * 1000);
 	Con_Printf("Use the Rift Configuration Utility to calibrate\n");
 
 	return true;
