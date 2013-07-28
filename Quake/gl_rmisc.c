@@ -55,6 +55,8 @@ extern cvar_t r_oculusrift_driftcorrect;
 extern cvar_t r_oculusrift_crosshair;
 extern cvar_t r_oculusrift_chromabr;
 extern cvar_t r_oculusrift_aimmode;
+extern cvar_t r_oculusrift_ipd;
+extern cvar_t r_oculusrift_deadzone;
 //
 
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
@@ -155,7 +157,22 @@ static void R_OculusRift_DriftCorrect_f (cvar_t *var)
 	}
 }
 
+static void R_OculusRift_IPD_f (cvar_t *var)
+{
+	if (r_oculusrift.value) {
 
+		R_SetHMDIPD();
+	}
+}
+
+static void R_OculusRift_Deadzone_f (cvar_t *var)
+{
+	// clamp the mouse to a max of 0 - 70 degrees
+	
+	float value = CLAMP (0.0f, r_oculusrift_deadzone.value, 70.0f);
+	if (value != r_oculusrift_deadzone.value)
+		Cvar_SetValueQuick(&r_oculusrift_deadzone,value);
+}
 /*
 ===============
 R_NoLerpList_f -- johnfitz -- called when r_nolerp_list cvar changes
@@ -242,6 +259,11 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_oculusrift_chromabr);
 	Cvar_SetCallback (&r_oculusrift_chromabr, R_OculusRift_ChromAbr_f);
 	Cvar_RegisterVariable (&r_oculusrift_aimmode);
+	Cvar_RegisterVariable (&r_oculusrift_ipd);
+	Cvar_SetCallback (&r_oculusrift_ipd, R_OculusRift_IPD_f);
+	Cvar_RegisterVariable (&r_oculusrift_deadzone);
+	Cvar_SetCallback (&r_oculusrift_deadzone, R_OculusRift_Deadzone_f);
+
 	//phoboslab
 
 	Cvar_RegisterVariable (&gl_zfix); // QuakeSpasm z-fighting fix
