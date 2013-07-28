@@ -551,6 +551,10 @@ qboolean VR_Enable()
 	glUniform2fARB(lens_warp.uniform.scale, 1.0f/dist_scale, 1.0f * aspect/dist_scale);
 	glUseProgramObjectARB(0);
 
+
+	// Reset IPD to SDK default
+	Cvar_SetValueQuick(&vr_ipd, hmd_ipd);
+
 	VR_IPD_f(&vr_ipd);
 	VR_Prediction_f(&vr_prediction);
 	VR_DriftCorrect_f(&vr_driftcorrect);
