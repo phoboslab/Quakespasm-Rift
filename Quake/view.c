@@ -150,7 +150,8 @@ void V_StartPitchDrift (void)
 {
 	if(r_oculusrift.value)
 	{
-		VectorCopy(cl.viewangles, cl.aimangles);
+		cl.aimangles[YAW] = cl.viewangles[YAW];
+		cl.aimangles[PITCH] = cl.viewangles[PITCH];
 		ResetOculusOrientation();
 		return;
 	}
@@ -539,10 +540,12 @@ void V_PolyBlend (void)
 	glEnable (GL_BLEND);
 
 	glMatrixMode(GL_PROJECTION);
-    glLoadIdentity ();
+	glPushMatrix();
+	glLoadIdentity ();
 	glOrtho (0, 1, 1, 0, -99999, 99999);
 	glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity ();
+	glPushMatrix();
+	glLoadIdentity ();
 
 	glColor4fv (v_blend);
 
@@ -552,6 +555,12 @@ void V_PolyBlend (void)
 	glVertex2f (1, 1);
 	glVertex2f (0, 1);
 	glEnd ();
+
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+
+	glMatrixMode(GL_MODELVIEW);
+	glPopMatrix();
 
 	glDisable (GL_BLEND);
 	glEnable (GL_DEPTH_TEST);
@@ -699,7 +708,10 @@ void V_CalcViewRoll (void)
 
 	if (cl.stats[STAT_HEALTH] <= 0)
 	{
-		r_refdef.viewangles[ROLL] = 80;	// dead view angle
+		// only roll when the rift is not enabled
+		if (!r_oculusrift.value)
+			r_refdef.viewangles[ROLL] = 80;	// dead view angle
+		
 		return;
 	}
 
