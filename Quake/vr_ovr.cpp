@@ -120,7 +120,7 @@ void SetOculusDriftCorrect(int enable)
 	}
 }
 
-int GetOculusDeviceInfo(hmd_settings_t *hmd_settings)
+int GetOculusDeviceInfo(vr_hmd_settings_t *hmd_settings)
 {
 	if(!hmd || !hmd->GetDeviceInfo(&hmdinfo)) {
 		return 0;

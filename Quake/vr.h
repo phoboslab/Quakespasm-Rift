@@ -27,7 +27,7 @@ typedef struct {
 	float eye_to_screen_distance;
 	float distortion_k[4];
 	float chrom_abr[4];
-} hmd_settings_t;
+} vr_hmd_settings_t;
 
 
 void VR_Init();

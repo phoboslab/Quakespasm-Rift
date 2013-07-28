@@ -13,7 +13,7 @@ void ReleaseOculusSDK();
 void SetOculusPrediction(float time);
 void SetOculusDriftCorrect(int enable);
 
-int GetOculusDeviceInfo(hmd_settings_t *hmd_settings);
+int GetOculusDeviceInfo(vr_hmd_settings_t *hmd_settings);
 
 void ResetOculusOrientation();
 

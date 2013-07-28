@@ -467,7 +467,7 @@ void VR_Init()
 
 qboolean VR_Enable()
 {
-	hmd_settings_t hmd;
+	vr_hmd_settings_t hmd;
 
 	qboolean sdkInitialized = false;
 	float aspect, r, h;
