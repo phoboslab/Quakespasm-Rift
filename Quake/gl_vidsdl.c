@@ -26,7 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "cfgfile.h"
 #include "bgmusic.h"
 #include "resource.h"
-#include "r_renderhmd.h"
+#include "vr.h"
 #if defined(SDL_FRAMEWORK) || defined(NO_SDL_CONFIG)
 #include <SDL/SDL.h>
 #else
@@ -100,7 +100,7 @@ static cvar_t	vid_vsync = {"vid_vsync", "0", CVAR_ARCHIVE};
 cvar_t		vid_gamma = {"gamma", "1", CVAR_ARCHIVE}; //johnfitz -- moved here from view.c
 
 //phoboslab -- cvars for oculus rift
-extern cvar_t  r_oculusrift;
+extern cvar_t  vr_enabled;
 //phoboslab
 
 //==========================================================================
@@ -314,8 +314,9 @@ static void VID_Restart (void)
 	if (vid_locked || !vid_changed)
 		return;
 
-	if (r_oculusrift.value) { // phoboslab
-		R_ReleaseHMDRenderer();
+	if (vr_enabled.value) // phoboslab
+	{ 
+		VR_Disable();
 	}
 
 	width = (int)vid_width.value;
@@ -365,8 +366,9 @@ static void VID_Restart (void)
 			IN_Activate();
 	}
 
-	if (r_oculusrift.value) { // phoboslab
-		R_InitHMDRenderer();
+	if (vr_enabled.value) // phoboslab
+	{ 
+		VR_Enable();
 	}
 }
 

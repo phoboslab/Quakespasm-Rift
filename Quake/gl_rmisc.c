@@ -23,7 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_misc.c
 
 #include "quakedef.h"
-#include "r_renderhmd.h"
+#include "vr.h"
 
 //johnfitz -- new cvars
 extern cvar_t r_stereo;
@@ -47,16 +47,16 @@ extern cvar_t r_lerpmove;
 extern cvar_t r_nolerp_list;
 //johnfitz
 
-//phoboslab -- cvars for oculus rift
-extern cvar_t r_oculusrift;
-extern cvar_t r_oculusrift_supersample;
-extern cvar_t r_oculusrift_prediction;
-extern cvar_t r_oculusrift_driftcorrect;
-extern cvar_t r_oculusrift_crosshair;
-extern cvar_t r_oculusrift_chromabr;
-extern cvar_t r_oculusrift_aimmode;
-extern cvar_t r_oculusrift_ipd;
-extern cvar_t r_oculusrift_deadzone;
+//phoboslab -- cvars for vr
+extern cvar_t vr_enabled;
+extern cvar_t vr_supersample;
+extern cvar_t vr_prediction;
+extern cvar_t vr_driftcorrect;
+extern cvar_t vr_crosshair;
+extern cvar_t vr_chromabr;
+extern cvar_t vr_aimmode;
+extern cvar_t vr_ipd;
+extern cvar_t vr_deadzone;
 //
 
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
@@ -110,69 +110,6 @@ static void R_VisChanged (cvar_t *var)
 	vis_changed = 1;
 }
 
-/*
-====================
-R_OculusRift -- phoboslab
-====================
-*/
-static void R_OculusRift_f (cvar_t *var)
-{
-	R_ReleaseHMDRenderer();
-
-	if (!r_oculusrift.value) 
-		return;
-
-	if( !R_InitHMDRenderer() )
-		r_oculusrift.value = 0;
-}
-
-static void R_OculusRift_SuperSample_f (cvar_t *var)
-{
-	if (r_oculusrift.value) {
-		// Re-init oculus tracker when, if active
-		R_ReleaseHMDRenderer();
-		R_InitHMDRenderer();
-	}
-}
-
-static void R_OculusRift_ChromAbr_f (cvar_t *var)
-{
-	if (r_oculusrift.value) {
-		// Re-init oculus tracker when, if active
-		R_ReleaseHMDRenderer();
-		R_InitHMDRenderer();
-	}
-}
-static void R_OculusRift_Prediction_f (cvar_t *var)
-{
-	if (r_oculusrift.value) {
-		R_SetHMDPredictionTime();
-	}
-}
-
-static void R_OculusRift_DriftCorrect_f (cvar_t *var)
-{
-	if (r_oculusrift.value) {
-		R_SetHMDDriftCorrection();
-	}
-}
-
-static void R_OculusRift_IPD_f (cvar_t *var)
-{
-	if (r_oculusrift.value) {
-
-		R_SetHMDIPD();
-	}
-}
-
-static void R_OculusRift_Deadzone_f (cvar_t *var)
-{
-	// clamp the mouse to a max of 0 - 70 degrees
-	
-	float value = CLAMP (0.0f, r_oculusrift_deadzone.value, 70.0f);
-	if (value != r_oculusrift_deadzone.value)
-		Cvar_SetValueQuick(&r_oculusrift_deadzone,value);
-}
 /*
 ===============
 R_NoLerpList_f -- johnfitz -- called when r_nolerp_list cvar changes
@@ -246,26 +183,6 @@ void R_Init (void)
 	Cvar_SetCallback (&r_nolerp_list, R_NoLerpList_f);
 	//johnfitz
 
-	//phoboslab -- cvars for oculus rift
-	Cvar_RegisterVariable (&r_oculusrift);
-	Cvar_SetCallback (&r_oculusrift, R_OculusRift_f);
-	Cvar_RegisterVariable (&r_oculusrift_supersample);
-	Cvar_SetCallback (&r_oculusrift_supersample, R_OculusRift_SuperSample_f);
-	Cvar_RegisterVariable (&r_oculusrift_prediction);
-	Cvar_SetCallback (&r_oculusrift_prediction, R_OculusRift_Prediction_f);
-	Cvar_RegisterVariable (&r_oculusrift_driftcorrect);
-	Cvar_SetCallback (&r_oculusrift_driftcorrect, R_OculusRift_DriftCorrect_f);
-	Cvar_RegisterVariable (&r_oculusrift_crosshair);
-	Cvar_RegisterVariable (&r_oculusrift_chromabr);
-	Cvar_SetCallback (&r_oculusrift_chromabr, R_OculusRift_ChromAbr_f);
-	Cvar_RegisterVariable (&r_oculusrift_aimmode);
-	Cvar_RegisterVariable (&r_oculusrift_ipd);
-	Cvar_SetCallback (&r_oculusrift_ipd, R_OculusRift_IPD_f);
-	Cvar_RegisterVariable (&r_oculusrift_deadzone);
-	Cvar_SetCallback (&r_oculusrift_deadzone, R_OculusRift_Deadzone_f);
-
-	//phoboslab
-
 	Cvar_RegisterVariable (&gl_zfix); // QuakeSpasm z-fighting fix
 
 	R_InitParticles ();
@@ -273,6 +190,7 @@ void R_Init (void)
 
 	Sky_Init (); //johnfitz
 	Fog_Init (); //johnfitz
+	VR_Init (); //phoboslab
 }
 
 /*

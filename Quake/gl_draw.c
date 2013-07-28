@@ -28,7 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 cvar_t		scr_conalpha = {"scr_conalpha", "0.5", CVAR_ARCHIVE}; //johnfitz
 
-extern cvar_t r_oculusrift;
+extern cvar_t vr_enabled;
 
 qpic_t		*draw_disc;
 qpic_t		*draw_backtile;
@@ -743,7 +743,7 @@ Draw_FadeScreen -- johnfitz -- revised
 */
 void Draw_FadeScreen (void)
 {
-	if (r_oculusrift.value)
+	if (vr_enabled.value)
 		return;
 
 	GL_SetCanvas (CANVAS_DEFAULT);
@@ -784,7 +784,7 @@ void GL_SetCanvas (canvastype newcanvas)
 
 	currentcanvas = newcanvas;
 
-	if(r_oculusrift.value && !con_forcedup)
+	if(vr_enabled.value && !con_forcedup)
 		return;
 
 	glMatrixMode(GL_PROJECTION);

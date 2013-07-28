@@ -23,7 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // screen.c -- master for refresh, status bar, console, chat, notify, etc
 
 #include "quakedef.h"
-#include "r_renderhmd.h"
+#include "vr.h"
 
 /*
 
@@ -89,9 +89,9 @@ cvar_t		scr_showfps = {"scr_showfps", "0", CVAR_NONE};
 cvar_t		scr_clock = {"scr_clock", "0", CVAR_NONE};
 //johnfitz
 
-//phoboslab -- cvars for oculus rift
-extern cvar_t r_oculusrift;
-extern cvar_t r_oculusrift_aimmode;
+//phoboslab -- cvars for vr
+extern cvar_t vr_enabled;
+extern cvar_t vr_aimmode;
 //
 
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
@@ -1007,7 +1007,7 @@ void DrawRift2d ()
 
 	VectorCopy(r_refdef.aimangles, menu_angles)
 
-	if (r_oculusrift_aimmode.value == HMD_AIMMODE_HEAD_MYAW || r_oculusrift_aimmode.value == HMD_AIMMODE_HEAD_MYAW_MPITCH)
+	if (vr_aimmode.value == HMD_AIMMODE_HEAD_MYAW || vr_aimmode.value == HMD_AIMMODE_HEAD_MYAW_MPITCH)
 		menu_angles[PITCH] = 0;
 
 	AngleVectors (menu_angles, forward, right, up);
@@ -1069,7 +1069,7 @@ void DrawRift2d ()
 	glPopMatrix();
 
 	if(draw_sbar)
-		HMD_Sbar_Draw();
+		VR_Sbar_Draw();
 
 	glwidth = oldglwidth;
 	glheight = oldglheight;
@@ -1099,7 +1099,7 @@ void SCR_UpdateScreenContent (void)
 
 	// test draw in 3d
 	
-	if(r_oculusrift.value && !con_forcedup)
+	if(vr_enabled.value && !con_forcedup)
 	{
 		DrawRift2d();
 	}
@@ -1182,8 +1182,10 @@ void SCR_UpdateScreen (void)
 
 	SCR_SetUpToDrawConsole ();
 	
-	if (r_oculusrift.value && !con_forcedup)
-		SCR_UpdateHMDScreenContent(); // phoboslab
+	if (vr_enabled.value && !con_forcedup)
+	{
+		VR_UpdateScreenContent(); // phoboslab
+	}
 	else
 	{
 		VectorCopy (cl.aimangles, cl.viewangles);

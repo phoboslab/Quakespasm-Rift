@@ -1,5 +1,7 @@
 // 2013 Dominic Szablewski - phoboslab.org
 
+#include "quakedef.h"
+
 #ifndef __R_RENDERHMD_H
 #define __R_RENDERHMD_H
 
@@ -15,18 +17,28 @@
 #define	HMD_CROSSHAIR_LINE 2 // Line crosshair
 #define	HMD_CROSSHAIR_POINT_INF 3 // Point crosshair projected to infinity
 
+typedef struct {
+	unsigned int h_resolution;
+	unsigned int v_resolution;
+	float h_screen_size;
+	float v_screen_size;
+	float interpupillary_distance;
+	float lens_separation_distance;
+	float eye_to_screen_distance;
+	float distortion_k[4];
+	float chrom_abr[4];
+} hmd_settings_t;
 
-qboolean R_InitHMDRenderer();
-void R_ReleaseHMDRenderer();
 
-void R_SetHMDPredictionTime();
-void R_SetHMDDriftCorrection();
-void R_SetHMDChromaAbr();
-void R_SetHMDIPD();
+void VR_Init();
 
-void SCR_UpdateHMDScreenContent();
-void R_ShowHMDCrosshair();
-void HMD_Sbar_Draw();
-void V_AddOrientationToViewAngles(vec3_t angles);
+qboolean VR_Enable();
+void VR_Disable();
+
+void VR_UpdateScreenContent();
+void VR_ShowCrosshair();
+void VR_Sbar_Draw();
+void VR_AddOrientationToViewAngles(vec3_t angles);
+void VR_ResetOrientation();
 
 #endif

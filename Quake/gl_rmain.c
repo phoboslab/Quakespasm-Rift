@@ -22,7 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_main.c
 
 #include "quakedef.h"
-#include "r_renderhmd.h"
+#include "vr.h"
 
 qboolean	r_cache_thrash;		// compatability
 
@@ -103,21 +103,10 @@ cvar_t	r_nolerp_list = {"r_nolerp_list", "progs/flame.mdl,progs/flame2.mdl,progs
 extern cvar_t	r_vfog;
 //johnfitz
 
-//phoboslab -- cvars for oculus rift
-cvar_t  r_oculusrift = {"r_oculusrift", "0", CVAR_NONE};
-cvar_t  r_oculusrift_ipd = {"r_oculusrift_ipd","-1",CVAR_NONE};
-
-// cvars that get saved
-cvar_t  r_oculusrift_supersample = {"r_oculusrift_supersample", "2", CVAR_ARCHIVE};
-cvar_t  r_oculusrift_prediction = {"r_oculusrift_prediction","40", CVAR_ARCHIVE};
-cvar_t  r_oculusrift_driftcorrect = {"r_oculusrift_driftcorrect","1", CVAR_ARCHIVE};
-cvar_t  r_oculusrift_crosshair = {"r_oculusrift_crosshair","1", CVAR_ARCHIVE};
-cvar_t  r_oculusrift_chromabr = {"r_oculusrift_chromabr","1", CVAR_ARCHIVE};
-cvar_t  r_oculusrift_aimmode = {"r_oculusrift_aimmode","1", CVAR_ARCHIVE};
-cvar_t  r_oculusrift_deadzone = {"r_oculusrift_deadzone","30",CVAR_ARCHIVE};
+//phoboslab -- cvars for vr
+extern cvar_t vr_enabled;
+extern cvar_t vr_crosshair;
 //phoboslab
-
-
 
 cvar_t	gl_zfix = {"gl_zfix", "1", CVAR_ARCHIVE}; // QuakeSpasm z-fighting fix
 
@@ -301,7 +290,7 @@ void R_SetFrustum (float fovx, float fovy)
 	if (r_stereo.value )
 		fovx += 10; //silly hack so that polygons don't drop out becuase of stereo skew
 	
-	if (r_oculusrift.value )
+	if (vr_enabled.value )
 		fovx += 25; // meh
 
 	TurnVector(frustum[0].normal, vpn, vright, fovx/2 - 90); //left plane
@@ -341,7 +330,7 @@ void GL_SetFrustum(float fovx, float fovy)
 R_SetupGL
 =============
 */
-extern float *hmd_projection_matrix; // phoboslab
+extern float *vr_projection_matrix; // phoboslab
 void R_SetupGL (void)
 {
 	//johnfitz -- rewrote this section
@@ -353,10 +342,12 @@ void R_SetupGL (void)
 				r_refdef.vrect.height);
 	//johnfitz
 
-	if (hmd_projection_matrix) {
-		glLoadMatrixf(hmd_projection_matrix);
+	if (vr_projection_matrix) 
+	{
+		glLoadMatrixf(vr_projection_matrix);
 	}
-	else {
+	else 
+	{
 		GL_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
 	}
 
@@ -535,8 +526,8 @@ void R_DrawViewModel (void)
 	if (chase_active.value)
 		return;
 
-	if(r_oculusrift.value && r_oculusrift_crosshair.value)
-		R_ShowHMDCrosshair();
+	if(vr_enabled.value && vr_crosshair.value)
+		VR_ShowCrosshair();
 
 	if (!r_drawviewmodel.value || !r_drawentities.value )
 		return;
@@ -814,7 +805,7 @@ void R_RenderScene (void)
 R_RenderView
 ================
 */
-extern float hmd_view_offset;
+extern float vr_view_offset;
 void R_RenderView (void)
 {
 	double	time1, time2;
@@ -872,7 +863,7 @@ void R_RenderView (void)
 	}
 	else
 	{
-		VectorMA (r_refdef.vieworg, hmd_view_offset, vright, r_refdef.vieworg);
+		VectorMA (r_refdef.vieworg, vr_view_offset, vright, r_refdef.vieworg);
 		R_RenderScene ();
 	}
 	//johnfitz

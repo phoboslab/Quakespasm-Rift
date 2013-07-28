@@ -1,8 +1,8 @@
 // 2013 Dominic Szablewski - phoboslab.org
 
 #include "quakedef.h"
-#include "r_renderhmd.h"
-#include "oculus_sdk.h"
+#include "vr.h"
+#include "vr_ovr.h"
 
 typedef struct {
     GLhandleARB program;
@@ -170,17 +170,6 @@ static qboolean shader_support;
 static const float player_height_units = 56;
 static const float player_height_m = 1.75;
 
-
-extern cvar_t r_oculusrift;
-extern cvar_t r_oculusrift_supersample;
-extern cvar_t r_oculusrift_prediction;
-extern cvar_t r_oculusrift_driftcorrect;
-extern cvar_t r_oculusrift_crosshair;
-extern cvar_t r_oculusrift_chromabr;
-extern cvar_t r_oculusrift_aimmode;
-extern cvar_t r_oculusrift_ipd;
-extern cvar_t r_oculusrift_deadzone;
-
 extern cvar_t gl_farclip;
 extern cvar_t r_stereodepth;
 
@@ -189,6 +178,20 @@ extern void SCR_UpdateScreenContent();
 extern void SCR_CalcRefdef();
 extern refdef_t r_refdef;
 extern vec3_t vright;
+
+
+cvar_t  vr_enabled = {"vr_enabled", "0", CVAR_NONE};
+cvar_t  vr_ipd = {"vr_ipd","0",CVAR_NONE};
+cvar_t  vr_supersample = {"vr_supersample", "2", CVAR_ARCHIVE};
+cvar_t  vr_prediction = {"vr_prediction","40", CVAR_ARCHIVE};
+cvar_t  vr_driftcorrect = {"vr_driftcorrect","1", CVAR_ARCHIVE};
+cvar_t  vr_crosshair = {"vr_crosshair","1", CVAR_ARCHIVE};
+cvar_t  vr_chromabr = {"vr_chromabr","1", CVAR_ARCHIVE};
+cvar_t  vr_aimmode = {"vr_aimmode","1", CVAR_ARCHIVE};
+cvar_t  vr_deadzone = {"vr_deadzone","30",CVAR_ARCHIVE};
+
+
+
 
 
 static qboolean CompileShader(GLhandleARB shader, const char *source)
@@ -371,57 +374,98 @@ void CreatePerspectiveMatrix(float *out, float fovy, float aspect, float nearf, 
 
 
 
+
+static void VR_Enabled_f (cvar_t *var)
+{
+	VR_Disable();
+
+	if (!vr_enabled.value) 
+		return;
+
+	if( !VR_Enable() )
+		vr_enabled.value = 0;
+}
+
+static void VR_SuperSample_f (cvar_t *var)
+{
+	if (!rift_enabled) { return; }
+
+	// Re-init oculus tracker when, if active
+	VR_Disable();
+	VR_Enable();
+}
+
+static void VR_ChromAbr_f (cvar_t *var)
+{
+	if (!rift_enabled) { return; }
+
+	// Re-init oculus tracker when active
+	VR_Disable();
+	VR_Enable();
+}
+static void VR_Prediction_f (cvar_t *var)
+{
+	if (!rift_enabled) { return; }
+
+	SetOculusPrediction(vr_prediction.value/1000.0f);
+	Con_Printf("Motion prediction is set to %.1fms\n",vr_prediction.value);
+}
+
+static void VR_DriftCorrect_f (cvar_t *var)
+{
+	if (!rift_enabled) { return; }
+
+	SetOculusDriftCorrect((int)vr_driftcorrect.value);
+}
+
+static void VR_IPD_f (cvar_t *var)
+{
+	if (!rift_enabled) { return; }
+
+	left_eye.offset = -player_height_units * (vr_ipd.value/(player_height_m * 1000.0)) * 0.5;
+	right_eye.offset = -left_eye.offset;
+	Con_Printf("Your IPD is set to %.1fmm (SDK default:%.1fmm)\n", vr_ipd.value, hmd_ipd);
+}
+
+static void VR_Deadzone_f (cvar_t *var)
+{
+	// clamp the mouse to a max of 0 - 70 degrees
+	
+	float value = CLAMP (0.0f, vr_deadzone.value, 70.0f);
+	if (value != vr_deadzone.value)
+		Cvar_SetValueQuick(&vr_deadzone,value);
+}
+
+
+
+
 // ----------------------------------------------------------------------------
 // Public vars and functions
 
-float hmd_view_offset;
-float *hmd_projection_matrix = NULL;
+float vr_view_offset;
+float *vr_projection_matrix = NULL;
 
-void R_SetHMDIPD()
+void VR_Init()
 {
-	if (rift_enabled)
-	{
-		if (r_oculusrift_ipd.value < 0.0 || r_oculusrift_ipd.value > 100.0)
-		{
-			Cvar_SetValueQuick(&r_oculusrift_ipd, hmd_ipd * 1000.0);
-			return;
-		}
-		
-		left_eye.offset = -player_height_units * (r_oculusrift_ipd.value/(player_height_m * 1000.0)) * 0.5;
-		right_eye.offset = -left_eye.offset;
-		Con_Printf("Your IPD is set to %.1fmm\n", r_oculusrift_ipd.value);
-
-	}
+	Cvar_RegisterVariable (&vr_enabled);
+	Cvar_SetCallback (&vr_enabled, VR_Enabled_f);
+	Cvar_RegisterVariable (&vr_supersample);
+	Cvar_SetCallback (&vr_supersample, VR_SuperSample_f);
+	Cvar_RegisterVariable (&vr_prediction);
+	Cvar_SetCallback (&vr_prediction, VR_Prediction_f);
+	Cvar_RegisterVariable (&vr_driftcorrect);
+	Cvar_SetCallback (&vr_driftcorrect, VR_DriftCorrect_f);
+	Cvar_RegisterVariable (&vr_crosshair);
+	Cvar_RegisterVariable (&vr_chromabr);
+	Cvar_SetCallback (&vr_chromabr, VR_ChromAbr_f);
+	Cvar_RegisterVariable (&vr_aimmode);
+	Cvar_RegisterVariable (&vr_ipd);
+	Cvar_SetCallback (&vr_ipd, VR_IPD_f);
+	Cvar_RegisterVariable (&vr_deadzone);
+	Cvar_SetCallback (&vr_deadzone, VR_Deadzone_f);
 }
 
-void R_SetHMDPredictionTime()
-{
-	if (rift_enabled) {
-
-		// set cap prediction time between 0ms and 75ms
-
-		float time = CLAMP (0.0f, r_oculusrift_prediction.value, 75.0f);
-		if (time != r_oculusrift_prediction.value)
-		{
-			Cvar_SetValueQuick(&r_oculusrift_prediction,time);
-			return;
-		}
-
-		time /= 1000.0f;
-		SetOculusPrediction(time);
-
-		Con_Printf("Motion prediction is set to %.1fms\n",r_oculusrift_prediction.value);
-	}
-}
-
-void R_SetHMDDriftCorrection()
-{
-	if (rift_enabled) {
-		SetOculusDriftCorrect((int) r_oculusrift_driftcorrect.value);
-	}
-}
-
-qboolean R_InitHMDRenderer()
+qboolean VR_Enable()
 {
 	hmd_settings_t hmd;
 
@@ -431,11 +475,11 @@ qboolean R_InitHMDRenderer()
 	float dist_scale;
 	float fovy;
 
-	float ss = r_oculusrift_supersample.value;
+	float ss = vr_supersample.value;
 
 	// convert milliseconds to seconds
-	float prediction = r_oculusrift_prediction.value / 1000.0f;
-	int driftcorrection = (int) r_oculusrift_driftcorrect.value;
+	float prediction = vr_prediction.value / 1000.0f;
+	int driftcorrection = (int) vr_driftcorrect.value;
 
 	sdkInitialized = InitOculusSDK();
 
@@ -454,7 +498,7 @@ qboolean R_InitHMDRenderer()
         return false;
     }
 	
-	if (r_oculusrift_chromabr.value)
+	if (vr_chromabr.value)
 		lens_warp.shader = &lens_warp_shader_chrm;
 	else 
 		lens_warp.shader = &lens_warp_shader_norm;
@@ -507,14 +551,14 @@ qboolean R_InitHMDRenderer()
 	glUniform2fARB(lens_warp.uniform.scale, 1.0f/dist_scale, 1.0f * aspect/dist_scale);
 	glUseProgramObjectARB(0);
 
-	R_SetHMDIPD();
-	R_SetHMDPredictionTime();
-	SetOculusDriftCorrect(driftcorrection);
+	VR_IPD_f(&vr_ipd);
+	VR_Prediction_f(&vr_prediction);
+	VR_DriftCorrect_f(&vr_driftcorrect);
 
 	return true;
 }
 
-void R_ReleaseHMDRenderer()
+void VR_Disable()
 {
 	if (rift_enabled) 
 	{
@@ -529,7 +573,7 @@ void R_ReleaseHMDRenderer()
 	vid.recalc_refdef = true;
 }
 
-void RenderScreenForEye(hmd_eye_t *eye)
+static void RenderScreenForEye(hmd_eye_t *eye)
 {
 	// Remember the current vrect.width and vieworg; we have to modify it here
 	// for each eye
@@ -538,7 +582,7 @@ void RenderScreenForEye(hmd_eye_t *eye)
 	int oldglheight = glheight;
 	int oldglwidth = glwidth;
 
-	float ss = r_oculusrift_supersample.value;
+	float ss = vr_supersample.value;
 
 	r_refdef.vrect.width *= eye->viewport.width * ss;
 	r_refdef.vrect.height *= eye->viewport.height * ss;
@@ -549,8 +593,8 @@ void RenderScreenForEye(hmd_eye_t *eye)
 	glClear(GL_DEPTH_BUFFER_BIT);
 
 
-	hmd_projection_matrix = eye->projection_matrix;
-	hmd_view_offset = eye->offset;
+	vr_projection_matrix = eye->projection_matrix;
+	vr_view_offset = eye->offset;
 
 	srand((int) (cl.time * 1000)); //sync random stuff between eyes
 
@@ -567,11 +611,11 @@ void RenderScreenForEye(hmd_eye_t *eye)
 	glwidth = oldglwidth;
 	glheight = oldglheight;
 
-	hmd_projection_matrix = NULL;
-	hmd_view_offset = 0;
+	vr_projection_matrix = NULL;
+	vr_view_offset = 0;
 }
 
-void RenderEyeOnScreen(hmd_eye_t *eye)
+static void RenderEyeOnScreen(hmd_eye_t *eye)
 {
 	glViewport(
 		(glwidth-glx) * eye->viewport.left,
@@ -593,7 +637,7 @@ void RenderEyeOnScreen(hmd_eye_t *eye)
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void SCR_UpdateHMDScreenContent()
+void VR_UpdateScreenContent()
 {
 	static float lastYaw, lastPitch,lastAimYaw;
 	vec3_t orientation;
@@ -601,7 +645,7 @@ void SCR_UpdateHMDScreenContent()
 	// Get current orientation of the HMD
 	GetOculusView(orientation);
 
-	switch( (int)r_oculusrift_aimmode.value )
+	switch( (int)vr_aimmode.value )
 	{
 		// 1: (Default) Head Aiming; View YAW is mouse+head, PITCH is head
 		default:
@@ -642,7 +686,7 @@ void SCR_UpdateHMDScreenContent()
 				// find difference between view and aim yaw
 				diffYaw = cl.viewangles[YAW] - cl.aimangles[YAW];
 
-				if (abs(diffYaw) > r_oculusrift_deadzone.value / 2.0f)
+				if (abs(diffYaw) > vr_deadzone.value / 2.0f)
 				{
 					// apply the difference from each set of angles to the other
 					cl.aimangles[YAW] += diffHMDYaw;
@@ -685,7 +729,7 @@ void SCR_UpdateHMDScreenContent()
 	glUseProgramObjectARB(0);
 }
 
-void V_AddOrientationToViewAngles(vec3_t angles)
+void VR_AddOrientationToViewAngles(vec3_t angles)
 {
 	vec3_t orientation;
 
@@ -697,7 +741,7 @@ void V_AddOrientationToViewAngles(vec3_t angles)
 	angles[ROLL] = orientation[ROLL];
 }
 
-void R_ShowHMDCrosshair ()
+void VR_ShowCrosshair ()
 {
 	vec3_t forward, up, right;
 	vec3_t start, end, impact;
@@ -721,9 +765,9 @@ void R_ShowHMDCrosshair ()
 	VectorMA (start, 4096, forward, end);
 	TraceLine (start, end, impact); // todo - trace to nearest entity
 
-	ss = r_oculusrift_supersample.value;
+	ss = vr_supersample.value;
 
-	switch((int) r_oculusrift_crosshair.value)
+	switch((int) vr_crosshair.value)
 	{	
 		// point crosshair
 	default:
@@ -771,7 +815,7 @@ void R_ShowHMDCrosshair ()
 	glEnable (GL_DEPTH_TEST);
 }
 
-void HMD_Sbar_Draw()
+void VR_Sbar_Draw()
 {	
 	vec3_t sbar_angles, forward, right, up, target;
 	float scale_hud = 0.04;
@@ -781,7 +825,7 @@ void HMD_Sbar_Draw()
 
 	VectorCopy(cl.aimangles, sbar_angles)
 
-	if (r_oculusrift_aimmode.value == HMD_AIMMODE_HEAD_MYAW || r_oculusrift_aimmode.value == HMD_AIMMODE_HEAD_MYAW_MPITCH)
+	if (vr_aimmode.value == HMD_AIMMODE_HEAD_MYAW || vr_aimmode.value == HMD_AIMMODE_HEAD_MYAW_MPITCH)
 		sbar_angles[PITCH] = 0;
 
 	AngleVectors (sbar_angles, forward, right, up);
@@ -801,3 +845,7 @@ void HMD_Sbar_Draw()
 	glPopMatrix();
 }
 
+void VR_ResetOrientation()
+{
+	ResetOculusOrientation();
+}

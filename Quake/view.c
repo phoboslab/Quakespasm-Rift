@@ -21,8 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // view.c -- player eye positioning
 
 #include "quakedef.h"
-#include "r_renderhmd.h"
-#include "oculus_sdk.h"
+#include "vr.h"
 
 /*
 
@@ -64,7 +63,7 @@ cvar_t	crosshair = {"crosshair", "0", CVAR_ARCHIVE};
 cvar_t	gl_cshiftpercent = {"gl_cshiftpercent", "100", CVAR_NONE};
 
 //phoboslab -- cvars for oculus rift
-extern cvar_t r_oculusrift;
+extern cvar_t vr_enabled;
 //
 
 float	v_dmg_time, v_dmg_roll, v_dmg_pitch;
@@ -148,11 +147,11 @@ cvar_t	v_centerspeed = {"v_centerspeed","500", CVAR_NONE};
 
 void V_StartPitchDrift (void)
 {
-	if(r_oculusrift.value)
+	if(vr_enabled.value)
 	{
 		cl.aimangles[YAW] = cl.viewangles[YAW];
 		cl.aimangles[PITCH] = cl.viewangles[PITCH];
-		ResetOculusOrientation();
+		VR_ResetOrientation();
 		return;
 	}
 
@@ -194,7 +193,7 @@ void V_DriftPitch (void)
 {
 	float		delta, move;
 
-	if (noclip_anglehack || !cl.onground || cls.demoplayback || r_oculusrift.value)
+	if (noclip_anglehack || !cl.onground || cls.demoplayback || vr_enabled.value)
 	//FIXME: noclip_anglehack is set on the server, so in a nonlocal game this won't work.
 	{
 		cl.driftmove = 0;
@@ -709,7 +708,7 @@ void V_CalcViewRoll (void)
 	if (cl.stats[STAT_HEALTH] <= 0)
 	{
 		// only roll when the rift is not enabled
-		if (!r_oculusrift.value)
+		if (!vr_enabled.value)
 			r_refdef.viewangles[ROLL] = 80;	// dead view angle
 		
 		return;
@@ -737,10 +736,10 @@ void V_CalcIntermissionRefdef (void)
 	VectorCopy (ent->angles, r_refdef.viewangles);
 	view->model = NULL;
 
-	if(r_oculusrift.value)
+	if (vr_enabled.value)
 	{
 		VectorCopy (r_refdef.viewangles, r_refdef.aimangles);
-		V_AddOrientationToViewAngles(r_refdef.viewangles);
+		VR_AddOrientationToViewAngles(r_refdef.viewangles);
 	}
 
 // allways idle in intermission

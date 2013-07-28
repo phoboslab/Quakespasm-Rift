@@ -1,6 +1,6 @@
 // 2013 Dominic Szablewski - phoboslab.org
 
-#include "oculus_sdk.h"
+#include "vr_ovr.h"
 #include "OVR.h"
 
 #ifndef M_PI

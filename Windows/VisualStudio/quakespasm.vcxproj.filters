@@ -231,10 +231,10 @@
     <ClCompile Include="..\..\Quake\zone.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Quake\oculus_sdk.cpp">
+    <ClCompile Include="..\..\Quake\vr_ovr.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Quake\r_renderhmd.c">
+    <ClCompile Include="..\..\Quake\vr.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -422,10 +422,10 @@
     <ClInclude Include="..\..\Quake\zone.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Quake\oculus_sdk.h">
+    <ClInclude Include="..\..\Quake\vr_ovr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Quake\r_renderhmd.h">
+    <ClInclude Include="..\..\Quake\vr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

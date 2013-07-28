@@ -218,7 +218,7 @@ GLOBJS = \
 	r_sprite.o \
 	r_alias.o \
 	r_brush.o \
-	r_renderhmd.o \
+	vr.o \
 	gl_model.o
 
 OBJS := strlcat.o \
@@ -252,7 +252,7 @@ OBJS := strlcat.o \
 	host.o \
 	host_cmd.o \
 	mathlib.o \
-	oculus_sdk.o \
+	vr_ovr.o \
 	pr_cmds.o \
 	pr_edict.o \
 	pr_exec.o \
