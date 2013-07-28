@@ -168,8 +168,8 @@ static void R_OculusRift_IPD_f (cvar_t *var)
 static void R_OculusRift_Deadzone_f (cvar_t *var)
 {
 	// clamp the mouse to a max of 0 - 70 degrees
-	float value = r_oculusrift_deadzone.value > 0.0f ? r_oculusrift_deadzone.value : 0.0f;
-	value = value <= 70.0f ? value : 70.0f;
+	
+	float value = CLAMP (0.0f, r_oculusrift_deadzone.value, 70.0f);
 	if (value != r_oculusrift_deadzone.value)
 		Cvar_SetValueQuick(&r_oculusrift_deadzone,value);
 }

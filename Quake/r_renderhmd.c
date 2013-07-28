@@ -400,9 +400,7 @@ void R_SetHMDPredictionTime()
 
 		// set cap prediction time between 0ms and 75ms
 
-		float time =  r_oculusrift_prediction.value < 75.0f ?  r_oculusrift_prediction.value : 75.0f;
-		time = time > 0.0f ? time : 0.0f;
-
+		float time = CLAMP (0.0f, r_oculusrift_prediction.value, 75.0f);
 		if (time != r_oculusrift_prediction.value)
 		{
 			Cvar_SetValueQuick(&r_oculusrift_prediction,time);
