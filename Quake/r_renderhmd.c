@@ -179,6 +179,7 @@ extern cvar_t r_oculusrift_crosshair;
 extern cvar_t r_oculusrift_chromabr;
 extern cvar_t r_oculusrift_aimmode;
 extern cvar_t r_oculusrift_ipd;
+extern cvar_t r_oculusrift_deadzone;
 
 extern cvar_t gl_farclip;
 extern cvar_t r_stereodepth;
@@ -596,7 +597,7 @@ void RenderEyeOnScreen(hmd_eye_t *eye)
 
 void SCR_UpdateHMDScreenContent()
 {
-	static float lastYaw, lastPitch;
+	static float lastYaw, lastPitch,lastAimYaw;
 	vec3_t orientation;
 
 	// Get current orientation of the HMD
@@ -628,13 +629,39 @@ void SCR_UpdateHMDScreenContent()
 			cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH];
 			cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW];
 			break;
+		
+		case HMD_AIMMODE_BLENDED:
+			{
+				float diffHMDYaw = orientation[YAW] - lastYaw;
+				float diffHMDPitch = orientation[PITCH] - lastPitch;
+				float diffAimYaw = cl.aimangles[YAW] - lastAimYaw;
+				float diffPitch = cl.viewangles[PITCH] - cl.aimangles[PITCH];
+				float diffYaw;
+
+				// find new view position based on orientation delta
+				cl.viewangles[YAW] += diffHMDYaw;
+
+				// find difference between view and aim yaw
+				diffYaw = cl.viewangles[YAW] - cl.aimangles[YAW];
+
+				if (abs(diffYaw) > r_oculusrift_deadzone.value / 2.0f)
+				{
+					// apply the difference from each set of angles to the other
+					cl.aimangles[YAW] += diffHMDYaw;
+					cl.viewangles[YAW] += diffAimYaw;
+				}
+
+				cl.aimangles[PITCH] += diffHMDPitch;
+				cl.viewangles[PITCH]  = orientation[PITCH];
+			}
+			break;
 	}
 
 	cl.viewangles[ROLL]  = orientation[ROLL];
 
 	lastPitch = orientation[PITCH];
 	lastYaw = orientation[YAW];
-	
+	lastAimYaw = cl.aimangles[YAW];
 	
 	VectorCopy (cl.viewangles, r_refdef.viewangles);
 	VectorCopy (cl.aimangles, r_refdef.aimangles);
