@@ -701,7 +701,7 @@ void R_ShowHMDCrosshair ()
 {
 	vec3_t forward, up, right;
 	vec3_t start, end, impact;
-	
+	float ss;
 	if( (sv_player && (int)(sv_player->v.weapon) == IT_AXE) )
 		return;
 
@@ -721,28 +721,46 @@ void R_ShowHMDCrosshair ()
 	VectorMA (start, 4096, forward, end);
 	TraceLine (start, end, impact); // todo - trace to nearest entity
 
-	// point crosshair
-	if(r_oculusrift_crosshair.value == 1)
-	{
+	ss = r_oculusrift_supersample.value;
+
+	switch((int) r_oculusrift_crosshair.value)
+	{	
+		// point crosshair
+	default:
+	case HMD_CROSSHAIR_POINT:
+		glEnable(GL_POINT_SMOOTH);
 		glColor4f (1, 0, 0, 0.5);
-		glPointSize( 3.0 );
+		glPointSize( 3.0 * glheight / (800.0 * ss) );
 
 		glBegin(GL_POINTS);
 		glVertex3f (impact[0], impact[1], impact[2]);
 		glEnd();
-	}
+		glDisable(GL_POINT_SMOOTH);
+		break;
 
-	// laser crosshair
-	else if(r_oculusrift_crosshair.value == 2)
-	{ 
+		// laser crosshair
+	case HMD_CROSSHAIR_LINE:
 		glColor4f (1, 0, 0, 0.4);
-
+		glLineWidth( 2.0 * glheight / (800.0 * ss) );
 		glBegin (GL_LINES);
 		glVertex3f (start[0], start[1], start[2]);
 		glVertex3f (impact[0], impact[1], impact[2]);
 		glEnd ();
+		break;
+		// point crosshair at infinity
+	case HMD_CROSSHAIR_POINT_INF:
+		glEnable(GL_POINT_SMOOTH);
+		glColor4f (1, 0, 0, 0.5);
+		glPointSize( 3.0 * glheight / (800.0 * ss) );
+		glBegin(GL_POINTS);
+		glVertex3f (end[0], end[1], end[2]);
+		glEnd();
+		glDisable(GL_POINT_SMOOTH);
+		break;
+		// allow the crosshair to be totally disabled
+	case HMD_CROSSHAIR_NONE:
+		break;
 	}
-
 	// cleanup gl
 	glColor3f (1,1,1);
 	glEnable (GL_TEXTURE_2D);
