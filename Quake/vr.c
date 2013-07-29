@@ -51,6 +51,34 @@ static PFNGLGENFRAMEBUFFERSEXTPROC glGenFramebuffersEXT;
 static PFNGLFRAMEBUFFERTEXTURE2DEXTPROC glFramebufferTexture2DEXT;
 static PFNGLFRAMEBUFFERRENDERBUFFEREXTPROC glFramebufferRenderbufferEXT;
 
+struct {
+	void *func; char *name;
+} gl_extensions[] = {
+	{&glAttachObjectARB, "glAttachObjectARB"},
+	{&glCompileShaderARB, "glCompileShaderARB"},
+	{&glCreateProgramObjectARB, "glCreateProgramObjectARB"},
+	{&glCreateShaderObjectARB, "glCreateShaderObjectARB"},
+	{&glDeleteObjectARB, "glDeleteObjectARB"},
+	{&glGetInfoLogARB, "glGetInfoLogARB"},
+	{&glGetObjectParameterivARB, "glGetObjectParameterivARB"},
+	{&glGetUniformLocationARB, "glGetUniformLocationARB"},
+	{&glLinkProgramARB, "glLinkProgramARB"},
+	{&glShaderSourceARB, "glShaderSourceARB"},
+	{&glUniform2fARB, "glUniform2fARB"},
+	{&glUniform4fARB, "glUniform4fARB"},
+	{&glUseProgramObjectARB, "glUseProgramObjectARB"},
+	{&glBindRenderbufferEXT, "glBindRenderbufferEXT"},
+	{&glDeleteRenderbuffersEXT, "glDeleteRenderbuffersEXT"},
+	{&glGenRenderbuffersEXT, "glGenRenderbuffersEXT"},
+	{&glRenderbufferStorageEXT, "glRenderbufferStorageEXT"},
+	{&glBindFramebufferEXT, "glBindFramebufferEXT"},
+	{&glDeleteFramebuffersEXT, "glDeleteFramebuffersEXT"},
+	{&glGenFramebuffersEXT, "glGenFramebuffersEXT"},
+	{&glFramebufferTexture2DEXT, "glFramebufferTexture2DEXT"},
+	{&glFramebufferRenderbufferEXT, "glFramebufferRenderbufferEXT"},
+	{NULL, NULL},
+};
+
 
 // Default Lens Warp Shader
 static shader_t lens_warp_shader_norm = {
@@ -253,64 +281,19 @@ static void DestroyShaderProgram(shader_t *shader)
 
 static qboolean InitShaderExtension()
 {
+	int i;
 	static qboolean shader_support_initialized;
 
 	if (shader_support_initialized)
 		return true;
 
-	glAttachObjectARB = (PFNGLATTACHOBJECTARBPROC) SDL_GL_GetProcAddress("glAttachObjectARB");
-	glCompileShaderARB = (PFNGLCOMPILESHADERARBPROC) SDL_GL_GetProcAddress("glCompileShaderARB");
-	glCreateProgramObjectARB = (PFNGLCREATEPROGRAMOBJECTARBPROC) SDL_GL_GetProcAddress("glCreateProgramObjectARB");
-	glCreateShaderObjectARB = (PFNGLCREATESHADEROBJECTARBPROC) SDL_GL_GetProcAddress("glCreateShaderObjectARB");
-	glDeleteObjectARB = (PFNGLDELETEOBJECTARBPROC) SDL_GL_GetProcAddress("glDeleteObjectARB");
-	glGetInfoLogARB = (PFNGLGETINFOLOGARBPROC) SDL_GL_GetProcAddress("glGetInfoLogARB");
-	glGetObjectParameterivARB = (PFNGLGETOBJECTPARAMETERIVARBPROC) SDL_GL_GetProcAddress("glGetObjectParameterivARB");
-	glGetUniformLocationARB = (PFNGLGETUNIFORMLOCATIONARBPROC) SDL_GL_GetProcAddress("glGetUniformLocationARB");
-	glLinkProgramARB = (PFNGLLINKPROGRAMARBPROC) SDL_GL_GetProcAddress("glLinkProgramARB");
-	glShaderSourceARB = (PFNGLSHADERSOURCEARBPROC) SDL_GL_GetProcAddress("glShaderSourceARB");
-	glUniform2fARB = (PFNGLUNIFORM2FARBPROC) SDL_GL_GetProcAddress("glUniform2fARB");
-	glUniform4fARB = (PFNGLUNIFORM4FARBPROC) SDL_GL_GetProcAddress("glUniform4fARB");
-	glUseProgramObjectARB = (PFNGLUSEPROGRAMOBJECTARBPROC) SDL_GL_GetProcAddress("glUseProgramObjectARB");
+	for( i = 0; gl_extensions[i].func; i++ ) {
+		*((void **)gl_extensions[i].func) = SDL_GL_GetProcAddress(gl_extensions[i].name);
+		if (!*((void **)gl_extensions[i].func)) 
+			return false;
+	}
 
-	glBindRenderbufferEXT = (PFNGLBINDRENDERBUFFEREXTPROC) SDL_GL_GetProcAddress("glBindRenderbufferEXT");
-	glDeleteRenderbuffersEXT = (PFNGLDELETERENDERBUFFERSEXTPROC) SDL_GL_GetProcAddress("glDeleteRenderbuffersEXT");
-	glGenRenderbuffersEXT = (PFNGLGENRENDERBUFFERSEXTPROC) SDL_GL_GetProcAddress("glGenRenderbuffersEXT");
-	glRenderbufferStorageEXT = (PFNGLRENDERBUFFERSTORAGEEXTPROC) SDL_GL_GetProcAddress("glRenderbufferStorageEXT");
-	glBindFramebufferEXT = (PFNGLBINDFRAMEBUFFEREXTPROC) SDL_GL_GetProcAddress("glBindFramebufferEXT");
-	glDeleteFramebuffersEXT = (PFNGLDELETEFRAMEBUFFERSEXTPROC) SDL_GL_GetProcAddress("glDeleteFramebuffersEXT");
-	glGenFramebuffersEXT = (PFNGLGENFRAMEBUFFERSEXTPROC) SDL_GL_GetProcAddress("glGenFramebuffersEXT");
-	glFramebufferTexture2DEXT = (PFNGLFRAMEBUFFERTEXTURE2DEXTPROC) SDL_GL_GetProcAddress("glFramebufferTexture2DEXT");
-	glFramebufferRenderbufferEXT = (PFNGLFRAMEBUFFERRENDERBUFFEREXTPROC) SDL_GL_GetProcAddress("glFramebufferRenderbufferEXT");
-
-    if (
-		glAttachObjectARB &&
-        glCompileShaderARB &&
-        glCreateProgramObjectARB &&
-        glCreateShaderObjectARB &&
-        glDeleteObjectARB &&
-        glGetInfoLogARB &&
-        glGetObjectParameterivARB &&
-        glGetUniformLocationARB &&
-        glLinkProgramARB &&
-        glShaderSourceARB &&
-        glUniform2fARB &&
-		glUniform4fARB &&
-        glUseProgramObjectARB &&
-		glBindFramebufferEXT &&
-		glBindRenderbufferEXT &&
-		glDeleteRenderbuffersEXT &&
-		glGenRenderbuffersEXT &&
-		glRenderbufferStorageEXT &&
-		glBindFramebufferEXT &&
-		glDeleteFramebuffersEXT &&
-		glGenFramebuffersEXT &&
-		glFramebufferTexture2DEXT &&
-		glFramebufferRenderbufferEXT
-	) {
-        shader_support_initialized = true;
-    }
-
-	// Ah yes, this was fun.
+	shader_support_initialized = true;
 	return shader_support_initialized;
 }
 
