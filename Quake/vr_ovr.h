@@ -3,22 +3,6 @@
 
 #include "vr.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-int InitOculusSDK();
-void GetOculusView(float view[3]);
-void ReleaseOculusSDK();
-void SetOculusPrediction(float time);
-void SetOculusDriftCorrect(int enable);
-
-int GetOculusDeviceInfo(vr_hmd_settings_t *hmd_settings);
-
-void ResetOculusOrientation();
-
-#ifdef __cplusplus
-}
-#endif
+extern vr_interface_t vr_interface_ovr;
 
 #endif

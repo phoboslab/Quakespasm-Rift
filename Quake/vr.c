@@ -5,11 +5,11 @@
 #include "vr_ovr.h"
 
 typedef struct {
-    GLhandleARB program;
-    GLhandleARB vert_shader;
-    GLhandleARB frag_shader;
-    const char *vert_source;
-    const char *frag_source;
+	GLhandleARB program;
+	GLhandleARB vert_shader;
+	GLhandleARB frag_shader;
+	const char *vert_source;
+	const char *frag_source;
 } shader_t;
 
 
@@ -41,7 +41,6 @@ static PFNGLSHADERSOURCEARBPROC glShaderSourceARB;
 static PFNGLUNIFORM2FARBPROC glUniform2fARB;
 static PFNGLUNIFORM4FARBPROC glUniform4fARB;
 static PFNGLUSEPROGRAMOBJECTARBPROC glUseProgramObjectARB;
-
 static PFNGLBINDRENDERBUFFEREXTPROC glBindRenderbufferEXT;
 static PFNGLDELETERENDERBUFFERSEXTPROC glDeleteRenderbuffersEXT;
 static PFNGLGENRENDERBUFFERSEXTPROC glGenRenderbuffersEXT;
@@ -99,18 +98,18 @@ static shader_t lens_warp_shader_chrm = {
 
 	// fragment shader
 	"varying vec2 vUv;\n"
-    "uniform vec2 lensCenter;\n"
-    "uniform vec2 scale;\n"
-    "uniform vec2 scaleIn;\n"
-    "uniform vec4 hmdWarpParam;\n"
-    "uniform vec4 chromAbParam;\n"
-    "uniform sampler2D texture;\n"
+	"uniform vec2 lensCenter;\n"
+	"uniform vec2 scale;\n"
+	"uniform vec2 scaleIn;\n"
+	"uniform vec4 hmdWarpParam;\n"
+	"uniform vec4 chromAbParam;\n"
+	"uniform sampler2D texture;\n"
 
-    // Scales input texture coordinates for distortion.
-    // ScaleIn maps texture coordinates to Scales to ([-1, 1]), although top/bottom will be
-    // larger due to aspect ratio.
-    "void main()\n"
-    "{\n"
+	// Scales input texture coordinates for distortion.
+	// ScaleIn maps texture coordinates to Scales to ([-1, 1]), although top/bottom will be
+	// larger due to aspect ratio.
+	"void main()\n"
+	"{\n"
 		"vec2 uv = (vUv*2.0)-1.0;\n" // range from [0,1] to [-1,1]
 		"vec2 theta = (uv-lensCenter)*scaleIn;\n"
 		"float rSq = theta.x*theta.x + theta.y*theta.y;\n"
@@ -141,7 +140,7 @@ static shader_t lens_warp_shader_chrm = {
 		"float red = texture2D(texture, tcRed).r;\n"
 
 		"gl_FragColor = vec4(red, center.g, blue, center.a);\n"
-    "}\n"
+	"}\n"
 };
 
 
@@ -158,13 +157,14 @@ static struct {
 	} uniform;
 } lens_warp;
 
+vr_interface_t *vr_interface = NULL;
+
 static hmd_eye_t left_eye = {0, 0, {0, 0, 0.5, 1}, 0};
 static hmd_eye_t right_eye = {0, 0, {0.5, 0, 0.5, 1}, 0};
 static float viewport_fov_x;
 static float viewport_fov_y;
 static float hmd_ipd;
 
-static qboolean rift_enabled;
 static qboolean shader_support;
 
 static const float player_height_units = 56;
@@ -181,7 +181,7 @@ extern vec3_t vright;
 
 
 cvar_t  vr_enabled = {"vr_enabled", "0", CVAR_NONE};
-cvar_t  vr_ipd = {"vr_ipd","0",CVAR_NONE};
+cvar_t  vr_ipd = {"vr_ipd","600",CVAR_NONE};
 cvar_t  vr_supersample = {"vr_supersample", "2", CVAR_ARCHIVE};
 cvar_t  vr_prediction = {"vr_prediction","40", CVAR_ARCHIVE};
 cvar_t  vr_driftcorrect = {"vr_driftcorrect","1", CVAR_ARCHIVE};
@@ -196,22 +196,22 @@ cvar_t  vr_deadzone = {"vr_deadzone","30",CVAR_ARCHIVE};
 
 static qboolean CompileShader(GLhandleARB shader, const char *source)
 {
-    GLint status;
+	GLint status;
 
-    glShaderSourceARB(shader, 1, &source, NULL);
-    glCompileShaderARB(shader);
-    glGetObjectParameterivARB(shader, GL_OBJECT_COMPILE_STATUS_ARB, &status);
-    if (status == 0)
+	glShaderSourceARB(shader, 1, &source, NULL);
+	glCompileShaderARB(shader);
+	glGetObjectParameterivARB(shader, GL_OBJECT_COMPILE_STATUS_ARB, &status);
+	if (status == 0)
 	{
-        GLint length;
-        char *info;
+		GLint length;
+		char *info;
 
-        glGetObjectParameterivARB(shader, GL_OBJECT_INFO_LOG_LENGTH_ARB, &length);
-        info = SDL_stack_alloc(char, length+1);
-        glGetInfoLogARB(shader, length, NULL, info);
-        Con_Warning("Failed to compile shader:\n%s\n%s", source, info);
-        SDL_stack_free(info);
-    }
+		glGetObjectParameterivARB(shader, GL_OBJECT_INFO_LOG_LENGTH_ARB, &length);
+		info = SDL_stack_alloc(char, length+1);
+		glGetInfoLogARB(shader, length, NULL, info);
+		Con_Warning("Failed to compile shader:\n%s\n%s", source, info);
+		SDL_stack_free(info);
+	}
 
 	return !!status;
 }
@@ -242,12 +242,12 @@ static qboolean CompileShaderProgram(shader_t *shader)
 
 static void DestroyShaderProgram(shader_t *shader)
 {
-    if (shader_support && shader) 
+	if (shader_support && shader) 
 	{
-        glDeleteObjectARB(shader->vert_shader);
-        glDeleteObjectARB(shader->frag_shader);
-        glDeleteObjectARB(shader->program);
-    }
+		glDeleteObjectARB(shader->vert_shader);
+		glDeleteObjectARB(shader->frag_shader);
+		glDeleteObjectARB(shader->program);
+	}
 }
 
 
@@ -352,28 +352,30 @@ void DeleteFBO(fbo_t fbo) {
 
 void CreatePerspectiveMatrix(float *out, float fovy, float aspect, float nearf, float farf, float h) {
 	float f = 1.0f / tanf(fovy / 2.0f);
-    float nf = 1.0f / (nearf - farf);
-    out[0] = f / aspect;
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-    out[4] = 0;
-    out[5] = f;
-    out[6] = 0;
-    out[7] = 0;
-    out[8] = -h;
-    out[9] = 0;
-    out[10] = (farf + nearf) * nf;
-    out[11] = -1;
-    out[12] = 0;
-    out[13] = 0;
-    out[14] = (2.0f * farf * nearf) * nf;
-    out[15] = 0;
+	float nf = 1.0f / (nearf - farf);
+	out[0] = f / aspect;
+	out[1] = 0;
+	out[2] = 0;
+	out[3] = 0;
+	out[4] = 0;
+	out[5] = f;
+	out[6] = 0;
+	out[7] = 0;
+	out[8] = -h;
+	out[9] = 0;
+	out[10] = (farf + nearf) * nf;
+	out[11] = -1;
+	out[12] = 0;
+	out[13] = 0;
+	out[14] = (2.0f * farf * nearf) * nf;
+	out[15] = 0;
 }
 
 
 
 
+// ----------------------------------------------------------------------------
+// Callbacks for cvars
 
 static void VR_Enabled_f (cvar_t *var)
 {
@@ -383,12 +385,12 @@ static void VR_Enabled_f (cvar_t *var)
 		return;
 
 	if( !VR_Enable() )
-		vr_enabled.value = 0;
+		Cvar_SetValueQuick(&vr_enabled,0);
 }
 
 static void VR_SuperSample_f (cvar_t *var)
 {
-	if (!rift_enabled) { return; }
+	if (!vr_interface) { return; }
 
 	// Re-init oculus tracker when, if active
 	VR_Disable();
@@ -397,7 +399,7 @@ static void VR_SuperSample_f (cvar_t *var)
 
 static void VR_ChromAbr_f (cvar_t *var)
 {
-	if (!rift_enabled) { return; }
+	if (!vr_interface) { return; }
 
 	// Re-init oculus tracker when active
 	VR_Disable();
@@ -405,35 +407,34 @@ static void VR_ChromAbr_f (cvar_t *var)
 }
 static void VR_Prediction_f (cvar_t *var)
 {
-	if (!rift_enabled) { return; }
+	if (!vr_interface) { return; }
 
-	SetOculusPrediction(vr_prediction.value/1000.0f);
+	vr_interface->set_prediction(vr_prediction.value/1000.0f);
 	Con_Printf("Motion prediction is set to %.1fms\n",vr_prediction.value);
 }
 
 static void VR_DriftCorrect_f (cvar_t *var)
 {
-	if (!rift_enabled) { return; }
+	if (!vr_interface) { return; }
 
-	SetOculusDriftCorrect((int)vr_driftcorrect.value);
+	vr_interface->set_drift_correction((int)vr_driftcorrect.value);
 }
 
 static void VR_IPD_f (cvar_t *var)
 {
-	if (!rift_enabled) { return; }
+	if (!vr_interface) { return; }
 
 	left_eye.offset = -player_height_units * (vr_ipd.value/(player_height_m * 1000.0)) * 0.5;
 	right_eye.offset = -left_eye.offset;
-	Con_Printf("Your IPD is set to %.1fmm (SDK default:%.1fmm)\n", vr_ipd.value, hmd_ipd);
+	Con_Printf("Your IPD is set to %.1fmm (SDK default:%.1fmm)\n", vr_ipd.value, hmd_ipd*1000.0f);
 }
 
 static void VR_Deadzone_f (cvar_t *var)
 {
 	// clamp the mouse to a max of 0 - 70 degrees
-	
-	float value = CLAMP (0.0f, vr_deadzone.value, 70.0f);
-	if (value != vr_deadzone.value)
-		Cvar_SetValueQuick(&vr_deadzone,value);
+	float deadzone = CLAMP (0.0f, vr_deadzone.value, 70.0f);
+	if (deadzone != vr_deadzone.value)
+		Cvar_SetValueQuick(&vr_deadzone, deadzone);
 }
 
 
@@ -447,6 +448,8 @@ float *vr_projection_matrix = NULL;
 
 void VR_Init()
 {
+	// This is only called once at game start
+
 	Cvar_RegisterVariable (&vr_enabled);
 	Cvar_SetCallback (&vr_enabled, VR_Enabled_f);
 	Cvar_RegisterVariable (&vr_supersample);
@@ -469,7 +472,8 @@ qboolean VR_Enable()
 {
 	vr_hmd_settings_t hmd;
 
-	qboolean sdkInitialized = false;
+	qboolean sdk_initialized = false;
+	qboolean shaders_compiled = false;
 	float aspect, r, h;
 	float *dk, *chrm;
 	float dist_scale;
@@ -481,22 +485,25 @@ qboolean VR_Enable()
 	float prediction = vr_prediction.value / 1000.0f;
 	int driftcorrection = (int) vr_driftcorrect.value;
 
-	sdkInitialized = InitOculusSDK();
+	vr_interface = &vr_interface_ovr;
+	sdk_initialized = vr_interface->init();
 
-	if (!sdkInitialized) 
+	if (!sdk_initialized) 
 	{
+		vr_interface = NULL;
 		Con_Printf("Failed to Initialize Oculus SDK");
 		return false;
 	}
 
-	GetOculusDeviceInfo(&hmd);
+	vr_interface->get_device_info(&hmd);
 
 	shader_support = InitShaderExtension();   
-    if (!shader_support) 
+	if (!shader_support) 
 	{
+		vr_interface = NULL;
 		Con_Printf("Failed to get OpenGL Extensions");
-        return false;
-    }
+		return false;
+	}
 	
 	if (vr_chromabr.value)
 		lens_warp.shader = &lens_warp_shader_chrm;
@@ -504,9 +511,10 @@ qboolean VR_Enable()
 		lens_warp.shader = &lens_warp_shader_norm;
 
 
-	rift_enabled = CompileShaderProgram(lens_warp.shader);
-	if (!rift_enabled) 
+	shaders_compiled = CompileShaderProgram(lens_warp.shader);
+	if (!shaders_compiled) 
 	{
+		vr_interface = NULL;
 		lens_warp.shader = NULL;
 		Con_Printf("Failed to Compile Shaders");
 		return false;
@@ -553,7 +561,7 @@ qboolean VR_Enable()
 
 
 	// Reset IPD to SDK default
-	Cvar_SetValueQuick(&vr_ipd, hmd_ipd);
+	vr_ipd.value = hmd_ipd*1000.0f;
 
 	VR_IPD_f(&vr_ipd);
 	VR_Prediction_f(&vr_prediction);
@@ -564,15 +572,15 @@ qboolean VR_Enable()
 
 void VR_Disable()
 {
-	if (rift_enabled) 
+	if (vr_interface) 
 	{
 		DestroyShaderProgram(lens_warp.shader);
 		lens_warp.shader = NULL;
 		DeleteFBO(left_eye.fbo);
 		DeleteFBO(right_eye.fbo);
+		vr_interface->release();
 	}
-	ReleaseOculusSDK();
-	rift_enabled = false;
+	vr_interface = NULL;
 
 	vid.recalc_refdef = true;
 }
@@ -647,7 +655,7 @@ void VR_UpdateScreenContent()
 	vec3_t orientation;
 
 	// Get current orientation of the HMD
-	GetOculusView(orientation);
+	vr_interface->get_view(orientation);
 
 	switch( (int)vr_aimmode.value )
 	{
@@ -719,10 +727,10 @@ void VR_UpdateScreenContent()
 
 	// Render the views onto the screen with the lens warp shader
 	glMatrixMode(GL_PROJECTION);
-    glLoadIdentity ();
+	glLoadIdentity ();
 
 	glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity ();
+	glLoadIdentity ();
 
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
@@ -738,7 +746,7 @@ void VR_AddOrientationToViewAngles(vec3_t angles)
 	vec3_t orientation;
 
 	// Get current orientation of the HMD
-	GetOculusView(orientation);
+	vr_interface->get_view(orientation);
 
 	angles[PITCH] = angles[PITCH] + orientation[PITCH]; 
 	angles[YAW] = angles[YAW] + orientation[YAW]; 
@@ -758,7 +766,7 @@ void VR_ShowCrosshair ()
 	glPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
 	GL_PolygonOffset (OFFSET_SHOWTRIS);
 	glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDisable (GL_TEXTURE_2D);
 	glDisable (GL_CULL_FACE);
 
@@ -851,5 +859,5 @@ void VR_Sbar_Draw()
 
 void VR_ResetOrientation()
 {
-	ResetOculusOrientation();
+	vr_interface->reset_orientation();
 }

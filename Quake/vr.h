@@ -17,6 +17,7 @@
 #define	HMD_CROSSHAIR_LINE 2 // Line crosshair
 #define	HMD_CROSSHAIR_POINT_INF 3 // Point crosshair projected to infinity
 
+
 typedef struct {
 	unsigned int h_resolution;
 	unsigned int v_resolution;
@@ -28,6 +29,17 @@ typedef struct {
 	float distortion_k[4];
 	float chrom_abr[4];
 } vr_hmd_settings_t;
+
+
+typedef struct {
+	int (*init)();
+	void (*release)();
+	int (*get_device_info)(vr_hmd_settings_t *hmd_settings);
+	void (*get_view)(float view[3]);
+	void (*reset_orientation)();
+	void (*set_prediction)(float time);
+	void (*set_drift_correction)(int enable);
+} vr_interface_t;
 
 
 void VR_Init();

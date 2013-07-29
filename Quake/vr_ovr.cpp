@@ -1,7 +1,6 @@
 // 2013 Dominic Szablewski - phoboslab.org
-
-#include "vr_ovr.h"
 #include "OVR.h"
+#include "vr.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846f // matches value in gcc v2 math.h
@@ -150,4 +149,16 @@ void ResetOculusOrientation()
 		magnet->BeginAutoCalibration(*fusion);
 	}
 
+}
+
+extern "C" {
+	vr_interface_t vr_interface_ovr = {
+		InitOculusSDK,
+		ReleaseOculusSDK,
+		GetOculusDeviceInfo,
+		GetOculusView,
+		ResetOculusOrientation,
+		SetOculusPrediction,
+		SetOculusDriftCorrect
+	};
 }
