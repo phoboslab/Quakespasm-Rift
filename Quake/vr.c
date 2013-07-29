@@ -209,7 +209,8 @@ extern vec3_t vright;
 
 
 cvar_t  vr_enabled = {"vr_enabled", "0", CVAR_NONE};
-cvar_t  vr_ipd = {"vr_ipd","600",CVAR_NONE};
+cvar_t  vr_ipd = {"vr_ipd","-1",CVAR_NONE};
+
 cvar_t  vr_supersample = {"vr_supersample", "2", CVAR_ARCHIVE};
 cvar_t  vr_prediction = {"vr_prediction","40", CVAR_ARCHIVE};
 cvar_t  vr_driftcorrect = {"vr_driftcorrect","1", CVAR_ARCHIVE};
@@ -288,9 +289,11 @@ static qboolean InitShaderExtension()
 		return true;
 
 	for( i = 0; gl_extensions[i].func; i++ ) {
-		*((void **)gl_extensions[i].func) = SDL_GL_GetProcAddress(gl_extensions[i].name);
-		if (!*((void **)gl_extensions[i].func)) 
+		void *func = SDL_GL_GetProcAddress(gl_extensions[i].name);
+		if (!func) 
 			return false;
+
+		*((void **)gl_extensions[i].func) = func;
 	}
 
 	shader_support_initialized = true;
@@ -405,6 +408,12 @@ static void VR_DriftCorrect_f (cvar_t *var)
 
 static void VR_IPD_f (cvar_t *var)
 {
+	if (vr_ipd.value < 0) 
+	{
+		Cvar_SetValueQuick(&vr_ipd,hmd_ipd*1000.0f);
+		return;
+	}
+
 	if (!vr_interface) { return; }
 
 	left_eye.offset = -player_height_units * (vr_ipd.value/(player_height_m * 1000.0)) * 0.5;
@@ -541,10 +550,7 @@ qboolean VR_Enable()
 	glUniform2fARB(lens_warp.uniform.scale_in, 1.0f, 1.0f/aspect);
 	glUniform2fARB(lens_warp.uniform.scale, 1.0f/dist_scale, 1.0f * aspect/dist_scale);
 	glUseProgramObjectARB(0);
-
-
-	// Reset IPD to SDK default
-	vr_ipd.value = hmd_ipd*1000.0f;
+	
 
 	VR_IPD_f(&vr_ipd);
 	VR_Prediction_f(&vr_prediction);
