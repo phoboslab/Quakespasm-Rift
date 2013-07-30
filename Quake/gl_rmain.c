@@ -112,6 +112,7 @@ cvar_t  r_oculusrift_supersample = {"r_oculusrift_supersample", "2", CVAR_ARCHIV
 cvar_t  r_oculusrift_prediction = {"r_oculusrift_prediction","40", CVAR_ARCHIVE};
 cvar_t  r_oculusrift_driftcorrect = {"r_oculusrift_driftcorrect","1", CVAR_ARCHIVE};
 cvar_t  r_oculusrift_crosshair = {"r_oculusrift_crosshair","1", CVAR_ARCHIVE};
+cvar_t  r_oculusrift_crosshair_depth = {"r_oculusrift_crosshair_depth","0", CVAR_ARCHIVE};
 cvar_t  r_oculusrift_chromabr = {"r_oculusrift_chromabr","1", CVAR_ARCHIVE};
 cvar_t  r_oculusrift_aimmode = {"r_oculusrift_aimmode","1", CVAR_ARCHIVE};
 cvar_t  r_oculusrift_deadzone = {"r_oculusrift_deadzone","30",CVAR_ARCHIVE};

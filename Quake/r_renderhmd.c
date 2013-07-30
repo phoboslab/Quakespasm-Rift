@@ -176,6 +176,7 @@ extern cvar_t r_oculusrift_supersample;
 extern cvar_t r_oculusrift_prediction;
 extern cvar_t r_oculusrift_driftcorrect;
 extern cvar_t r_oculusrift_crosshair;
+extern cvar_t r_oculusrift_crosshair_depth;
 extern cvar_t r_oculusrift_chromabr;
 extern cvar_t r_oculusrift_aimmode;
 extern cvar_t r_oculusrift_ipd;
@@ -718,8 +719,6 @@ void R_ShowHMDCrosshair ()
 	VectorCopy (cl.viewent.origin, start);
 	start[2] -= cl.viewheight - 10;
 	AngleVectors (cl.aimangles, forward, right, up);
-	VectorMA (start, 4096, forward, end);
-	TraceLine (start, end, impact); // todo - trace to nearest entity
 
 	ss = r_oculusrift_supersample.value;
 
@@ -728,9 +727,19 @@ void R_ShowHMDCrosshair ()
 		// point crosshair
 	default:
 	case HMD_CROSSHAIR_POINT:
+		
+		if (r_oculusrift_crosshair_depth.value <= 0) {
+			 // trace to first wall
+			VectorMA (start, 4096, forward, end);
+			TraceLine (start, end, impact);
+		} else {
+			// fix crosshair to specific depth
+			VectorMA (start, r_oculusrift_crosshair_depth.value * (player_height_units / player_height_m), forward, impact);
+		}
+
 		glEnable(GL_POINT_SMOOTH);
 		glColor4f (1, 0, 0, 0.5);
-		glPointSize( 3.0 * glheight / (800.0 * ss) );
+		glPointSize( 3.0 * glwidth / (1280 * ss) );
 
 		glBegin(GL_POINTS);
 		glVertex3f (impact[0], impact[1], impact[2]);
@@ -740,25 +749,17 @@ void R_ShowHMDCrosshair ()
 
 		// laser crosshair
 	case HMD_CROSSHAIR_LINE:
+		
+		// trace to first entity
+		VectorMA (start, 4096, forward, end);
+		TraceLineToEntity (start, end, impact, sv_player);
+
 		glColor4f (1, 0, 0, 0.4);
-		glLineWidth( 2.0 * glheight / (800.0 * ss) );
+		glLineWidth( 2.0 * glwidth / (1280 * ss) );
 		glBegin (GL_LINES);
 		glVertex3f (start[0], start[1], start[2]);
 		glVertex3f (impact[0], impact[1], impact[2]);
 		glEnd ();
-		break;
-		// point crosshair at infinity
-	case HMD_CROSSHAIR_POINT_INF:
-		glEnable(GL_POINT_SMOOTH);
-		glColor4f (1, 0, 0, 0.5);
-		glPointSize( 3.0 * glheight / (800.0 * ss) );
-		glBegin(GL_POINTS);
-		glVertex3f (end[0], end[1], end[2]);
-		glEnd();
-		glDisable(GL_POINT_SMOOTH);
-		break;
-		// allow the crosshair to be totally disabled
-	case HMD_CROSSHAIR_NONE:
 		break;
 	}
 	// cleanup gl
