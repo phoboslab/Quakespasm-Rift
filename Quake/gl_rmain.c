@@ -327,12 +327,12 @@ void GL_SetFrustum(float fovx, float fovy)
 
 /*
 =============
-GL_SetFrustumHMD  -- dghost -- replacement GL_SetFrustrum for HMD's
+GL_SetFrustumVR  -- dghost -- replacement GL_SetFrustrum for HMD's
 Generates perspective matrices given a FOV and offset.
 =============
 */
 
-void GL_SetFrustumHMD(float fovx, float fovy,float offset)
+void GL_SetFrustumVR(float fovx, float fovy,float offset)
 {
 	GLfloat aspect = fovx/fovy;
 	float f = 1.0f / tanf((fovy / 2.0f) * M_PI / 180);
@@ -378,7 +378,7 @@ void R_SetupGL (void)
 	//johnfitz
 
 	if (vr_view_offset) {
-		GL_SetFrustumHMD(r_fovx, r_fovy, vr_proj_offset);
+		GL_SetFrustumVR (r_fovx, r_fovy, vr_proj_offset);
 	}
 	else 
 	{

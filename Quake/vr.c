@@ -24,7 +24,7 @@ typedef struct {
 		float left, top, width, height;
 	} viewport;
 	fbo_t fbo;
-} hmd_eye_t;
+} vr_eye_t;
 
 // GL Extensions
 static PFNGLATTACHOBJECTARBPROC glAttachObjectARB;
@@ -186,11 +186,12 @@ static struct {
 
 vr_interface_t *vr_interface = NULL;
 
-static hmd_eye_t left_eye = {0, 0, {0, 0, 0.5, 1}, 0};
-static hmd_eye_t right_eye = {0, 0, {0.5, 0, 0.5, 1}, 0};
+static vr_eye_t left_eye = {0, 0, {0, 0, 0.5, 1}, 0};
+static vr_eye_t right_eye = {0, 0, {0.5, 0, 0.5, 1}, 0};
 static float viewport_fov_x;
 static float viewport_fov_y;
-static float hmd_ipd;
+
+static vr_hmd_settings_t hmd;
 
 static qboolean shader_support;
 
@@ -386,7 +387,7 @@ static void VR_IPD_f (cvar_t *var)
 {
 	if (vr_ipd.value < 0) 
 	{
-		Cvar_SetValueQuick(&vr_ipd,hmd_ipd*1000.0f);
+		Cvar_SetValueQuick (&vr_ipd, hmd.interpupillary_distance*1000.0f);
 		return;
 	}
 
@@ -394,7 +395,7 @@ static void VR_IPD_f (cvar_t *var)
 
 	left_eye.offset = -player_height_units * (vr_ipd.value/(player_height_m * 1000.0)) * 0.5;
 	right_eye.offset = -left_eye.offset;
-	Con_Printf("Your IPD is set to %.1fmm (SDK default:%.1fmm)\n", vr_ipd.value, hmd_ipd*1000.0f);
+	Con_Printf("Your IPD is set to %.1fmm (SDK default:%.1fmm)\n", vr_ipd.value, hmd.interpupillary_distance*1000.0f);
 }
 
 static void VR_Deadzone_f (cvar_t *var)
@@ -439,8 +440,6 @@ void VR_Init()
 
 qboolean VR_Enable()
 {
-	vr_hmd_settings_t hmd;
-
 	qboolean sdk_initialized = false;
 	qboolean shaders_compiled = false;
 	float aspect, r, h;
@@ -489,9 +488,6 @@ qboolean VR_Enable()
 		return false;
 	}
 	
-
-	hmd_ipd = hmd.interpupillary_distance;
-
 	// Calculate lens distortion and fov
 	aspect = hmd.h_resolution / (2.0f * hmd.v_resolution);
 	h = 1.0f - (2.0f * hmd.lens_separation_distance) / hmd.h_screen_size;
@@ -550,7 +546,7 @@ void VR_Disable()
 	vid.recalc_refdef = true;
 }
 
-static void RenderScreenForEye(hmd_eye_t *eye)
+static void RenderScreenForEye(vr_eye_t *eye)
 {
 	// Remember the current vrect.width and vieworg; we have to modify it here
 	// for each eye
@@ -591,7 +587,7 @@ static void RenderScreenForEye(hmd_eye_t *eye)
 	vr_view_offset = 0;
 }
 
-static void RenderEyeOnScreen(hmd_eye_t *eye)
+static void RenderEyeOnScreen(vr_eye_t *eye)
 {
 	glViewport(
 		(glwidth-glx) * eye->viewport.left,
@@ -625,30 +621,30 @@ void VR_UpdateScreenContent()
 	{
 		// 1: (Default) Head Aiming; View YAW is mouse+head, PITCH is head
 		default:
-		case HMD_AIMMODE_HEAD_MYAW:
+		case VR_AIMMODE_HEAD_MYAW:
 			cl.viewangles[PITCH] = cl.aimangles[PITCH] = orientation[PITCH];
 			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
 			break;
 		
 		// 2: Head Aiming; View YAW and PITCH is mouse+head
-		case HMD_AIMMODE_HEAD_MYAW_MPITCH:
+		case VR_AIMMODE_HEAD_MYAW_MPITCH:
 			cl.viewangles[PITCH] = cl.aimangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH] - lastPitch;
 			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
 			break;
 		
 		// 3: Mouse Aiming; View YAW is mouse+head, PITCH is head
-		case HMD_AIMMODE_MOUSE_MYAW:
+		case VR_AIMMODE_MOUSE_MYAW:
 			cl.viewangles[PITCH] = orientation[PITCH];
 			cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW];
 			break;
 		
 		// 4: Mouse Aiming; View YAW and PITCH is mouse+head
-		case HMD_AIMMODE_MOUSE_MYAW_MPITCH:
+		case VR_AIMMODE_MOUSE_MYAW_MPITCH:
 			cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH];
 			cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW];
 			break;
 		
-		case HMD_AIMMODE_BLENDED:
+		case VR_AIMMODE_BLENDED:
 			{
 				float diffHMDYaw = orientation[YAW] - lastYaw;
 				float diffHMDPitch = orientation[PITCH] - lastPitch;
@@ -745,7 +741,7 @@ void VR_ShowCrosshair ()
 	{	
 		// point crosshair
 	default:
-	case HMD_CROSSHAIR_POINT:
+	case VR_CROSSHAIR_POINT:
 		
 		if (vr_crosshair_depth.value <= 0) {
 			 // trace to first wall
@@ -767,7 +763,7 @@ void VR_ShowCrosshair ()
 		break;
 
 		// laser crosshair
-	case HMD_CROSSHAIR_LINE:
+	case VR_CROSSHAIR_LINE:
 		
 		// trace to first entity
 		VectorMA (start, 4096, forward, end);
@@ -801,7 +797,7 @@ void VR_Sbar_Draw()
 
 	VectorCopy(cl.aimangles, sbar_angles)
 
-	if (vr_aimmode.value == HMD_AIMMODE_HEAD_MYAW || vr_aimmode.value == HMD_AIMMODE_HEAD_MYAW_MPITCH)
+	if (vr_aimmode.value == VR_AIMMODE_HEAD_MYAW || vr_aimmode.value == VR_AIMMODE_HEAD_MYAW_MPITCH)
 		sbar_angles[PITCH] = 0;
 
 	AngleVectors (sbar_angles, forward, right, up);
