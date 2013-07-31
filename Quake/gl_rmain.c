@@ -339,10 +339,44 @@ void GL_SetFrustum(float fovx, float fovy)
 
 /*
 =============
+GL_SetFrustumHMD  -- dghost -- written to replace GL_SetFrustrum for HMD's
+Takes offset in screen coordinates for offset projection matrices.
+=============
+*/
+void GL_SetFrustumHMD(float fovx, float fovy,float offset)
+{
+	GLfloat aspect = fovx/fovy;
+	float f = 1.0f / tanf((fovy / 2.0f) * M_PI / 180);
+    float nf = 1.0f / (NEARCLIP - gl_farclip.value);
+	float out[16];
+    out[0] = f / aspect;
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[4] = 0;
+    out[5] = f;
+    out[6] = 0;
+    out[7] = 0;
+    out[8] = -offset;
+    out[9] = 0;
+    out[10] = (gl_farclip.value + NEARCLIP) * nf;
+    out[11] = -1;
+    out[12] = 0;
+    out[13] = 0;
+    out[14] = (2.0f * gl_farclip.value * NEARCLIP) * nf;
+    out[15] = 0;
+	glLoadMatrixf(out);
+}
+
+/*
+=============
 R_SetupGL
 =============
 */
-extern float *hmd_projection_matrix; // phoboslab
+
+extern float hmd_view_offset;
+extern float hmd_proj_offset;
+
 void R_SetupGL (void)
 {
 	//johnfitz -- rewrote this section
@@ -354,8 +388,8 @@ void R_SetupGL (void)
 				r_refdef.vrect.height);
 	//johnfitz
 
-	if (hmd_projection_matrix) {
-		glLoadMatrixf(hmd_projection_matrix);
+	if (hmd_view_offset) {
+		GL_SetFrustumHMD(r_fovx, r_fovy, hmd_proj_offset);
 	}
 	else {
 		GL_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
@@ -443,7 +477,7 @@ void R_SetupView (void)
 	r_fovy = r_refdef.fov_y;
 	if (r_waterwarp.value)
 	{
-		int contents = Mod_PointInLeaf (r_origin, cl.worldmodel)->contents;
+		int contents = r_viewleaf->contents;
 		if (contents == CONTENTS_WATER || contents == CONTENTS_SLIME || contents == CONTENTS_LAVA)
 		{
 			//variance is a percentage of width, where width = 2 * tan(fov / 2) otherwise the effect is too dramatic at high FOV and too subtle at low FOV.  what a mess!

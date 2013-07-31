@@ -24,7 +24,6 @@ typedef struct {
 		float left, top, width, height;
 	} viewport;
 	fbo_t fbo;
-	float projection_matrix[16];
 } hmd_eye_t;
 
 // GL Extensions
@@ -376,7 +375,7 @@ void CreatePerspectiveMatrix(float *out, float fovy, float aspect, float nearf, 
 // Public vars and functions
 
 float hmd_view_offset;
-float *hmd_projection_matrix = NULL;
+float hmd_proj_offset;
 
 void R_SetHMDIPD()
 {
@@ -486,14 +485,13 @@ qboolean R_InitHMDRenderer()
 
 	// Set up eyes
 	left_eye.lens_shift = h;
+	left_eye.offset = -player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
 	left_eye.fbo = CreateFBO(glwidth * left_eye.viewport.width * ss, glheight * left_eye.viewport.height * ss);
-	CreatePerspectiveMatrix(left_eye.projection_matrix, fovy, aspect, 4, gl_farclip.value, h);
 
 	right_eye.lens_shift = -h;
+	right_eye.offset = -player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
 	right_eye.fbo = CreateFBO(glwidth * right_eye.viewport.width * ss, glheight * right_eye.viewport.height * ss);
-	CreatePerspectiveMatrix(right_eye.projection_matrix, fovy, aspect, 4, gl_farclip.value, -h);
 
-	
 	// Get uniform location and set some values
 	glUseProgramObjectARB(lens_warp.shader->program);
 	lens_warp.uniform.scale = glGetUniformLocationARB(lens_warp.shader->program, "scale");
@@ -549,10 +547,8 @@ void RenderScreenForEye(hmd_eye_t *eye)
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, eye->fbo.framebuffer);
 	glClear(GL_DEPTH_BUFFER_BIT);
 
-
-	hmd_projection_matrix = eye->projection_matrix;
 	hmd_view_offset = eye->offset;
-
+	hmd_proj_offset = eye->lens_shift;
 	srand((int) (cl.time * 1000)); //sync random stuff between eyes
 
 	r_refdef.fov_x = viewport_fov_x;
@@ -568,7 +564,7 @@ void RenderScreenForEye(hmd_eye_t *eye)
 	glwidth = oldglwidth;
 	glheight = oldglheight;
 
-	hmd_projection_matrix = NULL;
+	hmd_proj_offset = 0;
 	hmd_view_offset = 0;
 }
 
