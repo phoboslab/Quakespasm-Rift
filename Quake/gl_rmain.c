@@ -339,10 +339,11 @@ void GL_SetFrustum(float fovx, float fovy)
 
 /*
 =============
-GL_SetFrustumHMD  -- dghost -- written to replace GL_SetFrustrum for HMD's
-Takes offset in screen coordinates for offset projection matrices.
+GL_SetFrustumHMD  -- dghost -- replacement GL_SetFrustrum for HMD's
+Generates perspective matrices given a FOV and offset.
 =============
 */
+
 void GL_SetFrustumHMD(float fovx, float fovy,float offset)
 {
 	GLfloat aspect = fovx/fovy;

@@ -347,30 +347,6 @@ void DeleteFBO(fbo_t fbo) {
 	glDeleteRenderbuffersEXT(1, &fbo.renderbuffer);
 }
 
-void CreatePerspectiveMatrix(float *out, float fovy, float aspect, float nearf, float farf, float h) {
-	float f = 1.0f / tanf(fovy / 2.0f);
-    float nf = 1.0f / (nearf - farf);
-    out[0] = f / aspect;
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-    out[4] = 0;
-    out[5] = f;
-    out[6] = 0;
-    out[7] = 0;
-    out[8] = -h;
-    out[9] = 0;
-    out[10] = (farf + nearf) * nf;
-    out[11] = -1;
-    out[12] = 0;
-    out[13] = 0;
-    out[14] = (2.0f * farf * nearf) * nf;
-    out[15] = 0;
-}
-
-
-
-
 // ----------------------------------------------------------------------------
 // Public vars and functions
 
