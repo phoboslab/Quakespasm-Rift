@@ -24,7 +24,6 @@ typedef struct {
 		float left, top, width, height;
 	} viewport;
 	fbo_t fbo;
-	float projection_matrix[16];
 } hmd_eye_t;
 
 // GL Extensions
@@ -176,6 +175,7 @@ extern cvar_t r_oculusrift_supersample;
 extern cvar_t r_oculusrift_prediction;
 extern cvar_t r_oculusrift_driftcorrect;
 extern cvar_t r_oculusrift_crosshair;
+extern cvar_t r_oculusrift_crosshair_depth;
 extern cvar_t r_oculusrift_chromabr;
 extern cvar_t r_oculusrift_aimmode;
 extern cvar_t r_oculusrift_ipd;
@@ -347,35 +347,11 @@ void DeleteFBO(fbo_t fbo) {
 	glDeleteRenderbuffersEXT(1, &fbo.renderbuffer);
 }
 
-void CreatePerspectiveMatrix(float *out, float fovy, float aspect, float nearf, float farf, float h) {
-	float f = 1.0f / tanf(fovy / 2.0f);
-    float nf = 1.0f / (nearf - farf);
-    out[0] = f / aspect;
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-    out[4] = 0;
-    out[5] = f;
-    out[6] = 0;
-    out[7] = 0;
-    out[8] = -h;
-    out[9] = 0;
-    out[10] = (farf + nearf) * nf;
-    out[11] = -1;
-    out[12] = 0;
-    out[13] = 0;
-    out[14] = (2.0f * farf * nearf) * nf;
-    out[15] = 0;
-}
-
-
-
-
 // ----------------------------------------------------------------------------
 // Public vars and functions
 
 float hmd_view_offset;
-float *hmd_projection_matrix = NULL;
+float hmd_proj_offset;
 
 void R_SetHMDIPD()
 {
@@ -485,14 +461,13 @@ qboolean R_InitHMDRenderer()
 
 	// Set up eyes
 	left_eye.lens_shift = h;
+	left_eye.offset = -player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
 	left_eye.fbo = CreateFBO(glwidth * left_eye.viewport.width * ss, glheight * left_eye.viewport.height * ss);
-	CreatePerspectiveMatrix(left_eye.projection_matrix, fovy, aspect, 4, gl_farclip.value, h);
 
 	right_eye.lens_shift = -h;
+	right_eye.offset = -player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
 	right_eye.fbo = CreateFBO(glwidth * right_eye.viewport.width * ss, glheight * right_eye.viewport.height * ss);
-	CreatePerspectiveMatrix(right_eye.projection_matrix, fovy, aspect, 4, gl_farclip.value, -h);
 
-	
 	// Get uniform location and set some values
 	glUseProgramObjectARB(lens_warp.shader->program);
 	lens_warp.uniform.scale = glGetUniformLocationARB(lens_warp.shader->program, "scale");
@@ -548,10 +523,8 @@ void RenderScreenForEye(hmd_eye_t *eye)
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, eye->fbo.framebuffer);
 	glClear(GL_DEPTH_BUFFER_BIT);
 
-
-	hmd_projection_matrix = eye->projection_matrix;
 	hmd_view_offset = eye->offset;
-
+	hmd_proj_offset = eye->lens_shift;
 	srand((int) (cl.time * 1000)); //sync random stuff between eyes
 
 	r_refdef.fov_x = viewport_fov_x;
@@ -567,7 +540,7 @@ void RenderScreenForEye(hmd_eye_t *eye)
 	glwidth = oldglwidth;
 	glheight = oldglheight;
 
-	hmd_projection_matrix = NULL;
+	hmd_proj_offset = 0;
 	hmd_view_offset = 0;
 }
 
@@ -718,8 +691,6 @@ void R_ShowHMDCrosshair ()
 	VectorCopy (cl.viewent.origin, start);
 	start[2] -= cl.viewheight - 10;
 	AngleVectors (cl.aimangles, forward, right, up);
-	VectorMA (start, 4096, forward, end);
-	TraceLine (start, end, impact); // todo - trace to nearest entity
 
 	ss = r_oculusrift_supersample.value;
 
@@ -728,9 +699,19 @@ void R_ShowHMDCrosshair ()
 		// point crosshair
 	default:
 	case HMD_CROSSHAIR_POINT:
+		
+		if (r_oculusrift_crosshair_depth.value <= 0) {
+			 // trace to first wall
+			VectorMA (start, 4096, forward, end);
+			TraceLine (start, end, impact);
+		} else {
+			// fix crosshair to specific depth
+			VectorMA (start, r_oculusrift_crosshair_depth.value * (player_height_units / player_height_m), forward, impact);
+		}
+
 		glEnable(GL_POINT_SMOOTH);
 		glColor4f (1, 0, 0, 0.5);
-		glPointSize( 3.0 * glheight / (800.0 * ss) );
+		glPointSize( 3.0 * glwidth / (1280 * ss) );
 
 		glBegin(GL_POINTS);
 		glVertex3f (impact[0], impact[1], impact[2]);
@@ -740,25 +721,17 @@ void R_ShowHMDCrosshair ()
 
 		// laser crosshair
 	case HMD_CROSSHAIR_LINE:
+		
+		// trace to first entity
+		VectorMA (start, 4096, forward, end);
+		TraceLineToEntity (start, end, impact, sv_player);
+
 		glColor4f (1, 0, 0, 0.4);
-		glLineWidth( 2.0 * glheight / (800.0 * ss) );
+		glLineWidth( 2.0 * glwidth / (1280 * ss) );
 		glBegin (GL_LINES);
 		glVertex3f (start[0], start[1], start[2]);
 		glVertex3f (impact[0], impact[1], impact[2]);
 		glEnd ();
-		break;
-		// point crosshair at infinity
-	case HMD_CROSSHAIR_POINT_INF:
-		glEnable(GL_POINT_SMOOTH);
-		glColor4f (1, 0, 0, 0.5);
-		glPointSize( 3.0 * glheight / (800.0 * ss) );
-		glBegin(GL_POINTS);
-		glVertex3f (end[0], end[1], end[2]);
-		glEnd();
-		glDisable(GL_POINT_SMOOTH);
-		break;
-		// allow the crosshair to be totally disabled
-	case HMD_CROSSHAIR_NONE:
 		break;
 	}
 	// cleanup gl
