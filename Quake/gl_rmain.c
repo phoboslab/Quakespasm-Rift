@@ -377,7 +377,7 @@ void R_SetupGL (void)
 				r_refdef.vrect.height);
 	//johnfitz
 
-	if (vr_view_offset) {
+	if (vr_enabled.value) {
 		GL_SetFrustumVR (r_fovx, r_fovy, vr_proj_offset);
 	}
 	else 
