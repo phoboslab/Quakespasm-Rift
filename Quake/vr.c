@@ -24,7 +24,6 @@ typedef struct {
 		float left, top, width, height;
 	} viewport;
 	fbo_t fbo;
-	float projection_matrix[16];
 } hmd_eye_t;
 
 // GL Extensions
@@ -215,6 +214,7 @@ cvar_t  vr_supersample = {"vr_supersample", "2", CVAR_ARCHIVE};
 cvar_t  vr_prediction = {"vr_prediction","40", CVAR_ARCHIVE};
 cvar_t  vr_driftcorrect = {"vr_driftcorrect","1", CVAR_ARCHIVE};
 cvar_t  vr_crosshair = {"vr_crosshair","1", CVAR_ARCHIVE};
+cvar_t  vr_crosshair_depth = {"vr_crosshair_depth","0", CVAR_ARCHIVE};
 cvar_t  vr_chromabr = {"vr_chromabr","1", CVAR_ARCHIVE};
 cvar_t  vr_aimmode = {"vr_aimmode","1", CVAR_ARCHIVE};
 cvar_t  vr_deadzone = {"vr_deadzone","30",CVAR_ARCHIVE};
@@ -336,30 +336,6 @@ void DeleteFBO(fbo_t fbo) {
 	glDeleteRenderbuffersEXT(1, &fbo.renderbuffer);
 }
 
-void CreatePerspectiveMatrix(float *out, float fovy, float aspect, float nearf, float farf, float h) {
-	float f = 1.0f / tanf(fovy / 2.0f);
-	float nf = 1.0f / (nearf - farf);
-	out[0] = f / aspect;
-	out[1] = 0;
-	out[2] = 0;
-	out[3] = 0;
-	out[4] = 0;
-	out[5] = f;
-	out[6] = 0;
-	out[7] = 0;
-	out[8] = -h;
-	out[9] = 0;
-	out[10] = (farf + nearf) * nf;
-	out[11] = -1;
-	out[12] = 0;
-	out[13] = 0;
-	out[14] = (2.0f * farf * nearf) * nf;
-	out[15] = 0;
-}
-
-
-
-
 // ----------------------------------------------------------------------------
 // Callbacks for cvars
 
@@ -436,7 +412,7 @@ static void VR_Deadzone_f (cvar_t *var)
 // Public vars and functions
 
 float vr_view_offset;
-float *vr_projection_matrix = NULL;
+float vr_proj_offset;
 
 void VR_Init()
 {
@@ -451,6 +427,7 @@ void VR_Init()
 	Cvar_RegisterVariable (&vr_driftcorrect);
 	Cvar_SetCallback (&vr_driftcorrect, VR_DriftCorrect_f);
 	Cvar_RegisterVariable (&vr_crosshair);
+	Cvar_RegisterVariable (&vr_crosshair_depth);
 	Cvar_RegisterVariable (&vr_chromabr);
 	Cvar_SetCallback (&vr_chromabr, VR_ChromAbr_f);
 	Cvar_RegisterVariable (&vr_aimmode);
@@ -529,14 +506,13 @@ qboolean VR_Enable()
 
 	// Set up eyes
 	left_eye.lens_shift = h;
+	left_eye.offset = -player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
 	left_eye.fbo = CreateFBO(glwidth * left_eye.viewport.width * ss, glheight * left_eye.viewport.height * ss);
-	CreatePerspectiveMatrix(left_eye.projection_matrix, fovy, aspect, 4, gl_farclip.value, h);
 
 	right_eye.lens_shift = -h;
+	right_eye.offset = -player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
 	right_eye.fbo = CreateFBO(glwidth * right_eye.viewport.width * ss, glheight * right_eye.viewport.height * ss);
-	CreatePerspectiveMatrix(right_eye.projection_matrix, fovy, aspect, 4, gl_farclip.value, -h);
 
-	
 	// Get uniform location and set some values
 	glUseProgramObjectARB(lens_warp.shader->program);
 	lens_warp.uniform.scale = glGetUniformLocationARB(lens_warp.shader->program, "scale");
@@ -593,9 +569,8 @@ static void RenderScreenForEye(hmd_eye_t *eye)
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, eye->fbo.framebuffer);
 	glClear(GL_DEPTH_BUFFER_BIT);
 
-
-	vr_projection_matrix = eye->projection_matrix;
 	vr_view_offset = eye->offset;
+	vr_proj_offset = eye->lens_shift;
 
 	srand((int) (cl.time * 1000)); //sync random stuff between eyes
 
@@ -612,7 +587,7 @@ static void RenderScreenForEye(hmd_eye_t *eye)
 	glwidth = oldglwidth;
 	glheight = oldglheight;
 
-	vr_projection_matrix = NULL;
+	vr_proj_offset = 0;
 	vr_view_offset = 0;
 }
 
@@ -763,8 +738,6 @@ void VR_ShowCrosshair ()
 	VectorCopy (cl.viewent.origin, start);
 	start[2] -= cl.viewheight - 10;
 	AngleVectors (cl.aimangles, forward, right, up);
-	VectorMA (start, 4096, forward, end);
-	TraceLine (start, end, impact); // todo - trace to nearest entity
 
 	ss = vr_supersample.value;
 
@@ -773,9 +746,19 @@ void VR_ShowCrosshair ()
 		// point crosshair
 	default:
 	case HMD_CROSSHAIR_POINT:
+		
+		if (vr_crosshair_depth.value <= 0) {
+			 // trace to first wall
+			VectorMA (start, 4096, forward, end);
+			TraceLine (start, end, impact);
+		} else {
+			// fix crosshair to specific depth
+			VectorMA (start, vr_crosshair_depth.value * (player_height_units / player_height_m), forward, impact);
+		}
+
 		glEnable(GL_POINT_SMOOTH);
 		glColor4f (1, 0, 0, 0.5);
-		glPointSize( 3.0 * glheight / (800.0 * ss) );
+		glPointSize( 3.0 * glwidth / (1280 * ss) );
 
 		glBegin(GL_POINTS);
 		glVertex3f (impact[0], impact[1], impact[2]);
@@ -785,25 +768,17 @@ void VR_ShowCrosshair ()
 
 		// laser crosshair
 	case HMD_CROSSHAIR_LINE:
+		
+		// trace to first entity
+		VectorMA (start, 4096, forward, end);
+		TraceLineToEntity (start, end, impact, sv_player);
+
 		glColor4f (1, 0, 0, 0.4);
-		glLineWidth( 2.0 * glheight / (800.0 * ss) );
+		glLineWidth( 2.0 * glwidth / (1280 * ss) );
 		glBegin (GL_LINES);
 		glVertex3f (start[0], start[1], start[2]);
 		glVertex3f (impact[0], impact[1], impact[2]);
 		glEnd ();
-		break;
-		// point crosshair at infinity
-	case HMD_CROSSHAIR_POINT_INF:
-		glEnable(GL_POINT_SMOOTH);
-		glColor4f (1, 0, 0, 0.5);
-		glPointSize( 3.0 * glheight / (800.0 * ss) );
-		glBegin(GL_POINTS);
-		glVertex3f (end[0], end[1], end[2]);
-		glEnd();
-		glDisable(GL_POINT_SMOOTH);
-		break;
-		// allow the crosshair to be totally disabled
-	case HMD_CROSSHAIR_NONE:
 		break;
 	}
 	// cleanup gl

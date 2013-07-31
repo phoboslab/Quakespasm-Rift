@@ -364,6 +364,7 @@ extern	cvar_t	chase_active;
 
 void Chase_Init (void);
 void TraceLine (vec3_t start, vec3_t end, vec3_t impact);
+void TraceLineToEntity (vec3_t start, vec3_t end, vec3_t impact, edict_t *ent);
 void Chase_UpdateForClient (void);	//johnfitz
 void Chase_UpdateForDrawing (void);	//johnfitz
 

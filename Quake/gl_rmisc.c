@@ -53,6 +53,7 @@ extern cvar_t vr_supersample;
 extern cvar_t vr_prediction;
 extern cvar_t vr_driftcorrect;
 extern cvar_t vr_crosshair;
+extern cvar_t r_oculusrift_crosshair_depth;
 extern cvar_t vr_chromabr;
 extern cvar_t vr_aimmode;
 extern cvar_t vr_ipd;
@@ -182,7 +183,7 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_nolerp_list);
 	Cvar_SetCallback (&r_nolerp_list, R_NoLerpList_f);
 	//johnfitz
-
+	
 	Cvar_RegisterVariable (&gl_zfix); // QuakeSpasm z-fighting fix
 
 	R_InitParticles ();

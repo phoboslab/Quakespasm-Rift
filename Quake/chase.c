@@ -57,6 +57,15 @@ void TraceLine (vec3_t start, vec3_t end, vec3_t impact)
 	VectorCopy (trace.endpos, impact);
 }
 
+
+void TraceLineToEntity (vec3_t start, vec3_t end, vec3_t impact, edict_t *ent)
+{
+	trace_t	trace;
+	memset (&trace, 0, sizeof(trace));
+	trace = SV_Move (start, vec3_origin, vec3_origin, end, MOVE_NORMAL, ent);
+	VectorCopy (trace.endpos,impact);
+}
+
 /*
 ==============
 Chase_UpdateForClient -- johnfitz -- orient client based on camera. called after input

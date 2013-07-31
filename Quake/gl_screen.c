@@ -1088,7 +1088,7 @@ WARNING: be very careful calling this from elsewhere, because the refresh
 needs almost the entire 256k of stack space!
 ==================
 */
-extern float hmd_screen_2d[4];
+
 void SCR_UpdateScreenContent (void)
 {
 
