@@ -149,8 +149,7 @@ void V_StartPitchDrift (void)
 {
 	if(vr_enabled.value)
 	{
-		cl.aimangles[YAW] = cl.viewangles[YAW];
-		cl.aimangles[PITCH] = cl.viewangles[PITCH];
+//		VR_SetAngles(cl.viewangles);
 		VR_ResetOrientation();
 		return;
 	}
@@ -740,6 +739,7 @@ void V_CalcIntermissionRefdef (void)
 	{
 		VectorCopy (r_refdef.viewangles, r_refdef.aimangles);
 		VR_AddOrientationToViewAngles(r_refdef.viewangles);
+		VR_SetAngles(r_refdef.viewangles);
 	}
 
 // allways idle in intermission
