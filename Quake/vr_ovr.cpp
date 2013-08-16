@@ -101,7 +101,8 @@ void SetOculusPrediction(float time)
 
 void SetOculusDriftCorrect(int enable)
 {
-	if (!fusion || !magnet) {
+	// If sensor fusion isn't loaded or the sensor is pre-calibrated do nothing
+	if (!fusion || fusion->HasMagCalibration()) {
 		return;
 	}
 

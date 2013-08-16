@@ -510,7 +510,7 @@ qboolean VR_Enable()
 	left_eye.fbo = CreateFBO(glwidth * left_eye.viewport.width * ss, glheight * left_eye.viewport.height * ss);
 
 	right_eye.lens_shift = -h;
-	right_eye.offset = -player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
+	right_eye.offset = player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
 	right_eye.fbo = CreateFBO(glwidth * right_eye.viewport.width * ss, glheight * right_eye.viewport.height * ss);
 
 	// Get uniform location and set some values
