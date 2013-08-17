@@ -106,14 +106,18 @@ void SetOculusDriftCorrect(int enable)
 		return;
 	}
 
-	if (enable && !fusion->HasMagCalibration()) {
-		if (!magnet)
+	if (enable) {
+		fusion->SetYawCorrectionEnabled(true);
+		if (!fusion->HasMagCalibration())
+		{
+			if (!magnet)
 				magnet = new OVR::Util::MagCalibration();
-		magnet->BeginAutoCalibration(*fusion);
+			magnet->BeginAutoCalibration(*fusion);
+		}
 	} else {
+		fusion->SetYawCorrectionEnabled(false);
 		if (magnet)
 		{
-			magnet->ClearCalibration(*fusion);
 			delete magnet;
 			magnet = NULL;
 		}
