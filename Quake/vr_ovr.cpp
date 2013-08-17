@@ -101,18 +101,23 @@ void SetOculusPrediction(float time)
 
 void SetOculusDriftCorrect(int enable)
 {
-	if (!fusion || !magnet) {
+	// If sensor fusion isn't loaded or the sensor is pre-calibrated do nothing
+	if (!fusion) {
 		return;
 	}
 
 	if (enable) {
-		if (!magnet)
+		fusion->SetYawCorrectionEnabled(true);
+		if (!fusion->HasMagCalibration())
+		{
+			if (!magnet)
 				magnet = new OVR::Util::MagCalibration();
-		magnet->BeginAutoCalibration(*fusion);
+			magnet->BeginAutoCalibration(*fusion);
+		}
 	} else {
+		fusion->SetYawCorrectionEnabled(false);
 		if (magnet)
 		{
-			magnet->ClearCalibration(*fusion);
 			delete magnet;
 			magnet = NULL;
 		}

@@ -207,6 +207,8 @@ extern void SCR_CalcRefdef();
 extern refdef_t r_refdef;
 extern vec3_t vright;
 
+static vec3_t lastOrientation = {0, 0, 0};
+static vec3_t lastAim = {0, 0, 0};
 
 cvar_t  vr_enabled = {"vr_enabled", "0", CVAR_NONE};
 cvar_t  vr_ipd = {"vr_ipd","-1",CVAR_NONE};
@@ -216,6 +218,7 @@ cvar_t  vr_prediction = {"vr_prediction","40", CVAR_ARCHIVE};
 cvar_t  vr_driftcorrect = {"vr_driftcorrect","1", CVAR_ARCHIVE};
 cvar_t  vr_crosshair = {"vr_crosshair","1", CVAR_ARCHIVE};
 cvar_t  vr_crosshair_depth = {"vr_crosshair_depth","0", CVAR_ARCHIVE};
+cvar_t  vr_crosshair_size = {"vr_crosshair_size","3.0", CVAR_ARCHIVE};
 cvar_t  vr_chromabr = {"vr_chromabr","1", CVAR_ARCHIVE};
 cvar_t  vr_aimmode = {"vr_aimmode","1", CVAR_ARCHIVE};
 cvar_t  vr_deadzone = {"vr_deadzone","30",CVAR_ARCHIVE};
@@ -429,6 +432,7 @@ void VR_Init()
 	Cvar_SetCallback (&vr_driftcorrect, VR_DriftCorrect_f);
 	Cvar_RegisterVariable (&vr_crosshair);
 	Cvar_RegisterVariable (&vr_crosshair_depth);
+	Cvar_RegisterVariable (&vr_crosshair_size);
 	Cvar_RegisterVariable (&vr_chromabr);
 	Cvar_SetCallback (&vr_chromabr, VR_ChromAbr_f);
 	Cvar_RegisterVariable (&vr_aimmode);
@@ -506,7 +510,7 @@ qboolean VR_Enable()
 	left_eye.fbo = CreateFBO(glwidth * left_eye.viewport.width * ss, glheight * left_eye.viewport.height * ss);
 
 	right_eye.lens_shift = -h;
-	right_eye.offset = -player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
+	right_eye.offset = player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
 	right_eye.fbo = CreateFBO(glwidth * right_eye.viewport.width * ss, glheight * right_eye.viewport.height * ss);
 
 	// Get uniform location and set some values
@@ -611,7 +615,6 @@ static void RenderEyeOnScreen(vr_eye_t *eye)
 
 void VR_UpdateScreenContent()
 {
-	static float lastYaw, lastPitch,lastAimYaw;
 	vec3_t orientation;
 
 	// Get current orientation of the HMD
@@ -623,13 +626,13 @@ void VR_UpdateScreenContent()
 		default:
 		case VR_AIMMODE_HEAD_MYAW:
 			cl.viewangles[PITCH] = cl.aimangles[PITCH] = orientation[PITCH];
-			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
+			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastOrientation[YAW];
 			break;
 		
 		// 2: Head Aiming; View YAW and PITCH is mouse+head
 		case VR_AIMMODE_HEAD_MYAW_MPITCH:
-			cl.viewangles[PITCH] = cl.aimangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH] - lastPitch;
-			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastYaw;
+			cl.viewangles[PITCH] = cl.aimangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH] - lastOrientation[PITCH];
+			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastOrientation[YAW];
 			break;
 		
 		// 3: Mouse Aiming; View YAW is mouse+head, PITCH is head
@@ -646,9 +649,9 @@ void VR_UpdateScreenContent()
 		
 		case VR_AIMMODE_BLENDED:
 			{
-				float diffHMDYaw = orientation[YAW] - lastYaw;
-				float diffHMDPitch = orientation[PITCH] - lastPitch;
-				float diffAimYaw = cl.aimangles[YAW] - lastAimYaw;
+				float diffHMDYaw = orientation[YAW] - lastOrientation[YAW];
+				float diffHMDPitch = orientation[PITCH] - lastOrientation[PITCH];
+				float diffAimYaw = cl.aimangles[YAW] - lastAim[YAW];
 				float diffPitch = cl.viewangles[PITCH] - cl.aimangles[PITCH];
 				float diffYaw;
 
@@ -664,7 +667,6 @@ void VR_UpdateScreenContent()
 					cl.aimangles[YAW] += diffHMDYaw;
 					cl.viewangles[YAW] += diffAimYaw;
 				}
-
 				cl.aimangles[PITCH] += diffHMDPitch;
 				cl.viewangles[PITCH]  = orientation[PITCH];
 			}
@@ -673,9 +675,8 @@ void VR_UpdateScreenContent()
 
 	cl.viewangles[ROLL]  = orientation[ROLL];
 
-	lastPitch = orientation[PITCH];
-	lastYaw = orientation[YAW];
-	lastAimYaw = cl.aimangles[YAW];
+	VectorCopy(orientation,lastOrientation);
+	VectorCopy(cl.aimangles,lastAim);
 	
 	VectorCopy (cl.viewangles, r_refdef.viewangles);
 	VectorCopy (cl.aimangles, r_refdef.aimangles);
@@ -703,21 +704,23 @@ void VR_UpdateScreenContent()
 
 void VR_AddOrientationToViewAngles(vec3_t angles)
 {
+	if (vr_enabled.value)
+	{
 	vec3_t orientation;
-
 	// Get current orientation of the HMD
 	vr_interface->get_view(orientation);
 
 	angles[PITCH] = angles[PITCH] + orientation[PITCH]; 
 	angles[YAW] = angles[YAW] + orientation[YAW]; 
 	angles[ROLL] = orientation[ROLL];
+	}
 }
 
 void VR_ShowCrosshair ()
 {
 	vec3_t forward, up, right;
 	vec3_t start, end, impact;
-	float ss;
+	float ss, size;
 	if( (sv_player && (int)(sv_player->v.weapon) == IT_AXE) )
 		return;
 
@@ -736,13 +739,14 @@ void VR_ShowCrosshair ()
 	AngleVectors (cl.aimangles, forward, right, up);
 
 	ss = vr_supersample.value;
+	size = CLAMP (1.0, vr_crosshair_size.value, 5.0);
 
 	switch((int) vr_crosshair.value)
 	{	
 		// point crosshair
 	default:
 	case VR_CROSSHAIR_POINT:
-		
+
 		if (vr_crosshair_depth.value <= 0) {
 			 // trace to first wall
 			VectorMA (start, 4096, forward, end);
@@ -754,7 +758,7 @@ void VR_ShowCrosshair ()
 
 		glEnable(GL_POINT_SMOOTH);
 		glColor4f (1, 0, 0, 0.5);
-		glPointSize( 3.0 * glwidth / (1280 * ss) );
+		glPointSize( size * glwidth / (1280 * ss) );
 
 		glBegin(GL_POINTS);
 		glVertex3f (impact[0], impact[1], impact[2]);
@@ -764,13 +768,13 @@ void VR_ShowCrosshair ()
 
 		// laser crosshair
 	case VR_CROSSHAIR_LINE:
-		
+
 		// trace to first entity
 		VectorMA (start, 4096, forward, end);
 		TraceLineToEntity (start, end, impact, sv_player);
 
 		glColor4f (1, 0, 0, 0.4);
-		glLineWidth( 2.0 * glwidth / (1280 * ss) );
+		glLineWidth( size * glwidth / (1280 * ss) );
 		glBegin (GL_LINES);
 		glVertex3f (start[0], start[1], start[2]);
 		glVertex3f (impact[0], impact[1], impact[2]);
@@ -817,7 +821,23 @@ void VR_Sbar_Draw()
 	glPopMatrix();
 }
 
+void VR_SetAngles(vec3_t angles)
+{
+	VectorCopy(angles,cl.aimangles);
+	VectorCopy(angles,cl.viewangles);
+	VectorCopy(angles,lastAim);
+
+}
+
 void VR_ResetOrientation()
 {
-	vr_interface->reset_orientation();
+	cl.aimangles[YAW] = cl.viewangles[YAW];	
+	cl.aimangles[PITCH] = cl.viewangles[PITCH];
+//	cl.aimangles[ROLL] = 0;
+	if (vr_enabled.value)
+	{
+		vr_interface->reset_orientation();
+		vr_interface->get_view(lastOrientation);
+		VectorCopy(cl.aimangles,lastAim);
+	}
 }

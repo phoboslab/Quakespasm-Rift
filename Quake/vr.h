@@ -48,6 +48,7 @@ void VR_UpdateScreenContent();
 void VR_ShowCrosshair();
 void VR_Sbar_Draw();
 void VR_AddOrientationToViewAngles(vec3_t angles);
+void VR_SetAngles();
 void VR_ResetOrientation();
 
 #endif

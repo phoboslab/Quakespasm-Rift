@@ -560,13 +560,18 @@ void R_DrawViewModel (void)
 	if (chase_active.value)
 		return;
 
-	if(vr_enabled.value && vr_crosshair.value)
-		VR_ShowCrosshair();
 
 	if (!r_drawviewmodel.value || !r_drawentities.value )
 		return;
 	
-	if (cl.items & IT_INVISIBILITY || cl.stats[STAT_HEALTH] <= 0)
+	if (cl.stats[STAT_HEALTH] <= 0)
+		return;
+
+	// only draw crosshair if the player model is being drawn
+	if(vr_enabled.value && vr_crosshair.value)
+		VR_ShowCrosshair();
+
+	if (cl.items & IT_INVISIBILITY)
 		return;
 
 	currententity = &cl.viewent;
