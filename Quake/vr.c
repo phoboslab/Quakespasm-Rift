@@ -453,10 +453,6 @@ qboolean VR_Enable()
 
 	float ss = vr_supersample.value;
 
-	// convert milliseconds to seconds
-	float prediction = vr_prediction.value / 1000.0f;
-	int driftcorrection = (int) vr_driftcorrect.value;
-
 	vr_interface = &vr_interface_ovr;
 	sdk_initialized = vr_interface->init();
 
@@ -652,7 +648,6 @@ void VR_UpdateScreenContent()
 				float diffHMDYaw = orientation[YAW] - lastOrientation[YAW];
 				float diffHMDPitch = orientation[PITCH] - lastOrientation[PITCH];
 				float diffAimYaw = cl.aimangles[YAW] - lastAim[YAW];
-				float diffPitch = cl.viewangles[PITCH] - cl.aimangles[PITCH];
 				float diffYaw;
 
 				// find new view position based on orientation delta
