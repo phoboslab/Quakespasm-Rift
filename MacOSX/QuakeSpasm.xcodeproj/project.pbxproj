@@ -100,9 +100,9 @@
 		B021C20914A5FF7E003F18D6 /* cfgfile.c in Sources */ = {isa = PBXBuildFile; fileRef = B021C20714A5FF7E003F18D6 /* cfgfile.c */; };
 		B6305AB1178C95F2001C47D8 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6305AB0178C95F2001C47D8 /* IOKit.framework */; };
 		B6305AB2178C966E001C47D8 /* SDL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 002F39F909D0881F00EBEB88 /* SDL.framework */; };
-		B65AD10E178C937B00E59593 /* r_renderhmd.c in Sources */ = {isa = PBXBuildFile; fileRef = B65AD10C178C937B00E59593 /* r_renderhmd.c */; };
-		B65AD111178C938900E59593 /* oculus_sdk.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B65AD10F178C938900E59593 /* oculus_sdk.cpp */; };
 		B65AD113178C940700E59593 /* libovr.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B65AD112178C940700E59593 /* libovr.a */; };
+		B6A5ACBF17C5FE48002579C7 /* vr_ovr.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6A5ACBD17C5FE48002579C7 /* vr_ovr.cpp */; };
+		B6A5ACC017C5FE48002579C7 /* vr.c in Sources */ = {isa = PBXBuildFile; fileRef = B6A5ACBE17C5FE48002579C7 /* vr.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -297,11 +297,11 @@
 		B021C20814A5FF7E003F18D6 /* cfgfile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cfgfile.h; path = ../Quake/cfgfile.h; sourceTree = SOURCE_ROOT; };
 		B6305AAE178C95E8001C47D8 /* SDL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL.framework; path = ../../../../../System/Library/Frameworks/SDL.framework; sourceTree = "<group>"; };
 		B6305AB0178C95F2001C47D8 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.8.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
-		B65AD10C178C937B00E59593 /* r_renderhmd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = r_renderhmd.c; path = ../Quake/r_renderhmd.c; sourceTree = "<group>"; };
-		B65AD10D178C937B00E59593 /* r_renderhmd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = r_renderhmd.h; path = ../Quake/r_renderhmd.h; sourceTree = "<group>"; };
-		B65AD10F178C938900E59593 /* oculus_sdk.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = oculus_sdk.cpp; path = ../Quake/oculus_sdk.cpp; sourceTree = "<group>"; };
-		B65AD110178C938900E59593 /* oculus_sdk.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = oculus_sdk.h; path = ../Quake/oculus_sdk.h; sourceTree = "<group>"; };
 		B65AD112178C940700E59593 /* libovr.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libovr.a; path = ../../LibOVR/Lib/MacOS/Release/libovr.a; sourceTree = "<group>"; };
+		B6A5ACBB17C5FE37002579C7 /* vr_ovr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vr_ovr.h; path = ../Quake/vr_ovr.h; sourceTree = "<group>"; };
+		B6A5ACBC17C5FE37002579C7 /* vr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vr.h; path = ../Quake/vr.h; sourceTree = "<group>"; };
+		B6A5ACBD17C5FE48002579C7 /* vr_ovr.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vr_ovr.cpp; path = ../Quake/vr_ovr.cpp; sourceTree = "<group>"; };
+		B6A5ACBE17C5FE48002579C7 /* vr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vr.c; path = ../Quake/vr.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -472,8 +472,8 @@
 			isa = PBXGroup;
 			children = (
 				483A77E20D2EE91500CB2E4C /* Headers */,
-				B65AD10F178C938900E59593 /* oculus_sdk.cpp */,
-				B65AD10C178C937B00E59593 /* r_renderhmd.c */,
+				B6A5ACBD17C5FE48002579C7 /* vr_ovr.cpp */,
+				B6A5ACBE17C5FE48002579C7 /* vr.c */,
 				483A785A0D2EEAF000CB2E4C /* gl_draw.c */,
 				483A785B0D2EEAF000CB2E4C /* gl_fog.c */,
 				483A785C0D2EEAF000CB2E4C /* gl_mesh.c */,
@@ -607,8 +607,8 @@
 		483A77E20D2EE91500CB2E4C /* Headers */ = {
 			isa = PBXGroup;
 			children = (
-				B65AD110178C938900E59593 /* oculus_sdk.h */,
-				B65AD10D178C937B00E59593 /* r_renderhmd.h */,
+				B6A5ACBB17C5FE37002579C7 /* vr_ovr.h */,
+				B6A5ACBC17C5FE37002579C7 /* vr.h */,
 				483A77FF0D2EE9F300CB2E4C /* anorm_dots.h */,
 				483A78000D2EE9F300CB2E4C /* anorms.h */,
 				483A78010D2EE9F300CB2E4C /* bspfile.h */,
@@ -710,7 +710,6 @@
 				483A782C0D2EEA5400CB2E4C /* menu.c in Sources */,
 				483A782D0D2EEA5400CB2E4C /* pr_cmds.c in Sources */,
 				483A782E0D2EEA5400CB2E4C /* pr_edict.c in Sources */,
-				B65AD10E178C937B00E59593 /* r_renderhmd.c in Sources */,
 				483A782F0D2EEA5400CB2E4C /* pr_exec.c in Sources */,
 				483A78300D2EEA5400CB2E4C /* sbar.c in Sources */,
 				483A78320D2EEA5400CB2E4C /* view.c in Sources */,
@@ -744,7 +743,6 @@
 				483A78780D2EEAF000CB2E4C /* conback.c in Sources */,
 				483A78790D2EEAF000CB2E4C /* gl_texmgr.c in Sources */,
 				483A787A0D2EEAF000CB2E4C /* gl_vidsdl.c in Sources */,
-				B65AD111178C938900E59593 /* oculus_sdk.cpp in Sources */,
 				483A787B0D2EEAF000CB2E4C /* gl_warp.c in Sources */,
 				483A787C0D2EEAF000CB2E4C /* image.c in Sources */,
 				483A787D0D2EEAF000CB2E4C /* r_alias.c in Sources */,
@@ -775,6 +773,8 @@
 				B021C20914A5FF7E003F18D6 /* cfgfile.c in Sources */,
 				48A7C1FC14AA34940011B754 /* strlcat.c in Sources */,
 				48A7C1FD14AA34940011B754 /* strlcpy.c in Sources */,
+				B6A5ACBF17C5FE48002579C7 /* vr_ovr.cpp in Sources */,
+				B6A5ACC017C5FE48002579C7 /* vr.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
