@@ -23,7 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // screen.c -- master for refresh, status bar, console, chat, notify, etc
 
 #include "quakedef.h"
-#include "r_renderhmd.h"
+#include "vr.h"
 
 /*
 
@@ -89,8 +89,9 @@ cvar_t		scr_showfps = {"scr_showfps", "0", CVAR_NONE};
 cvar_t		scr_clock = {"scr_clock", "0", CVAR_NONE};
 //johnfitz
 
-//phoboslab -- cvars for oculus rift
-extern cvar_t r_oculusrift;
+//phoboslab -- cvars for vr
+extern cvar_t vr_enabled;
+extern cvar_t vr_aimmode;
 //
 
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
@@ -982,50 +983,61 @@ void SCR_TileClear (void)
 	}
 }
 
-/*
-==================
-SCR_UpdateScreen
-
-This is called every frame, and can also be called explicitly to flush
-text to the screen.
-
-WARNING: be very careful calling this from elsewhere, because the refresh
-needs almost the entire 256k of stack space!
-==================
-*/
-extern float hmd_screen_2d[4];
-void SCR_UpdateScreenContent (void)
+void DrawRift2d ()
 {
-	int oldglx = glx, 
-		oldgly = gly,
-		oldglwidth = glwidth, 
+	qboolean draw_sbar = false;
+	vec3_t menu_angles, forward, right, up, target;
+	float scale_hud = 0.13;
+
+	int oldglwidth = glwidth, 
 		oldglheight = glheight,
 		oldconwidth = vid.conwidth,
-		oldconheight = vid.conheight,
-		oldscr_con = scr_con_current;
-	//
-// do 3D refresh drawing, and then update the screen
-//
-	V_RenderView ();
+		oldconheight = vid.conheight;
 
-	GL_Set2D ();
+	glwidth = 320;
+	glheight = 200;
+	
+	vid.conwidth = 320;
+	vid.conheight = 200;
 
-	//FIXME: only call this when needed
-	SCR_TileClear ();
+	// draw 2d elements 1m from the users face, centered
+	glPushMatrix();
+	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another
+	glEnable (GL_BLEND);
+
+	VectorCopy(r_refdef.aimangles, menu_angles)
+
+	if (vr_aimmode.value == VR_AIMMODE_HEAD_MYAW || vr_aimmode.value == VR_AIMMODE_HEAD_MYAW_MPITCH)
+		menu_angles[PITCH] = 0;
+
+	AngleVectors (menu_angles, forward, right, up);
+
+	VectorMA (r_refdef.vieworg, 32, forward, target);
+
+	glTranslatef (target[0],  target[1],  target[2]);
+	
+	glRotatef(menu_angles[YAW] - 90, 0, 0, 1); // rotate around z
+
+	glRotatef(90 + menu_angles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
+
+	glTranslatef (-(320.0 * scale_hud / 2), -(200.0 * scale_hud / 2), 0); // center the status bar
+
+	glScalef(scale_hud, scale_hud, scale_hud);
+
 
 	if (scr_drawdialog) //new game confirm
 	{
 		if (con_forcedup)
 			Draw_ConsoleBackground ();
 		else
-			Sbar_Draw ();
+			draw_sbar = true; //Sbar_Draw ();
 		Draw_FadeScreen ();
 		SCR_DrawNotifyString ();
 	}
 	else if (scr_drawloading) //loading
 	{
 		SCR_DrawLoading ();
-		Sbar_Draw ();
+		draw_sbar = true; //Sbar_Draw ();
 	}
 	else if (cl.intermission == 1 && key_dest == key_game) //end of level
 	{
@@ -1038,39 +1050,103 @@ void SCR_UpdateScreenContent (void)
 	}
 	else
 	{
-		if (r_oculusrift.value) {
-			// phoboslab -- extremely cheap hacks to make the UI readable in
-			// HMD mode
-			glx = hmd_screen_2d[0];
-			gly = hmd_screen_2d[1];
-			glwidth = hmd_screen_2d[2];
-			glheight = hmd_screen_2d[3];
-			vid.conheight = glheight;
-			vid.conwidth = glwidth;
-			scr_con_current /= 2;
-		}
-
-		SCR_DrawCrosshair (); //johnfitz
+		//SCR_DrawCrosshair (); //johnfitz
 		SCR_DrawRam ();
 		SCR_DrawNet ();
 		SCR_DrawTurtle ();
 		SCR_DrawPause ();
 		SCR_CheckDrawCenterString ();
-		Sbar_Draw ();
+		draw_sbar = true; //Sbar_Draw ();
 		SCR_DrawDevStats (); //johnfitz
 		SCR_DrawFPS (); //johnfitz
 		SCR_DrawClock (); //johnfitz
 		SCR_DrawConsole ();
 		M_Draw ();
+	}
 
-		if (r_oculusrift.value) {
-			glx = oldglx;
-			gly = oldgly;
-			glwidth = oldglwidth;
-			glheight = oldglheight;
-			vid.conwidth = oldconwidth;
-			vid.conheight = oldconheight;
-			scr_con_current = oldscr_con;
+	glDisable (GL_BLEND);
+	glEnable (GL_DEPTH_TEST);
+	glPopMatrix();
+
+	if(draw_sbar)
+		VR_Sbar_Draw();
+
+	glwidth = oldglwidth;
+	glheight = oldglheight;
+	vid.conwidth = oldconwidth;
+	vid.conheight =	oldconheight;
+}
+
+/*
+==================
+SCR_UpdateScreen
+
+This is called every frame, and can also be called explicitly to flush
+text to the screen.
+
+WARNING: be very careful calling this from elsewhere, because the refresh
+needs almost the entire 256k of stack space!
+==================
+*/
+
+void SCR_UpdateScreenContent (void)
+{
+
+//
+// do 3D refresh drawing, and then update the screen
+//
+	V_RenderView ();
+
+	// test draw in 3d
+	
+	if(vr_enabled.value && !con_forcedup)
+	{
+		DrawRift2d();
+	}
+	else
+	{
+		GL_Set2D ();
+
+		//FIXME: only call this when needed
+		SCR_TileClear ();
+
+		if (scr_drawdialog) //new game confirm
+		{
+			if (con_forcedup)
+				Draw_ConsoleBackground ();
+			else
+				Sbar_Draw ();
+			Draw_FadeScreen ();
+			SCR_DrawNotifyString ();
+		}
+		else if (scr_drawloading) //loading
+		{
+			SCR_DrawLoading ();
+			Sbar_Draw ();
+		}
+		else if (cl.intermission == 1 && key_dest == key_game) //end of level
+		{
+			Sbar_IntermissionOverlay ();
+		}
+		else if (cl.intermission == 2 && key_dest == key_game) //end of episode
+		{
+			Sbar_FinaleOverlay ();
+			SCR_CheckDrawCenterString ();
+		}
+		else
+		{
+			SCR_DrawCrosshair (); //johnfitz
+			SCR_DrawRam ();
+			SCR_DrawNet ();
+			SCR_DrawTurtle ();
+			SCR_DrawPause ();
+			SCR_CheckDrawCenterString ();
+			Sbar_Draw ();
+			SCR_DrawDevStats (); //johnfitz
+			SCR_DrawFPS (); //johnfitz
+			SCR_DrawClock (); //johnfitz
+			SCR_DrawConsole ();
+			M_Draw ();
 		}
 	}
 
@@ -1106,10 +1182,18 @@ void SCR_UpdateScreen (void)
 
 	SCR_SetUpToDrawConsole ();
 	
-	if (r_oculusrift.value)
-		SCR_UpdateHMDScreenContent(); // phoboslab
+	if (vr_enabled.value && !con_forcedup)
+	{
+		VR_UpdateScreenContent(); // phoboslab
+	}
 	else
+	{
+		VectorCopy (cl.aimangles, cl.viewangles);
+		VectorCopy (cl.aimangles, r_refdef.viewangles);
+		VectorCopy (cl.aimangles, r_refdef.aimangles);
+
 		SCR_UpdateScreenContent();
+	}
 
 	GL_EndRendering ();
 }

@@ -22,7 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_main.c
 
 #include "quakedef.h"
-#include "r_renderhmd.h"
+#include "vr.h"
 
 qboolean	r_cache_thrash;		// compatability
 
@@ -103,12 +103,10 @@ cvar_t	r_nolerp_list = {"r_nolerp_list", "progs/flame.mdl,progs/flame2.mdl,progs
 extern cvar_t	r_vfog;
 //johnfitz
 
-//phoboslab -- cvars for oculus rift
-cvar_t  r_oculusrift = {"r_oculusrift", "0", CVAR_NONE};
-cvar_t  r_oculusrift_supersample = {"r_oculusrift_supersample", "2", CVAR_NONE};
+//phoboslab -- cvars for vr
+extern cvar_t vr_enabled;
+extern cvar_t vr_crosshair;
 //phoboslab
-
-
 
 cvar_t	gl_zfix = {"gl_zfix", "1", CVAR_ARCHIVE}; // QuakeSpasm z-fighting fix
 
@@ -292,7 +290,7 @@ void R_SetFrustum (float fovx, float fovy)
 	if (r_stereo.value )
 		fovx += 10; //silly hack so that polygons don't drop out becuase of stereo skew
 	
-	if (r_oculusrift.value )
+	if (vr_enabled.value )
 		fovx += 25; // meh
 
 	TurnVector(frustum[0].normal, vpn, vright, fovx/2 - 90); //left plane
@@ -329,10 +327,45 @@ void GL_SetFrustum(float fovx, float fovy)
 
 /*
 =============
+GL_SetFrustumVR  -- dghost -- replacement GL_SetFrustrum for HMD's
+Generates perspective matrices given a FOV and offset.
+=============
+*/
+
+void GL_SetFrustumVR(float fovx, float fovy,float offset)
+{
+	GLfloat aspect = fovx/fovy;
+	float f = 1.0f / tanf((fovy / 2.0f) * M_PI / 180);
+    float nf = 1.0f / (NEARCLIP - gl_farclip.value);
+	float out[16];
+    out[0] = f / aspect;
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[4] = 0;
+    out[5] = f;
+    out[6] = 0;
+    out[7] = 0;
+    out[8] = -offset;
+    out[9] = 0;
+    out[10] = (gl_farclip.value + NEARCLIP) * nf;
+    out[11] = -1;
+    out[12] = 0;
+    out[13] = 0;
+    out[14] = (2.0f * gl_farclip.value * NEARCLIP) * nf;
+    out[15] = 0;
+	glLoadMatrixf(out);
+}
+
+/*
+=============
 R_SetupGL
 =============
 */
-extern float *hmd_projection_matrix; // phoboslab
+
+extern float vr_view_offset;
+extern float vr_proj_offset;
+
 void R_SetupGL (void)
 {
 	//johnfitz -- rewrote this section
@@ -344,10 +377,11 @@ void R_SetupGL (void)
 				r_refdef.vrect.height);
 	//johnfitz
 
-	if (hmd_projection_matrix) {
-		glLoadMatrixf(hmd_projection_matrix);
+	if (vr_enabled.value) {
+		GL_SetFrustumVR (r_fovx, r_fovy, vr_proj_offset);
 	}
-	else {
+	else 
+	{
 		GL_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
 	}
 
@@ -433,7 +467,7 @@ void R_SetupView (void)
 	r_fovy = r_refdef.fov_y;
 	if (r_waterwarp.value)
 	{
-		int contents = Mod_PointInLeaf (r_origin, cl.worldmodel)->contents;
+		int contents = r_viewleaf->contents;
 		if (contents == CONTENTS_WATER || contents == CONTENTS_SLIME || contents == CONTENTS_LAVA)
 		{
 			//variance is a percentage of width, where width = 2 * tan(fov / 2) otherwise the effect is too dramatic at high FOV and too subtle at low FOV.  what a mess!
@@ -523,10 +557,21 @@ R_DrawViewModel -- johnfitz -- gutted
 */
 void R_DrawViewModel (void)
 {
-	if (!r_drawviewmodel.value || !r_drawentities.value || chase_active.value)
+	if (chase_active.value)
 		return;
 
-	if (cl.items & IT_INVISIBILITY || cl.stats[STAT_HEALTH] <= 0)
+
+	if (!r_drawviewmodel.value || !r_drawentities.value )
+		return;
+	
+	if (cl.stats[STAT_HEALTH] <= 0)
+		return;
+
+	// only draw crosshair if the player model is being drawn
+	if(vr_enabled.value && vr_crosshair.value)
+		VR_ShowCrosshair();
+
+	if (cl.items & IT_INVISIBILITY)
 		return;
 
 	currententity = &cl.viewent;
@@ -538,10 +583,15 @@ void R_DrawViewModel (void)
 		return;
 	//johnfitz
 
+
 	// hack the depth range to prevent view model from poking into walls
-	glDepthRange (0, 0.3);
+	
+	// JM - turned off this hack because it doesn't look right in 3d
+	// also the axe going right into enemies is awesome
+
+	//glDepthRange (0, 0.3);
 	R_DrawAliasModel (currententity);
-	glDepthRange (0, 1);
+	//glDepthRange (0, 1);
 }
 
 /*
@@ -794,7 +844,7 @@ void R_RenderScene (void)
 R_RenderView
 ================
 */
-extern float hmd_view_offset;
+extern float vr_view_offset;
 void R_RenderView (void)
 {
 	double	time1, time2;
@@ -852,7 +902,7 @@ void R_RenderView (void)
 	}
 	else
 	{
-		VectorMA (r_refdef.vieworg, hmd_view_offset, vright, r_refdef.vieworg);
+		VectorMA (r_refdef.vieworg, vr_view_offset, vright, r_refdef.vieworg);
 		R_RenderScene ();
 	}
 	//johnfitz

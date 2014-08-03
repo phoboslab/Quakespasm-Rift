@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // view.c -- player eye positioning
 
 #include "quakedef.h"
+#include "vr.h"
 
 /*
 
@@ -62,7 +63,7 @@ cvar_t	crosshair = {"crosshair", "0", CVAR_ARCHIVE};
 cvar_t	gl_cshiftpercent = {"gl_cshiftpercent", "100", CVAR_NONE};
 
 //phoboslab -- cvars for oculus rift
-extern cvar_t r_oculusrift;
+extern cvar_t vr_enabled;
 //
 
 float	v_dmg_time, v_dmg_roll, v_dmg_pitch;
@@ -146,6 +147,13 @@ cvar_t	v_centerspeed = {"v_centerspeed","500", CVAR_NONE};
 
 void V_StartPitchDrift (void)
 {
+	if(vr_enabled.value)
+	{
+//		VR_SetAngles(cl.viewangles);
+		VR_ResetOrientation();
+		return;
+	}
+
 #if 1
 	if (cl.laststop == cl.time)
 	{
@@ -184,7 +192,7 @@ void V_DriftPitch (void)
 {
 	float		delta, move;
 
-	if (noclip_anglehack || !cl.onground || cls.demoplayback || r_oculusrift.value)
+	if (noclip_anglehack || !cl.onground || cls.demoplayback || vr_enabled.value)
 	//FIXME: noclip_anglehack is set on the server, so in a nonlocal game this won't work.
 	{
 		cl.driftmove = 0;
@@ -530,10 +538,12 @@ void V_PolyBlend (void)
 	glEnable (GL_BLEND);
 
 	glMatrixMode(GL_PROJECTION);
-    glLoadIdentity ();
+	glPushMatrix();
+	glLoadIdentity ();
 	glOrtho (0, 1, 1, 0, -99999, 99999);
 	glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity ();
+	glPushMatrix();
+	glLoadIdentity ();
 
 	glColor4fv (v_blend);
 
@@ -543,6 +553,12 @@ void V_PolyBlend (void)
 	glVertex2f (1, 1);
 	glVertex2f (0, 1);
 	glEnd ();
+
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+
+	glMatrixMode(GL_MODELVIEW);
+	glPopMatrix();
 
 	glDisable (GL_BLEND);
 	glEnable (GL_DEPTH_TEST);
@@ -577,15 +593,15 @@ void CalcGunAngle (void)
 	static float oldyaw = 0;
 	static float oldpitch = 0;
 
-	yaw = r_refdef.viewangles[YAW];
-	pitch = -r_refdef.viewangles[PITCH];
+	yaw = r_refdef.aimangles[YAW];
+	pitch = -r_refdef.aimangles[PITCH];
 
-	yaw = angledelta(yaw - r_refdef.viewangles[YAW]) * 0.4;
+	yaw = angledelta(yaw - r_refdef.aimangles[YAW]) * 0.4;
 	if (yaw > 10)
 		yaw = 10;
 	if (yaw < -10)
 		yaw = -10;
-	pitch = angledelta(-pitch - r_refdef.viewangles[PITCH]) * 0.4;
+	pitch = angledelta(-pitch - r_refdef.aimangles[PITCH]) * 0.4;
 	if (pitch > 10)
 		pitch = 10;
 	if (pitch < -10)
@@ -616,8 +632,8 @@ void CalcGunAngle (void)
 	oldyaw = yaw;
 	oldpitch = pitch;
 
-	cl.viewent.angles[YAW] = r_refdef.viewangles[YAW] + yaw;
-	cl.viewent.angles[PITCH] = - (r_refdef.viewangles[PITCH] + pitch);
+	cl.viewent.angles[YAW] = r_refdef.aimangles[YAW] + yaw;
+	cl.viewent.angles[PITCH] = - (r_refdef.aimangles[PITCH] + pitch);
 
 	cl.viewent.angles[ROLL] -= v_idlescale.value * sin(cl.time*v_iroll_cycle.value) * v_iroll_level.value;
 	cl.viewent.angles[PITCH] -= v_idlescale.value * sin(cl.time*v_ipitch_cycle.value) * v_ipitch_level.value;
@@ -690,7 +706,10 @@ void V_CalcViewRoll (void)
 
 	if (cl.stats[STAT_HEALTH] <= 0)
 	{
-		r_refdef.viewangles[ROLL] = 80;	// dead view angle
+		// only roll when the rift is not enabled
+		if (!vr_enabled.value)
+			r_refdef.viewangles[ROLL] = 80;	// dead view angle
+		
 		return;
 	}
 
@@ -716,6 +735,13 @@ void V_CalcIntermissionRefdef (void)
 	VectorCopy (ent->angles, r_refdef.viewangles);
 	view->model = NULL;
 
+	if (vr_enabled.value)
+	{
+		VectorCopy (r_refdef.viewangles, r_refdef.aimangles);
+		VR_AddOrientationToViewAngles(r_refdef.viewangles);
+		VR_SetAngles(r_refdef.viewangles);
+	}
+
 // allways idle in intermission
 	old = v_idlescale.value;
 	v_idlescale.value = 1;
@@ -735,7 +761,7 @@ void V_CalcRefdef (void)
 	int			i;
 	vec3_t		forward, right, up;
 	vec3_t		angles;
-	float		bob;
+	float		bob = 0;
 	static float oldz = 0;
 	static vec3_t punch = {0,0,0}; //johnfitz -- v_gunkick
 	float delta; //johnfitz -- v_gunkick
@@ -784,7 +810,7 @@ void V_CalcRefdef (void)
 	V_BoundOffsets ();
 
 // set up gun position
-	VectorCopy (cl.viewangles, view->angles);
+	VectorCopy (cl.aimangles, view->angles);
 
 	CalcGunAngle ();
 

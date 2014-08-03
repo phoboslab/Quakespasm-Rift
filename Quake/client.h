@@ -160,6 +160,7 @@ typedef struct
 	vec3_t		mviewangles[2];	// during demo playback viewangles is lerped
 								// between these
 	vec3_t		viewangles;
+	vec3_t		aimangles;
 
 	vec3_t		mvelocity[2];	// update by server, used for lean+bob
 								// (0 is newest)
@@ -363,6 +364,7 @@ extern	cvar_t	chase_active;
 
 void Chase_Init (void);
 void TraceLine (vec3_t start, vec3_t end, vec3_t impact);
+void TraceLineToEntity (vec3_t start, vec3_t end, vec3_t impact, edict_t *ent);
 void Chase_UpdateForClient (void);	//johnfitz
 void Chase_UpdateForDrawing (void);	//johnfitz
 

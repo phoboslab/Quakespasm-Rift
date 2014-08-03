@@ -920,7 +920,7 @@ void Sbar_DrawFace (void)
 Sbar_Draw
 ===============
 */
-void Sbar_Draw (void)
+void Sbar_Draw ()
 {
 	float w; //johnfitz
 

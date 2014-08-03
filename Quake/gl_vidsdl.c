@@ -26,7 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "cfgfile.h"
 #include "bgmusic.h"
 #include "resource.h"
-#include "r_renderhmd.h"
+#include "vr.h"
 #if defined(SDL_FRAMEWORK) || defined(NO_SDL_CONFIG)
 #include <SDL/SDL.h>
 #else
@@ -100,7 +100,7 @@ static cvar_t	vid_vsync = {"vid_vsync", "0", CVAR_ARCHIVE};
 cvar_t		vid_gamma = {"gamma", "1", CVAR_ARCHIVE}; //johnfitz -- moved here from view.c
 
 //phoboslab -- cvars for oculus rift
-extern cvar_t  r_oculusrift;
+extern cvar_t  vr_enabled;
 //phoboslab
 
 //==========================================================================
@@ -185,10 +185,10 @@ VID_Gamma_Init -- call on init
 static void VID_Gamma_Init (void)
 {
 	vid_gammaworks = false;
-
+#if !defined(__APPLE__) // TODO: jeremiah sypult, crashes on OS X 10.9
 	if (SDL_GetGammaRamp (&vid_sysgamma_red[0], &vid_sysgamma_green[0], &vid_sysgamma_blue[0]) != -1)
 		vid_gammaworks = true;
-
+#endif
 	Cvar_RegisterVariable (&vid_gamma);
 	Cvar_SetCallback (&vid_gamma, VID_Gamma_f);
 }
@@ -314,8 +314,9 @@ static void VID_Restart (void)
 	if (vid_locked || !vid_changed)
 		return;
 
-	if (r_oculusrift.value) { // phoboslab
-		R_ReleaseHMDRenderer();
+	if (vr_enabled.value) // phoboslab
+	{ 
+		VR_Disable();
 	}
 
 	width = (int)vid_width.value;
@@ -365,8 +366,9 @@ static void VID_Restart (void)
 			IN_Activate();
 	}
 
-	if (r_oculusrift.value) { // phoboslab
-		R_InitHMDRenderer(&oculus_rift_hmd);
+	if (vr_enabled.value) // phoboslab
+	{ 
+		VR_Enable();
 	}
 }
 

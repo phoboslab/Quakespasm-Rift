@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -201,11 +201,11 @@
     <ClCompile Include="..\..\Quake\console.c" />
     <ClCompile Include="..\..\Quake\crc.c" />
     <ClCompile Include="..\..\Quake\cvar.c" />
-    <ClCompile Include="..\..\Quake\oculus_sdk.cpp">
+    <ClCompile Include="..\..\Quake\vr_ovr.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsCpp</CompileAs>
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="..\..\Quake\r_renderhmd.c" />
+    <ClCompile Include="..\..\Quake\vr.c" />
     <ClCompile Include="dirent.c" />
     <ClCompile Include="..\..\Quake\gl_draw.c" />
     <ClCompile Include="..\..\Quake\gl_fog.c" />
@@ -279,8 +279,8 @@
     <ClInclude Include="..\..\Quake\crc.h" />
     <ClInclude Include="..\..\Quake\cfgfile.h" />
     <ClInclude Include="..\..\Quake\cvar.h" />
-    <ClInclude Include="..\..\Quake\oculus_sdk.h" />
-    <ClInclude Include="..\..\Quake\r_renderhmd.h" />
+    <ClInclude Include="..\..\Quake\vr_ovr.h" />
+    <ClInclude Include="..\..\Quake\vr.h" />
     <ClInclude Include="dirent.h" />
     <ClInclude Include="..\..\Quake\draw.h" />
     <ClInclude Include="..\..\Quake\gl_model.h" />
