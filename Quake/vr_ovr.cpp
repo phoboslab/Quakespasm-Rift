@@ -225,14 +225,14 @@ void OVREndFrame()
 
 void OVRBeginEyeRender(eye_t eye)
 {
-	ovrEyeType eyeType =_OVRGlobals.HMDDesc.EyeRenderOrder[eye];
+	ovrEyeType eyeType = _OVRGlobals.HMDDesc.EyeRenderOrder[eye];
 	_OVRGlobals.Eye[eyeType].Pose = ovrHmd_BeginEyeRender( _OVRGlobals.HMD, eyeType );
 }
 
 void OVREndEyeRender(eye_t eye)
 {
-	ovrEyeType eyeType =_OVRGlobals.HMDDesc.EyeRenderOrder[eye];
-	ovrHmd_EndEyeRender( _OVRGlobals.HMD, eyeType, _OVRGlobals.Eye[eyeType].Pose, &_OVRGlobals.Eye[eye].Texture );
+	ovrEyeType eyeType = _OVRGlobals.HMDDesc.EyeRenderOrder[eye];
+	ovrHmd_EndEyeRender( _OVRGlobals.HMD, eyeType, _OVRGlobals.Eye[eyeType].Pose, &_OVRGlobals.Eye[eyeType].Texture );
 }
 
 extern "C" {
