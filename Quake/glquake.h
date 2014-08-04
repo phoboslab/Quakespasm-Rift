@@ -213,7 +213,7 @@ typedef struct {
 extern devstats_t dev_stats, dev_peakstats;
 //johnfitz
 
-//ohnfitz -- reduce overflow warning spam
+//johnfitz -- reduce overflow warning spam
 typedef struct {
 	double	packetsize;
 	double	efrags;

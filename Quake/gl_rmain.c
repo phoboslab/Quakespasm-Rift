@@ -90,6 +90,7 @@ cvar_t	r_clearcolor = {"r_clearcolor","2",CVAR_ARCHIVE};
 cvar_t	r_drawflat = {"r_drawflat","0",CVAR_NONE};
 cvar_t	r_flatlightstyles = {"r_flatlightstyles", "0", CVAR_NONE};
 cvar_t	gl_fullbrights = {"gl_fullbrights", "1", CVAR_ARCHIVE};
+cvar_t  gl_nearclip = {"gl_nearclip", "4", CVAR_ARCHIVE};
 cvar_t	gl_farclip = {"gl_farclip", "16384", CVAR_ARCHIVE};
 cvar_t	gl_overbright = {"gl_overbright", "1", CVAR_ARCHIVE};
 cvar_t	gl_overbright_models = {"gl_overbright_models", "1", CVAR_ARCHIVE};
@@ -312,49 +313,16 @@ GL_SetFrustum -- johnfitz -- written to replace MYgluPerspective
 phoboslab -- fixed for oculus renderer
 =============
 */
-#define NEARCLIP 4
 float frustum_skew = 0.0; //used by r_stereo
 void GL_SetFrustum(float fovx, float fovy)
 {
 	GLfloat xmax, ymax;
 	GLfloat aspect = fovx/fovy;
 
-	ymax = NEARCLIP * tan(fovy * M_PI / 360.0);
+	ymax = gl_nearclip.value * tan(fovy * M_PI / 360.0);
 	xmax = ymax * aspect;
 
-	glFrustum(-xmax + frustum_skew, xmax + frustum_skew, -ymax, ymax, NEARCLIP, gl_farclip.value);
-}
-
-/*
-=============
-GL_SetFrustumVR  -- dghost -- replacement GL_SetFrustrum for HMD's
-Generates perspective matrices given a FOV and offset.
-=============
-*/
-
-void GL_SetFrustumVR(float fovx, float fovy,float offset)
-{
-	GLfloat aspect = fovx/fovy;
-	float f = 1.0f / tanf((fovy / 2.0f) * M_PI / 180);
-    float nf = 1.0f / (NEARCLIP - gl_farclip.value);
-	float out[16];
-    out[0] = f / aspect;
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-    out[4] = 0;
-    out[5] = f;
-    out[6] = 0;
-    out[7] = 0;
-    out[8] = -offset;
-    out[9] = 0;
-    out[10] = (gl_farclip.value + NEARCLIP) * nf;
-    out[11] = -1;
-    out[12] = 0;
-    out[13] = 0;
-    out[14] = (2.0f * gl_farclip.value * NEARCLIP) * nf;
-    out[15] = 0;
-	glLoadMatrixf(out);
+	glFrustum(-xmax + frustum_skew, xmax + frustum_skew, -ymax, ymax, gl_nearclip.value, gl_farclip.value);
 }
 
 /*
@@ -362,10 +330,6 @@ void GL_SetFrustumVR(float fovx, float fovy,float offset)
 R_SetupGL
 =============
 */
-
-extern float vr_view_offset;
-extern float vr_proj_offset;
-
 void R_SetupGL (void)
 {
 	//johnfitz -- rewrote this section
@@ -377,8 +341,9 @@ void R_SetupGL (void)
 				r_refdef.vrect.height);
 	//johnfitz
 
-	if (vr_enabled.value) {
-		GL_SetFrustumVR (r_fovx, r_fovy, vr_proj_offset);
+	if (vr_enabled.value)
+	{
+		VR_SetFrustum(); // jeremiah sypult -- VR is responsible for frustum
 	}
 	else 
 	{
@@ -844,7 +809,6 @@ void R_RenderScene (void)
 R_RenderView
 ================
 */
-extern float vr_view_offset;
 void R_RenderView (void)
 {
 	double	time1, time2;
@@ -881,7 +845,7 @@ void R_RenderView (void)
 		//render left eye (red)
 		glColorMask(1, 0, 0, 1);
 		VectorMA (r_refdef.vieworg, -0.5f * eyesep, vright, r_refdef.vieworg);
-		frustum_skew = 0.5 * eyesep * NEARCLIP / fdepth;
+		frustum_skew = 0.5 * eyesep * gl_nearclip.value / fdepth;
 		srand((int) (cl.time * 1000)); //sync random stuff between eyes
 
 		R_RenderScene ();
@@ -900,9 +864,12 @@ void R_RenderView (void)
 		VectorMA (r_refdef.vieworg, -0.5f * eyesep, vright, r_refdef.vieworg);
 		frustum_skew = 0.0f;
 	}
+	else if (vr_enabled.value)
+	{
+		VR_RenderScene (); // jeremiah sypult -- VR setup for R_RenderScene
+	}
 	else
 	{
-		VectorMA (r_refdef.vieworg, vr_view_offset, vright, r_refdef.vieworg);
 		R_RenderScene ();
 	}
 	//johnfitz

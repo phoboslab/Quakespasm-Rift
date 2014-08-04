@@ -90,11 +90,11 @@ PFNGLACTIVETEXTUREARBPROC GL_SelectTextureFunc = NULL; //johnfitz
 //====================================
 
 //johnfitz -- new cvars
-static cvar_t	vid_fullscreen = {"vid_fullscreen", "0", CVAR_ARCHIVE};	// QuakeSpasm, was "1"
-static cvar_t	vid_width = {"vid_width", "800", CVAR_ARCHIVE};		// QuakeSpasm, was 640
-static cvar_t	vid_height = {"vid_height", "600", CVAR_ARCHIVE};	// QuakeSpasm, was 480
-static cvar_t	vid_bpp = {"vid_bpp", "16", CVAR_ARCHIVE};
-static cvar_t	vid_vsync = {"vid_vsync", "0", CVAR_ARCHIVE};
+cvar_t	vid_fullscreen = {"vid_fullscreen", "0", CVAR_ARCHIVE};	// QuakeSpasm, was "1"
+cvar_t	vid_width = {"vid_width", "800", CVAR_ARCHIVE};		// QuakeSpasm, was 640
+cvar_t	vid_height = {"vid_height", "600", CVAR_ARCHIVE};	// QuakeSpasm, was 480
+cvar_t	vid_bpp = {"vid_bpp", "16", CVAR_ARCHIVE};
+cvar_t	vid_vsync = {"vid_vsync", "0", CVAR_ARCHIVE};
 //johnfitz
 
 cvar_t		vid_gamma = {"gamma", "1", CVAR_ARCHIVE}; //johnfitz -- moved here from view.c
@@ -723,6 +723,10 @@ GL_EndRendering
 */
 void GL_EndRendering (void)
 {
+	// jeremiah sypult -- VR handles buffer swaps
+	if (vr_enabled.value && cls.state == ca_connected)
+		scr_skipupdate = true;
+
 	if (!scr_skipupdate)
 		SDL_GL_SwapBuffers();
 }

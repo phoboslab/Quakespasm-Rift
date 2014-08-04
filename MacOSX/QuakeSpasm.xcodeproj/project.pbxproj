@@ -12,9 +12,9 @@
 		002F3C6109D0951E00EBEB88 /* GLUT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 002F3C6009D0951E00EBEB88 /* GLUT.framework */; };
 		274FAB6B178F85B500B17C7A /* SDL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 274FAB6A178F85B500B17C7A /* SDL.framework */; };
 		274FAB6C178F85C800B17C7A /* SDL.framework in Copy Frameworks into .app bundle */ = {isa = PBXBuildFile; fileRef = 274FAB6A178F85B500B17C7A /* SDL.framework */; };
-		274FAB73178F867900B17C7A /* libovr.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 274FAB72178F866600B17C7A /* libovr.a */; };
 		27FAF0EF198DF2C600583E49 /* vr_ovr.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 27FAF0ED198DF2C600583E49 /* vr_ovr.cpp */; };
 		27FAF0F0198DF2C600583E49 /* vr.c in Sources */ = {isa = PBXBuildFile; fileRef = 27FAF0EE198DF2C600583E49 /* vr.c */; };
+		27FAF0FB198DFAEC00583E49 /* libovr.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 27FAF0FA198DFADA00583E49 /* libovr.a */; };
 		48134A1812102F400015BF15 /* net_bsd.c in Sources */ = {isa = PBXBuildFile; fileRef = 48134A1412102F400015BF15 /* net_bsd.c */; };
 		48134A1912102F400015BF15 /* net_udp.c in Sources */ = {isa = PBXBuildFile; fileRef = 48134A1612102F400015BF15 /* net_udp.c */; };
 		4818B0A312D5B9AE006DD66E /* bgmusic.c in Sources */ = {isa = PBXBuildFile; fileRef = 4818B0A112D5B9AE006DD66E /* bgmusic.c */; };
@@ -106,12 +106,12 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		274FAB71178F866600B17C7A /* PBXContainerItemProxy */ = {
+		27FAF0F9198DFADA00583E49 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 274FAB6D178F866600B17C7A /* LibOVR.xcodeproj */;
+			containerPortal = 27FAF0F5198DFADA00583E49 /* LibOVR.xcodeproj */;
 			proxyType = 2;
-			remoteGlobalIDString = 274FAA9D178F7FC800B17C7A;
-			remoteInfo = ovr;
+			remoteGlobalIDString = E82D4CD31906FE640070CB3F;
+			remoteInfo = LibOVR;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -150,11 +150,11 @@
 		089C165DFE840E0CC02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 		274FAB6A178F85B500B17C7A /* SDL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL.framework; path = Frameworks/SDL.framework; sourceTree = "<group>"; };
-		274FAB6D178F866600B17C7A /* LibOVR.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = LibOVR.xcodeproj; path = ../Libs/LibOVR/Projects/MacOS/LibOVR.xcodeproj; sourceTree = "<group>"; };
 		27FAF0EB198DF2B900583E49 /* vr_ovr.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = vr_ovr.h; path = ../Quake/vr_ovr.h; sourceTree = "<group>"; };
 		27FAF0EC198DF2B900583E49 /* vr.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = vr.h; path = ../Quake/vr.h; sourceTree = "<group>"; };
 		27FAF0ED198DF2C600583E49 /* vr_ovr.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vr_ovr.cpp; path = ../Quake/vr_ovr.cpp; sourceTree = "<group>"; };
 		27FAF0EE198DF2C600583E49 /* vr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vr.c; path = ../Quake/vr.c; sourceTree = "<group>"; };
+		27FAF0F5198DFADA00583E49 /* LibOVR.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = LibOVR.xcodeproj; path = Projects/Mac/Xcode/LibOVR.xcodeproj; sourceTree = "<group>"; };
 		29B97324FDCFA39411CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		48134A1412102F400015BF15 /* net_bsd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = net_bsd.c; path = ../Quake/net_bsd.c; sourceTree = SOURCE_ROOT; };
@@ -308,7 +308,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				274FAB73178F867900B17C7A /* libovr.a in Frameworks */,
+				27FAF0FB198DFAEC00583E49 /* libovr.a in Frameworks */,
 				48E2EC7D15FB507A00B8D476 /* libmad.dylib in Frameworks */,
 				48E2EC7E15FB507A00B8D476 /* libogg.dylib in Frameworks */,
 				48E2EC7F15FB507A00B8D476 /* libvorbis.dylib in Frameworks */,
@@ -364,10 +364,27 @@
 			name = Libraries;
 			sourceTree = "<group>";
 		};
-		274FAB6E178F866600B17C7A /* Products */ = {
+		27FAF0F3198DFABA00583E49 /* Libs */ = {
 			isa = PBXGroup;
 			children = (
-				274FAB72178F866600B17C7A /* libovr.a */,
+				27FAF0F4198DFACA00583E49 /* LibOVR */,
+			);
+			name = Libs;
+			path = ../Libs;
+			sourceTree = "<group>";
+		};
+		27FAF0F4198DFACA00583E49 /* LibOVR */ = {
+			isa = PBXGroup;
+			children = (
+				27FAF0F5198DFADA00583E49 /* LibOVR.xcodeproj */,
+			);
+			path = LibOVR;
+			sourceTree = "<group>";
+		};
+		27FAF0F6198DFADA00583E49 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				27FAF0FA198DFADA00583E49 /* libovr.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -375,7 +392,7 @@
 		29B97314FDCFA39411CA2CEA /* QuakeSpasm */ = {
 			isa = PBXGroup;
 			children = (
-				274FAB6D178F866600B17C7A /* LibOVR.xcodeproj */,
+				27FAF0F3198DFABA00583E49 /* Libs */,
 				48243B060D33ED0A00C29F8F /* MacOSX */,
 				483A77D80D2EE8C500CB2E4C /* Quake */,
 				29B97317FDCFA39411CA2CEA /* Resources */,
@@ -686,8 +703,8 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
-					ProductGroup = 274FAB6E178F866600B17C7A /* Products */;
-					ProjectRef = 274FAB6D178F866600B17C7A /* LibOVR.xcodeproj */;
+					ProductGroup = 27FAF0F6198DFADA00583E49 /* Products */;
+					ProjectRef = 27FAF0F5198DFADA00583E49 /* LibOVR.xcodeproj */;
 				},
 			);
 			projectRoot = "";
@@ -698,11 +715,11 @@
 /* End PBXProject section */
 
 /* Begin PBXReferenceProxy section */
-		274FAB72178F866600B17C7A /* libovr.a */ = {
+		27FAF0FA198DFADA00583E49 /* libovr.a */ = {
 			isa = PBXReferenceProxy;
 			fileType = archive.ar;
 			path = libovr.a;
-			remoteRef = 274FAB71178F866600B17C7A /* PBXContainerItemProxy */;
+			remoteRef = 27FAF0F9198DFADA00583E49 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */

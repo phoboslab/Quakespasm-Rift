@@ -1,169 +1,254 @@
 // 2013 Dominic Szablewski - phoboslab.org
-#include "OVR.h"
+// 2014 Jeremiah Sypult - github.com/jeremiah-sypult
+
 #include "vr.h"
+#include "../Src/Kernel/OVR_Math.h"
+#include "../Src/OVR_Stereo.h"
+#include "../Src/OVR_CAPI.h"
+#include "../Src/OVR_CAPI_GL.h"
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846f // matches value in gcc v2 math.h
-#endif
+#define BIT_TEST( bits, flag )	( (bits) &   (flag) )		// test
+#define BIT_ON( bits, flag )	( (bits) |=  (flag) )		// on
+#define BIT_OFF( bits, flag )	( (bits) &= ~(flag) )		// off
+#define BIT_FLIP( bits, flag )	( (bits) ^=  (flag) )		// flip
 
-static OVR::DeviceManager *manager;
-static OVR::HMDDevice *hmd;
-static OVR::SensorDevice *sensor;
-static OVR::SensorFusion *fusion;
-static OVR::Util::MagCalibration *magnet;
-static OVR::HMDInfo hmdinfo;
-
-int InitOculusSDK()
+typedef struct
 {
-	OVR::System::Init(OVR::Log::ConfigureDefaultLog(OVR::LogMask_All));
-	manager = OVR::DeviceManager::Create();
-	hmd  = manager->EnumerateDevices<OVR::HMDDevice>().CreateDevice();
+//  ovrEyeRenderDesc    RenderDesc;
+    ovrPosef            Pose;
+    ovrTexture          Texture;
+    ovrMatrix4f         Projection;
+} OVREyeGlobals;
 
-	if (!hmd) {
+typedef struct
+{
+    ovrHmd              HMD;
+    ovrHmdDesc          HMDDesc;
+    unsigned int        HMDCaps;
+    unsigned int        SensorCaps;
+    unsigned int        DistortionCaps;
+	OVREyeGlobals       Eye[EYE_ALL];
+	float				IPD;
+    ovrFrameTiming      FrameTiming;
+	ovrEyeRenderDesc	EyeRenderDesc[EYE_ALL];
+} OVRGlobals;
+
+static OVRGlobals _OVRGlobals = {0};
+
+int OVRInitialize()
+{
+	unsigned int supportedSensorCaps =
+		ovrSensorCap_Orientation|
+		ovrSensorCap_YawCorrection|
+		ovrSensorCap_Position;
+
+	if ( ! ovr_Initialize() ) {
 		return 0;
 	}
-	
-	sensor = hmd->GetSensor();
-	if (!sensor) {
-		delete hmd;
+
+	_OVRGlobals.HMD = ovrHmd_Create(0);
+
+	if ( ! ( _OVRGlobals.HMD ) && ! ( _OVRGlobals.HMD = ovrHmd_CreateDebug( ovrHmd_DK1 ) ) ) {
 		return 0;
 	}
 
-	fusion = new OVR::SensorFusion();
-	fusion->AttachToSensor(sensor);
-	fusion->SetYawCorrectionEnabled(true);
+	ovrHmd_GetDesc( _OVRGlobals.HMD, &_OVRGlobals.HMDDesc );
 
-	magnet = NULL;
+	if ( ! ovrHmd_StartSensor( _OVRGlobals.HMD, supportedSensorCaps, ovrSensorCap_Orientation ) ) {
+		return 0;
+	}
 
 	return 1;
 }
 
-void GetOculusView(float view[3])
+void OVRShutdown()
 {
-	if (!fusion) {
-		return;
+	if ( _OVRGlobals.HMD ) {
+		ovrHmd_StopSensor( _OVRGlobals.HMD );
+		ovrHmd_ConfigureRendering( _OVRGlobals.HMD, NULL, 0, NULL, NULL );
+		ovrHmd_Destroy( _OVRGlobals.HMD );
+		_OVRGlobals.HMD = NULL;
 	}
 
-	if (magnet && magnet->IsAutoCalibrating()) {
-		magnet->UpdateAutoCalibration(*fusion);
-	}
-
-	// GetPredictedOrientation() works even if prediction is disabled
-	OVR::Quatf q = fusion->GetPredictedOrientation();
-	
-	q.GetEulerAngles<OVR::Axis_Y, OVR::Axis_X, OVR::Axis_Z>(&view[1], &view[0], &view[2]);
-
-	view[0] = (-view[0] * 180.0f) / M_PI;
-	view[1] = (view[1] * 180.0f) / M_PI;
-	view[2] = (-view[2] * 180.0f) / M_PI;
+	ovr_Shutdown();
 }
 
-void ReleaseOculusSDK()
+void OVRConfigureEye(eye_t eye, int px, int py, int sw, int sh, GLuint texture)
 {
-	if (manager) {
-		manager->Release();
-		manager = NULL;
-	}
-	if (hmd) {
-		hmd->Release();
-		hmd = NULL;
-	}
-	if (sensor) {
-		sensor->Release();
-		sensor = NULL;
-	}
-	if (fusion) {
-		delete fusion;
-		fusion = NULL;
-	}
+	ovrVector2i texturePos = { px, py };
+	ovrSizei textureSize = { sw, sh };
+	ovrRecti renderViewport = { texturePos, textureSize };
+	ovrGLTextureData* textureData = (ovrGLTextureData*)&_OVRGlobals.Eye[eye].Texture;
 
-	if (magnet) {
-		delete magnet;
-		magnet = NULL;
-	}
-
-	OVR::System::Destroy();
+    textureData->Header.API            = ovrRenderAPI_OpenGL;
+    textureData->Header.TextureSize    = textureSize;
+    textureData->Header.RenderViewport = renderViewport;
+    textureData->TexId                 = texture;
 }
 
-void SetOculusPrediction(float time)
+void OVRConfigureRenderer(float multisample, int lowpersistence, int latencytest, int dynamicprediction, int vsync, int chromatic, int timewarp, int vignette)
 {
-	if (!fusion) {
-		return;
-	}
-	if (time > 0.0f) {
+	extern cvar_t gl_nearclip;
+	extern cvar_t gl_farclip;
+	extern cvar_t vid_vsync;
+	extern cvar_t vr_vsync;
+	extern cvar_t vr_ipd;
+    unsigned hmdCaps;
+	unsigned int distortionCaps;
+    ovrFovPort eyeFov[EYE_ALL] = { _OVRGlobals.HMDDesc.DefaultEyeFov[EYE_LEFT], _OVRGlobals.HMDDesc.DefaultEyeFov[EYE_RIGHT] };
+    float FovSideTanMax   = OVR::FovPort::Max(_OVRGlobals.HMDDesc.DefaultEyeFov[EYE_LEFT], _OVRGlobals.HMDDesc.DefaultEyeFov[EYE_RIGHT]).GetMaxSideTan();
+	//float FovSideTanLimit = OVR::FovPort::Max(_OVRGlobals.HMDDesc.MaxEyeFov[EYE_LEFT], _OVRGlobals.HMDDesc.MaxEyeFov[EYE_RIGHT]).GetMaxSideTan();
 
-		fusion->SetPrediction(time, true);
-	} else {
-		fusion->SetPrediction(0.0f,false);
-	}
+	// generate the HMD and distortion caps
+	hmdCaps = (lowpersistence ? ovrHmdCap_LowPersistence : 0) |
+	          (latencytest ? ovrHmdCap_LatencyTest : 0) |
+	          (dynamicprediction ? ovrHmdCap_DynamicPrediction : 0) |
+	          (vsync ? 0 : ovrHmdCap_NoVSync);
 
+	distortionCaps = (chromatic ? ovrDistortionCap_Chromatic : 0) |
+	                 (timewarp ? ovrDistortionCap_TimeWarp : 0) |
+	                 (vignette ? ovrDistortionCap_Vignette : 0);
+
+	ovrHmd_SetEnabledCaps( _OVRGlobals.HMD, hmdCaps );
+
+	ovrRenderAPIConfig config = ovrRenderAPIConfig();
+	config.Header.API = ovrRenderAPI_OpenGL;
+	config.Header.RTSize.w = vid.width;
+	config.Header.RTSize.h = vid.height;
+	config.Header.Multisample = multisample > 1 ? 1 : 0;
+
+	// clamp fov
+    eyeFov[EYE_LEFT] = OVR::FovPort::Min(eyeFov[EYE_LEFT], OVR::FovPort(FovSideTanMax));
+    eyeFov[EYE_RIGHT] = OVR::FovPort::Min(eyeFov[EYE_RIGHT], OVR::FovPort(FovSideTanMax));
+
+    if ( !ovrHmd_ConfigureRendering( _OVRGlobals.HMD, &config, distortionCaps, eyeFov, _OVRGlobals.EyeRenderDesc )) {
+		// TODO: should this function return a boolean indicator of success?
+        return;
+    }
+
+	// update the HMD descriptor
+	ovrHmd_GetDesc( _OVRGlobals.HMD, &_OVRGlobals.HMDDesc );
+	_OVRGlobals.IPD = ovrHmd_GetFloat( _OVRGlobals.HMD, OVR_KEY_IPD, 0.0f );
+
+	// create the projection
+	_OVRGlobals.Eye[EYE_LEFT].Projection =
+		ovrMatrix4f_Projection( _OVRGlobals.EyeRenderDesc[EYE_LEFT].Fov,  gl_nearclip.value, gl_farclip.value, true );
+    _OVRGlobals.Eye[EYE_RIGHT].Projection =
+		ovrMatrix4f_Projection( _OVRGlobals.EyeRenderDesc[EYE_RIGHT].Fov,  gl_nearclip.value, gl_farclip.value, true );
+
+	// transpose the projection
+	OVR::Matrix4 <float>transposeLeft = _OVRGlobals.Eye[EYE_LEFT].Projection;
+	OVR::Matrix4 <float>transposeRight = _OVRGlobals.Eye[EYE_RIGHT].Projection;
+
+	_OVRGlobals.Eye[EYE_LEFT].Projection = transposeLeft.Transposed();
+	_OVRGlobals.Eye[EYE_RIGHT].Projection = transposeRight.Transposed();
 }
 
-void SetOculusDriftCorrect(int enable)
+void OVRResetSensor()
 {
-	// If sensor fusion isn't loaded or the sensor is pre-calibrated do nothing
-	if (!fusion) {
-		return;
+	ovrHmd_ResetSensor( _OVRGlobals.HMD );
+}
+
+void OVRGetFOV(float *horizontalFOV, float *verticalFOV)
+{
+	OVR::FovPort leftFov = _OVRGlobals.EyeRenderDesc[EYE_LEFT].Fov;
+	OVR::FovPort rightFov = _OVRGlobals.EyeRenderDesc[EYE_RIGHT].Fov;
+
+	if ( horizontalFOV ) {
+		float horizontalAvgFov = ( leftFov.GetHorizontalFovRadians() + rightFov.GetHorizontalFovRadians() ) * 0.5f;
+		float hFOV = OVR::RadToDegree(horizontalAvgFov);
+
+		*horizontalFOV = hFOV;
 	}
 
-	if (enable) {
-		fusion->SetYawCorrectionEnabled(true);
-		if (!fusion->HasMagCalibration())
-		{
-			if (!magnet)
-				magnet = new OVR::Util::MagCalibration();
-			magnet->BeginAutoCalibration(*fusion);
-		}
-	} else {
-		fusion->SetYawCorrectionEnabled(false);
-		if (magnet)
-		{
-			delete magnet;
-			magnet = NULL;
-		}
+	if ( verticalFOV ) {
+		float verticalAvgFov = ( leftFov.GetVerticalFovRadians() + rightFov.GetVerticalFovRadians() ) * 0.5f;
+		float vFOV = OVR::RadToDegree(verticalAvgFov);
+
+		*verticalFOV = vFOV;
 	}
 }
 
-int GetOculusDeviceInfo(vr_hmd_settings_t *hmd_settings)
+GLfloat *OVRGetProjectionForEye(eye_t eye)
 {
-	if(!hmd || !hmd->GetDeviceInfo(&hmdinfo)) {
-		return 0;
+	switch ( eye ) {
+		case EYE_LEFT: return (GLfloat*)&_OVRGlobals.Eye[EYE_LEFT].Projection; break;
+		case EYE_RIGHT: return (GLfloat*)&_OVRGlobals.Eye[EYE_RIGHT].Projection; break;
+		default: return NULL; break;
 	}
 
-	hmd_settings->h_resolution = hmdinfo.HResolution;
-	hmd_settings->v_resolution = hmdinfo.VResolution;
-	hmd_settings->h_screen_size = hmdinfo.HScreenSize;
-	hmd_settings->v_screen_size = hmdinfo.VScreenSize;
-
-	hmd_settings->interpupillary_distance = hmdinfo.InterpupillaryDistance;
-	hmd_settings->lens_separation_distance = hmdinfo.LensSeparationDistance;
-	hmd_settings->eye_to_screen_distance = hmdinfo.EyeToScreenDistance;
-
-	memcpy(hmd_settings->distortion_k, hmdinfo.DistortionK, sizeof(float) * 4);
-	memcpy(hmd_settings->chrom_abr, hmdinfo.ChromaAbCorrection, sizeof(float) * 4);
-
-	return 1;
+	return NULL;
 }
 
-void ResetOculusOrientation()
+void OVRGetViewAdjustForEye(eye_t eye, float viewAdjust[3])
 {
-	if(fusion)
-		fusion->Reset();
+	ovrVector3f eyeViewAdjust = _OVRGlobals.EyeRenderDesc[eye].ViewAdjust;
 
-	if (magnet && magnet->IsAutoCalibrating()) {
-		magnet->BeginAutoCalibration(*fusion);
+	if ( viewAdjust ) {
+		viewAdjust[0] = eyeViewAdjust.x;
+		viewAdjust[1] = eyeViewAdjust.y;
+		viewAdjust[2] = eyeViewAdjust.z;
 	}
+}
 
+void OVRGetViewAngles(float viewAngles[3])
+{
+	double absTime = _OVRGlobals.FrameTiming.ThisFrameSeconds ?
+		_OVRGlobals.FrameTiming.ScanoutMidpointSeconds :
+		ovr_GetTimeInSeconds();
+	ovrSensorState ss = ovrHmd_GetSensorState( _OVRGlobals.HMD, absTime );
+
+	OVR::Quatf q;
+
+	if ( ss.StatusFlags & ovrStatus_OrientationTracked ) {
+		ovrPosef pose = ss.Predicted.Pose;
+
+		q = pose.Orientation;
+		q.GetEulerAngles<OVR::Axis_Y, OVR::Axis_X, OVR::Axis_Z>(&viewAngles[1], &viewAngles[0], &viewAngles[2]);
+
+		viewAngles[0] = (-viewAngles[0] * 180.0f) / M_PI;
+		viewAngles[1] = (viewAngles[1] * 180.0f) / M_PI;
+		viewAngles[2] = (-viewAngles[2] * 180.0f) / M_PI;
+	}
+}
+
+void OVRBeginFrame()
+{
+	_OVRGlobals.FrameTiming = ovrHmd_BeginFrame( _OVRGlobals.HMD, 0 );
+}
+
+void OVREndFrame()
+{
+	ovrHmd_EndFrame( _OVRGlobals.HMD );
+	memset( &_OVRGlobals.FrameTiming, 0, sizeof(ovrFrameTiming) );
+}
+
+void OVRBeginEyeRender(eye_t eye)
+{
+	ovrEyeType eyeType =_OVRGlobals.HMDDesc.EyeRenderOrder[eye];
+	_OVRGlobals.Eye[eyeType].Pose = ovrHmd_BeginEyeRender( _OVRGlobals.HMD, eyeType );
+}
+
+void OVREndEyeRender(eye_t eye)
+{
+	ovrEyeType eyeType =_OVRGlobals.HMDDesc.EyeRenderOrder[eye];
+	ovrHmd_EndEyeRender( _OVRGlobals.HMD, eyeType, _OVRGlobals.Eye[eyeType].Pose, &_OVRGlobals.Eye[eye].Texture );
 }
 
 extern "C" {
-	vr_interface_t vr_interface_ovr = {
-		InitOculusSDK,
-		ReleaseOculusSDK,
-		GetOculusDeviceInfo,
-		GetOculusView,
-		ResetOculusOrientation,
-		SetOculusPrediction,
-		SetOculusDriftCorrect
+	vr_library_t OVRLibrary = {
+		OVRInitialize,
+		OVRShutdown,
+		OVRResetSensor,
+		OVRConfigureEye,
+		OVRConfigureRenderer,
+		OVRGetFOV,
+		OVRGetProjectionForEye,
+		OVRGetViewAdjustForEye,
+		OVRGetViewAngles,
+		OVRBeginFrame,
+		OVREndFrame,
+		OVRBeginEyeRender,
+		OVREndEyeRender
 	};
 }

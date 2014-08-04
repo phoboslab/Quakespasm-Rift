@@ -470,7 +470,7 @@ void SCR_DrawFPS (void)
 	{
 		char	st[16];
 		int	x, y;
-		sprintf (st, "%4.0f fps", lastfps);
+		sprintf (st, "%4.0f fps", vr_enabled.value ? lastfps * 0.5 : lastfps); // jeremiah sypult -- halve for VR
 		x = 320 - (strlen(st)<<3);
 		y = 200 - 8;
 		if (scr_clock.value) y -= 8; //make room for clock

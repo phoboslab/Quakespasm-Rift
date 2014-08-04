@@ -5,11 +5,22 @@ Content     :   Win32 HID device implementation.
 Created     :   February 22, 2013
 Authors     :   Lee Cooper
 
-Copyright   :   Copyright 2013 Oculus VR, Inc. All Rights reserved.
+Copyright   :   Copyright 2014 Oculus VR, Inc. All Rights reserved.
 
-Use of this software is subject to the terms of the Oculus license
-agreement provided at the time of installation or download, or which
+Licensed under the Oculus VR Rift SDK License Version 3.1 (the "License"); 
+you may not use the Oculus VR Rift SDK except in compliance with the License, 
+which is provided at the time of installation or download, or which 
 otherwise accompanies this software in either electronic or hard copy form.
+
+You may obtain a copy of the License at
+
+http://www.oculusvr.com/licenses/LICENSE-3.1 
+
+Unless required by applicable law or agreed to in writing, the Oculus VR SDK 
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 *************************************************************************************/
 
@@ -157,10 +168,10 @@ bool HIDDeviceManager::GetHIDDeviceDesc(const String& path, HIDDeviceDesc* pdevD
         return false;
 
     pdevDesc->Path = path;
-    getFullDesc(hidDev, pdevDesc);
+    bool succ = getFullDesc(hidDev, pdevDesc);
 
     ::CloseHandle(hidDev);
-    return true;
+    return succ;
 }
 
 OVR::HIDDevice* HIDDeviceManager::Open(const String& path)
@@ -287,10 +298,11 @@ bool HIDDevice::HIDInitialize(const String& path)
     HIDManager->Manager->pThread->AddMessageNotifier(this);
 
     LogText("OVR::Win32::HIDDevice - Opened '%s'\n"
-        "                    Manufacturer:'%s'  Product:'%s'  Serial#:'%s'\n",
+		"                    Manufacturer:'%s'  Product:'%s'  Serial#:'%s'  Version:'%x'\n",
         DevDesc.Path.ToCStr(),
         DevDesc.Manufacturer.ToCStr(), DevDesc.Product.ToCStr(),
-        DevDesc.SerialNumber.ToCStr());
+        DevDesc.SerialNumber.ToCStr(),
+        DevDesc.VersionNumber);
 
     return true;
 }
@@ -489,18 +501,20 @@ void HIDDevice::closeDeviceOnIOError()
 
 bool HIDDevice::SetFeatureReport(UByte* data, UInt32 length)
 {
-    if (!ReadRequested)
+	if (!ReadRequested)
         return false;
 
-    return HIDManager->HidD_SetFeature(Device, data, (ULONG) length) != FALSE;
+	BOOLEAN res = HIDManager->HidD_SetFeature(Device, data, (ULONG) length);
+	return (res == TRUE);
 }
 
 bool HIDDevice::GetFeatureReport(UByte* data, UInt32 length)
 {
-    if (!ReadRequested)
+	if (!ReadRequested)
         return false;
 
-	return HIDManager->HidD_GetFeature(Device, data, (ULONG) length) != FALSE;
+	BOOLEAN res = HIDManager->HidD_GetFeature(Device, data, (ULONG) length);
+	return (res == TRUE);
 }
 
 void HIDDevice::OnOverlappedEvent(HANDLE hevent)
@@ -515,14 +529,14 @@ void HIDDevice::OnOverlappedEvent(HANDLE hevent)
     }
 }
 
-UInt64 HIDDevice::OnTicks(UInt64 ticksMks)
+double HIDDevice::OnTicks(double tickSeconds)
 {
     if (Handler)
     {
-        return Handler->OnTicks(ticksMks);
+        return Handler->OnTicks(tickSeconds);
     }
 
-    return DeviceManagerThread::Notifier::OnTicks(ticksMks);
+    return DeviceManagerThread::Notifier::OnTicks(tickSeconds);
 }
 
 bool HIDDevice::OnDeviceMessage(DeviceMessageType messageType, 
@@ -605,10 +619,8 @@ HIDDeviceManager* HIDDeviceManager::CreateInternal(Win32::DeviceManager* devMana
 // ***** Creation
 
 // Creates a new HIDDeviceManager and initializes OVR.
-HIDDeviceManager* HIDDeviceManager::Create()
+HIDDeviceManager* HIDDeviceManager::Create(Ptr<OVR::DeviceManager>& deviceManager)
 {
-    OVR_ASSERT_LOG(false, ("Standalone mode not implemented yet."));
-
     if (!System::IsInitialized())
     {
         // Use custom message, since Log is not yet installed.
@@ -617,21 +629,21 @@ HIDDeviceManager* HIDDeviceManager::Create()
         return 0;
     }
 
-    Ptr<Win32::HIDDeviceManager> manager = *new Win32::HIDDeviceManager(NULL);
+    Ptr<Win32::DeviceManager> deviceManagerWin32 = *new Win32::DeviceManager;
 
-    if (manager)
+    if (!deviceManagerWin32)
     {
-        if (manager->Initialize())
-        {
-            manager->AddRef();
-        }
-        else
-        {
-            manager.Clear();
-        }
+		return NULL;
+	}
+
+	if (!deviceManagerWin32->Initialize(0))
+    {         
+		return NULL;
     }
 
-    return manager.GetPtr();
+	deviceManager = deviceManagerWin32;
+
+	return deviceManagerWin32->GetHIDDeviceManager();
 }
 
 } // namespace OVR

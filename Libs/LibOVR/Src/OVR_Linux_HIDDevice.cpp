@@ -4,11 +4,22 @@ Content     :   Linux HID device implementation.
 Created     :   February 26, 2013
 Authors     :   Lee Cooper
  
-Copyright   :   Copyright 2013 Oculus VR, Inc. All Rights reserved.
- 
-Use of this software is subject to the terms of the Oculus license
-agreement provided at the time of installation or download, or which
+Copyright   :   Copyright 2014 Oculus VR, Inc. All Rights reserved.
+
+Licensed under the Oculus VR Rift SDK License Version 3.1 (the "License"); 
+you may not use the Oculus VR Rift SDK except in compliance with the License, 
+which is provided at the time of installation or download, or which 
 otherwise accompanies this software in either electronic or hard copy form.
+
+You may obtain a copy of the License at
+
+http://www.oculusvr.com/licenses/LICENSE-3.1 
+
+Unless required by applicable law or agreed to in writing, the Oculus VR SDK 
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 *************************************************************************************/
 
@@ -173,6 +184,11 @@ bool HIDDeviceManager::initVendorProductVersion(udev_device* device, HIDDeviceDe
     else
         return false;
 
+    if (getIntProperty(device, "bcdDevice", &result))
+        pDevDesc->VersionNumber = result;
+    else
+        return false;
+
     return true;
 }
 
@@ -234,7 +250,7 @@ bool HIDDeviceManager::Enumerate(HIDEnumerateVisitor* enumVisitor)
                 getFullDesc(hid, &devDesc);
 
                 // Look for the device to check if it is already opened.
-                Ptr<DeviceCreateDesc> existingDevice = DevManager->FindHIDDevice(devDesc);
+                Ptr<DeviceCreateDesc> existingDevice = DevManager->FindHIDDevice(devDesc, true);
                 // if device exists and it is opened then most likely the device open()
                 // will fail; therefore, we just set Enumerated to 'true' and continue.
                 if (existingDevice && existingDevice->pDevice)
@@ -258,7 +274,7 @@ bool HIDDeviceManager::Enumerate(HIDEnumerateVisitor* enumVisitor)
             udev_device_unref(hid);
             entry = udev_list_entry_get_next(entry);
         }
-	}
+    }
 
 	// Free the enumerator and udev objects
     udev_enumerate_unref(devices);
@@ -353,6 +369,9 @@ bool HIDDeviceManager::GetDescriptorFromPath(const char* dev_path, HIDDeviceDesc
 //-----------------------------------------------------------------------------
 void HIDDeviceManager::OnEvent(int i, int fd)
 {
+    OVR_UNUSED(i);
+    OVR_UNUSED(fd);
+
     // There is a device status change
     udev_device* hid = udev_monitor_receive_device(HIDMonitor);
     if (hid)
@@ -415,7 +434,7 @@ void HIDDeviceManager::OnEvent(int i, int fd)
 //                           Linux::HIDDevice
 //=============================================================================
 HIDDevice::HIDDevice(HIDDeviceManager* manager)
- :  HIDManager(manager), InMinimalMode(false)
+ :  InMinimalMode(false), HIDManager(manager)
 {
     DeviceHandle = -1;
 }
@@ -424,7 +443,7 @@ HIDDevice::HIDDevice(HIDDeviceManager* manager)
 // This is a minimal constructor used during enumeration for us to pass
 // a HIDDevice to the visit function (so that it can query feature reports).
 HIDDevice::HIDDevice(HIDDeviceManager* manager, int device_handle)
-:   HIDManager(manager), DeviceHandle(device_handle), InMinimalMode(true)
+:   InMinimalMode(true), HIDManager(manager), DeviceHandle(device_handle)
 {
 }
 
@@ -592,6 +611,7 @@ void HIDDevice::HIDShutdown()
 //-----------------------------------------------------------------------------
 void HIDDevice::closeDevice(bool wasUnplugged)
 {
+    OVR_UNUSED(wasUnplugged);
     OVR_ASSERT(DeviceHandle >= 0);
     
 
@@ -641,19 +661,20 @@ bool HIDDevice::GetFeatureReport(UByte* data, UInt32 length)
 }
 
 //-----------------------------------------------------------------------------
-UInt64 HIDDevice::OnTicks(UInt64 ticksMks)
+double HIDDevice::OnTicks(double tickSeconds)
 {
     if (Handler)
     {
-        return Handler->OnTicks(ticksMks);
+        return Handler->OnTicks(tickSeconds);
     }
     
-    return DeviceManagerThread::Notifier::OnTicks(ticksMks);
+    return DeviceManagerThread::Notifier::OnTicks(tickSeconds);
 }
 
 //-----------------------------------------------------------------------------
 void HIDDevice::OnEvent(int i, int fd)
 {
+    OVR_UNUSED(i);
     // We have data to read from the device
     int bytes = read(fd, ReadBuffer, ReadBufferSize);
     if (bytes >= 0)
@@ -767,9 +788,8 @@ HIDDeviceManager* HIDDeviceManager::CreateInternal(Linux::DeviceManager* devMana
 // ***** Creation
 
 // Creates a new HIDDeviceManager and initializes OVR.
-HIDDeviceManager* HIDDeviceManager::Create()
+HIDDeviceManager* HIDDeviceManager::Create(Ptr<OVR::DeviceManager>& deviceManager)
 {
-    OVR_ASSERT_LOG(false, ("Standalone mode not implemented yet."));
     
     if (!System::IsInitialized())
     {
@@ -779,21 +799,21 @@ HIDDeviceManager* HIDDeviceManager::Create()
         return 0;
     }
 
-    Ptr<Linux::HIDDeviceManager> manager = *new Linux::HIDDeviceManager(NULL);
+    Ptr<Linux::DeviceManager> deviceManagerLinux = *new Linux::DeviceManager;
 
-    if (manager)
+    if (!deviceManagerLinux)
     {
-        if (manager->Initialize())
-        {
-            manager->AddRef();
-        }
-        else
-        {
-            manager.Clear();
-        }
+		return NULL;
+	}
+
+    if (!deviceManagerLinux->Initialize(NULL))
+    {         
+		return NULL;
     }
 
-    return manager.GetPtr();
+	deviceManager = deviceManagerLinux;
+
+	return deviceManagerLinux->GetHIDDeviceManager();
 }
 
 } // namespace OVR

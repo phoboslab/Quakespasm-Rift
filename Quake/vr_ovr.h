@@ -3,6 +3,6 @@
 
 #include "vr.h"
 
-extern vr_interface_t vr_interface_ovr;
+extern vr_library_t OVRLibrary;
 
 #endif

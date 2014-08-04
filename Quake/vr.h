@@ -15,36 +15,40 @@
 #define	VR_CROSSHAIR_POINT 1 // Point crosshair projected to depth of object it is in front of
 #define	VR_CROSSHAIR_LINE 2 // Line crosshair
 
-typedef struct {
-	unsigned int h_resolution;
-	unsigned int v_resolution;
-	float h_screen_size;
-	float v_screen_size;
-	float interpupillary_distance;
-	float lens_separation_distance;
-	float eye_to_screen_distance;
-	float distortion_k[4];
-	float chrom_abr[4];
-} vr_hmd_settings_t;
-
+typedef enum _eye_t
+{
+	EYE_LEFT     = 0,
+	EYE_RIGHT    = 1,
+	EYE_ALL      = 2,
+	EYE_BOTH     = 2
+} eye_t;
 
 typedef struct {
-	int (*init)();
-	void (*release)();
-	int (*get_device_info)(vr_hmd_settings_t *hmd_settings);
-	void (*get_view)(float view[3]);
-	void (*reset_orientation)();
-	void (*set_prediction)(float time);
-	void (*set_drift_correction)(int enable);
-} vr_interface_t;
-
+	int  (*Initialize)();
+	void (*Shutdown)();
+	void (*ResetSensor)();
+	void (*ConfigureEye)(eye_t eye, int px, int py, int sw, int sh, GLuint texture);
+	void (*ConfigureRenderer)(float multisample, int lowpersistence, int latencytest, int dynamicprediction, int vsync, int chromatic, int timewarp, int vignette);
+	void (*GetFOV)(float *horizontalFOV, float *verticalFOV);
+	GLfloat*(*GetProjectionForEye)(eye_t eye);
+	void (*GetViewAdjustForEye)(eye_t eye, float viewAdjust[3]);
+	void (*GetViewAngles)(float viewAngles[3]);
+	void (*BeginFrame)();
+	void (*EndFrame)();
+	void (*BeginEyeRender)(eye_t eye);
+	void (*EndEyeRender)(eye_t eye);
+} vr_library_t;
 
 void VR_Init();
+void VR_RendererInit();
 
 qboolean VR_Enable();
 void VR_Disable();
 
+void VR_SetFrustum();
+void VR_RenderScene();
 void VR_UpdateScreenContent();
+
 void VR_ShowCrosshair();
 void VR_Sbar_Draw();
 void VR_AddOrientationToViewAngles(vec3_t angles);
