@@ -37,10 +37,16 @@ static OVRGlobals _OVRGlobals = {0};
 
 int OVRInitialize()
 {
+	extern cvar_t vr_debug;
 	unsigned int supportedSensorCaps =
 		ovrSensorCap_Orientation|
 		ovrSensorCap_YawCorrection|
 		ovrSensorCap_Position;
+	ovrHmdType debugHMDType = ovrHmd_None;
+
+	if ( (int)vr_debug.value != 0 ) {
+		debugHMDType = (vr_debug.value == 1 ? ovrHmd_DK1 : vr_debug.value == 2 ? ovrHmd_DK2 : ovrHmd_Other);
+	}
 
 	if ( ! ovr_Initialize() ) {
 		return 0;
@@ -48,7 +54,9 @@ int OVRInitialize()
 
 	_OVRGlobals.HMD = ovrHmd_Create(0);
 
-	if ( ! ( _OVRGlobals.HMD ) && ! ( _OVRGlobals.HMD = ovrHmd_CreateDebug( ovrHmd_DK1 ) ) ) {
+	if ( ! _OVRGlobals.HMD && (
+		 ! ( debugHMDType != ovrHmd_None ) ||
+		 ! ( _OVRGlobals.HMD = ovrHmd_CreateDebug( debugHMDType ) ) ) ) {
 		return 0;
 	}
 

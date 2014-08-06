@@ -116,6 +116,7 @@ static vr_t _vr = {0};
 
 
 cvar_t  vr_enabled = {"vr_enabled", "0", CVAR_NONE};
+cvar_t  vr_debug = {"vr_debug", "1", CVAR_NONE};
 cvar_t  vr_ipd = {"vr_ipd","60", CVAR_NONE};
 
 // HMD settings
@@ -134,7 +135,8 @@ cvar_t  vr_vignette = {"vr_vignette","1", CVAR_ARCHIVE};
 cvar_t  vr_crosshair = {"vr_crosshair","1", CVAR_ARCHIVE};
 cvar_t  vr_crosshair_depth = {"vr_crosshair_depth","0", CVAR_ARCHIVE};
 cvar_t  vr_crosshair_size = {"vr_crosshair_size","3.0", CVAR_ARCHIVE};
-cvar_t  vr_aimmode = {"vr_aimmode","1", CVAR_ARCHIVE};
+cvar_t  vr_crosshair_alpha = {"vr_crosshair_alpha","0.25", CVAR_ARCHIVE};
+cvar_t  vr_aimmode = {"vr_aimmode","5", CVAR_ARCHIVE};
 cvar_t  vr_deadzone = {"vr_deadzone","30", CVAR_ARCHIVE};
 
 
@@ -319,7 +321,10 @@ static void DeleteFBO(fbo_t fbo)
 static void VR_Enabled_f (cvar_t *var)
 {
 	VR_Disable();
-	VR_Enable();
+
+	if ( var->value != 0.0f ) {
+		VR_Enable();
+	}
 }
 
 static void VR_IPD_f (cvar_t *var)
@@ -360,6 +365,7 @@ void VR_Init()
 	// HMD settings
 	Cvar_RegisterVariable( &vr_enabled );
 	Cvar_SetCallback( &vr_enabled, VR_Enabled_f );
+	Cvar_RegisterVariable( &vr_debug );
 	Cvar_RegisterVariable( &vr_ipd );
 	Cvar_SetCallback( &vr_ipd, VR_IPD_f );
 
@@ -386,6 +392,7 @@ void VR_Init()
 	Cvar_RegisterVariable( &vr_crosshair );
 	Cvar_RegisterVariable( &vr_crosshair_depth );
 	Cvar_RegisterVariable( &vr_crosshair_size );
+	Cvar_RegisterVariable( &vr_crosshair_alpha );
 	Cvar_RegisterVariable( &vr_aimmode );
 	Cvar_RegisterVariable( &vr_deadzone );
 	Cvar_SetCallback( &vr_deadzone, VR_Deadzone_f );
@@ -483,12 +490,13 @@ qboolean VR_Enable()
 
 	vr_initialized = _vr.lib->Initialize();
 
-	VR_RendererInit();
-
 	if ( ! vr_initialized ) {
+		Cvar_SetValueQuick( &vr_enabled, 0 );
 		Con_Printf( "VR_Enable: failed to initialize" );
 		return false;
 	}
+
+	VR_RendererInit();
 
 	return true;
 }
@@ -512,8 +520,7 @@ static void VR_UpdatePlayerPose()
 	_vr.lib->GetViewAngles( orientation );
 
 	switch ( (int)vr_aimmode.value ) {
-		// 1: (Default) Head Aiming; View YAW is mouse+head, PITCH is head
-		default:
+		// 1: Head Aiming; View YAW is mouse+head, PITCH is head
 		case VR_AIMMODE_HEAD_MYAW:
 			cl.viewangles[PITCH] = cl.aimangles[PITCH] = orientation[PITCH];
 			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - _vr.lastOrientation[YAW];
@@ -537,8 +544,9 @@ static void VR_UpdatePlayerPose()
 			cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW];
 			break;
 
-		case VR_AIMMODE_BLENDED:
-		{
+		// 5: (Default) Blended
+		default:
+		case VR_AIMMODE_BLENDED: {
 			float diffHMDYaw = orientation[YAW] - _vr.lastOrientation[YAW];
 			float diffHMDPitch = orientation[PITCH] - _vr.lastOrientation[PITCH];
 			float diffAimYaw = cl.aimangles[YAW] - _vr.lastAim[YAW];
@@ -570,8 +578,9 @@ static void VR_UpdatePlayerPose()
 #endif
 				cl.aimangles[PITCH] += diffHMDPitch;
 			}
-		}
+
 			break;
+		}
 	}
 
 	cl.viewangles[ROLL]  = orientation[ROLL];
@@ -702,11 +711,15 @@ void VR_ShowCrosshair()
 {
 	vec3_t forward, up, right;
 	vec3_t start, end, impact;
-	float multisample = vr_multisample.value < 1 ? 1 : vr_multisample.value;
-	float crosshair_size = CLAMP( 1.0, vr_crosshair_size.value, 5.0 );
+	float crosshair_size = CLAMP( 0.0f, vr_crosshair_size.value, 32.0f );
+	float crosshair_alpha = CLAMP( 0.0f, vr_crosshair_alpha.value, 1.0f );
 
 	if( sv_player && (int)(sv_player->v.weapon) == IT_AXE )
 		return;
+
+	if ( ( vr_crosshair_size.value == 0.0f ) || ( vr_crosshair_alpha.value == 0.0f ) ) {
+		return;
+	}
 
 	// setup gl
 	glDisable( GL_DEPTH_TEST );
@@ -736,8 +749,8 @@ void VR_ShowCrosshair()
 		}
 
 		glEnable( GL_POINT_SMOOTH );
-		glColor4f( 1, 0, 0, 0.5 );
-		glPointSize( crosshair_size * glwidth / (vid.width * multisample) );
+		glColor4f( 1, 0, 0, crosshair_alpha );
+		glPointSize( crosshair_size * glwidth / vid.width );
 
 		glBegin( GL_POINTS );
 		glVertex3f( impact[0], impact[1], impact[2] );
@@ -752,8 +765,8 @@ void VR_ShowCrosshair()
 		VectorMA( start, 4096, forward, end );
 		TraceLineToEntity( start, end, impact, sv_player );
 
-		glColor4f( 1, 0, 0, 0.4 );
-		glLineWidth( crosshair_size * glwidth / (vid.width * multisample) );
+		glColor4f( 1, 0, 0, crosshair_alpha );
+		glLineWidth( crosshair_size * glwidth / vid.width );
 		glBegin( GL_LINES );
 		glVertex3f( start[0], start[1], start[2] );
 		glVertex3f( impact[0], impact[1], impact[2] );

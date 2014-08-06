@@ -27,8 +27,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "SDL.h"
 #endif
 
-static qboolean	prev_gamekey, gamekey;
-
 #ifdef __APPLE__
 /* Mouse acceleration needs to be disabled on OS X */
 #define MACOS_X_ACCELERATION_HACK
@@ -41,7 +39,33 @@ static qboolean	prev_gamekey, gamekey;
 #include <IOKit/hidsystem/event_status_driver.h>
 #endif
 
-static qboolean	no_mouse = false;
+/* analog axis ease math functions */
+#define sine(x)      ((0.5f) * ( (1) - (cosf( (x) * M_PI )) ))
+#define quadratic(x) ((x) * (x))
+#define cubic(x)     ((x) * (x) * (x))
+#define quartic(x)   ((x) * (x) * (x) * (x))
+#define quintic(x)   ((x) * (x) * (x) * (x) * (x))
+
+/* dual axis utility macro */
+#define dualfunc(d,f) {        \
+    d.left.x  = d.left.x < 0 ? -f( (float)-d.left.x ) : f( (float)d.left.x );  \
+    d.left.y  = d.left.y < 0 ? -f( (float)-d.left.y ) : f( (float)d.left.y );  \
+    d.right.x  = d.right.x < 0 ? -f( (float)-d.right.x ) : f( (float)d.right.x );  \
+    d.right.y  = d.right.y < 0 ? -f( (float)-d.right.y ) : f( (float)d.right.y );  }
+
+typedef struct
+{
+	float x;
+	float y;
+} joyAxis_t;
+
+typedef struct
+{
+	joyAxis_t	_oldleft;
+	joyAxis_t	_oldright;
+	joyAxis_t	left;
+	joyAxis_t	right;
+} dualAxis_t;
 
 static int buttonremap[] =
 {
@@ -54,8 +78,54 @@ static int buttonremap[] =
 	K_MOUSE5
 };
 
+static int joyremap[] =
+{
+	K_JOY1,
+	K_JOY2,
+	K_JOY3,
+	K_JOY4,
+	K_AUX1,
+	K_AUX2,
+	K_AUX3,
+	K_AUX4,
+	K_AUX5,
+	K_AUX6,
+	K_AUX7,
+	K_AUX8,
+	K_AUX9,
+	K_AUX10,
+	K_AUX11,
+	K_AUX12,
+	K_AUX13,
+	K_AUX14,
+	K_AUX15,
+	K_AUX16,
+	K_AUX17,
+	K_AUX18,
+	K_AUX19,
+	K_AUX20,
+	K_AUX21,
+	K_AUX22,
+	K_AUX23,
+	K_AUX24,
+	K_AUX25,
+	K_AUX26,
+	K_AUX27,
+	K_AUX28
+};
+
+static qboolean	prev_gamekey, gamekey;
+static qboolean	no_mouse = false;
+static dualAxis_t _rawDualAxis = {0};
+
 /* mouse variables */
 cvar_t	m_filter = {"m_filter","0",CVAR_NONE};
+
+/* joystick variables */
+cvar_t	joy_sensitivity = { "joy_sensitivity", "32", CVAR_ARCHIVE };
+cvar_t	joy_filter = { "joy_filter", "1", CVAR_ARCHIVE };
+cvar_t	joy_deadzone = { "joy_deadzone", "0.125", CVAR_ARCHIVE };
+cvar_t	joy_function = { "joy_function", "0", CVAR_ARCHIVE };
 
 /* total accumulated mouse movement since last frame,
  * gets updated from the main game loop via IN_MouseMove */
@@ -73,6 +143,53 @@ static int FilterMouseEvents (const SDL_Event *event)
 
 	return 1;
 }
+
+/* joystick support functions */
+
+static float NormalizeJoyInputValue (const Sint16 input)
+{
+	unsigned short convert = (unsigned short)(32768 + input);
+	float output = (convert / 32767.5f) - 1.0f;
+	return output;
+}
+
+static float NormalizeJoyAxis( joyAxis_t *v )
+{
+	float	length, ilength;
+
+	length = v->x * v->x + v->y * v->y;
+	length = sqrtf(length);
+
+	if ( length ) {
+		ilength = 1.0/length;
+		v->x *= ilength;
+		v->y *= ilength;
+	}
+
+	return length;
+}
+
+/*
+// adapted in part from:
+// http://gamasutra.com/blogs/JoshSutphin/20130415/190541/Doing_Thumbstick_Dead_Zones_Right.php
+*/
+static joyAxis_t ApplyJoyDeadzone(joyAxis_t axis, float deadzone)
+{
+	joyAxis_t result = {0};
+	float length = NormalizeJoyAxis( &axis );
+
+	if ( length < deadzone ) {
+		result.x = result.y = 0.0f;
+	} else {
+		// stickInput = stickInput.normalized * ((stickInput.magnitude - deadzone) / (1 - deadzone));
+		float gradient = ( (length - deadzone) / (1.0f - deadzone) );
+		result.x = axis.x * gradient;
+		result.y = axis.y * gradient;
+	}
+
+	return result;
+}
+
 
 #ifdef MACOS_X_ACCELERATION_HACK
 static cvar_t in_disablemacosxmouseaccel = {"in_disablemacosxmouseaccel", "1", CVAR_ARCHIVE};
@@ -210,6 +327,8 @@ void IN_Deactivate (qboolean free_cursor)
 
 void IN_Init (void)
 {
+	Con_Printf( "\n------- Input Initialization -------\n" );
+
 	prev_gamekey = ((key_dest == key_game && !con_forcedup) || m_keys_bind_grab);
 	SDL_EnableUNICODE (!prev_gamekey);
 	if (SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL) == -1)
@@ -221,6 +340,35 @@ void IN_Init (void)
 		/* discard all mouse events when input is deactivated */
 		SDL_SetEventFilter(FilterMouseEvents);
 	}
+
+	// BEGIN jeremiah sypult
+	Cvar_RegisterVariable( &joy_sensitivity );
+	Cvar_RegisterVariable( &joy_filter );
+	Cvar_RegisterVariable( &joy_deadzone );
+	Cvar_RegisterVariable( &joy_function );
+
+	if ( SDL_InitSubSystem( SDL_INIT_JOYSTICK ) == -1 ) {
+		Con_Printf( "WARNING: Could not initialize SDL Joystick" );
+	} else {
+		int i;
+		SDL_JoystickEventState( SDL_ENABLE );
+
+		for ( i = 0; i < SDL_NumJoysticks(); i++ ) {
+			if ( ! SDL_JoystickOpened( i ) ) {
+				SDL_Joystick* controller = SDL_JoystickOpen( i );
+
+				if ( controller ) {
+					Con_Printf( "%s\n     axes: %d\n  buttons: %d\n    balls: %d\n     hats: %d\n",
+							    SDL_JoystickName( i ),
+							    SDL_JoystickNumAxes( controller ),
+							    SDL_JoystickNumButtons( controller ),
+							    SDL_JoystickNumBalls( controller ),
+							    SDL_JoystickNumHats( controller ) );
+				}
+			}
+		}
+	}
+	// END jeremiah sypult
 
 #ifdef MACOS_X_ACCELERATION_HACK
 	Cvar_RegisterVariable(&in_disablemacosxmouseaccel);
@@ -249,9 +397,80 @@ void IN_MouseMove(int dx, int dy)
 	total_dy += dy;
 }
 
+void IN_JoyAxisMove(Uint8 axis, Uint16 value)
+{
+	float axisValue = NormalizeJoyInputValue( value );
+
+	// TODO: this assumes that traditional "thumbstick" axes map to
+	// (left x/y) (right x/y)
+	switch ( axis ) {
+		default: break;
+		case 0: _rawDualAxis.left.x = axisValue; break;
+		case 1: _rawDualAxis.left.y = axisValue; break;
+		case 2: _rawDualAxis.right.x = axisValue; break;
+		case 3: _rawDualAxis.right.y = axisValue; break;
+	}
+}
+
 void IN_Move (usercmd_t *cmd)
 {
 	int		dmx, dmy;
+
+	// jeremiah sypult -- BEGIN joystick
+	//
+	dualAxis_t moveDualAxis = {0};
+
+	if ( joy_filter.value ) {
+		moveDualAxis.left.x = ( _rawDualAxis.left.x + _rawDualAxis._oldleft.x ) * 0.5;
+		moveDualAxis.left.y = ( _rawDualAxis.left.y + _rawDualAxis._oldleft.y ) * 0.5;
+		moveDualAxis.right.x = ( _rawDualAxis.right.x + _rawDualAxis._oldright.x ) * 0.5;
+		moveDualAxis.right.y = ( _rawDualAxis.right.y + _rawDualAxis._oldright.y ) * 0.5;
+	} else {
+		moveDualAxis.left = _rawDualAxis.left;
+		moveDualAxis.right = _rawDualAxis.right;
+	}
+
+	_rawDualAxis._oldleft = _rawDualAxis.left;
+	_rawDualAxis._oldright = _rawDualAxis.right;
+
+	switch ( (int)joy_function.value ) {
+		default:
+		case 0: break;
+		case 1: dualfunc( moveDualAxis, sine );      break;
+		case 2: dualfunc( moveDualAxis, quadratic ); break;
+		case 3: dualfunc( moveDualAxis, cubic );     break;
+		case 4: dualfunc( moveDualAxis, quartic );   break;
+		case 5: dualfunc( moveDualAxis, quintic );   break;
+	}
+
+	// TODO: determine whether to apply deadzone before or after functions?
+	moveDualAxis.left = ApplyJoyDeadzone( moveDualAxis.left, joy_deadzone.value );
+	moveDualAxis.right = ApplyJoyDeadzone( moveDualAxis.right, joy_deadzone.value );
+
+	if ( moveDualAxis.left.x != 0.0f ) {
+		cmd->sidemove += (cl_sidespeed.value * moveDualAxis.left.x);
+	}
+	if ( moveDualAxis.left.y != 0.0f ) {
+		cmd->forwardmove -= (cl_forwardspeed.value * moveDualAxis.left.y);
+	}
+
+	//
+	// adjust for speed key
+	//
+	if (cl_forwardspeed.value > 200 && cl_movespeedkey.value)
+		cmd->forwardmove /= cl_movespeedkey.value;
+	if ((cl_forwardspeed.value > 200) ^ (in_speed.state & 1))
+	{
+		cmd->forwardmove *= cl_movespeedkey.value;
+		cmd->sidemove *= cl_movespeedkey.value;
+		cmd->upmove *= cl_movespeedkey.value;
+	}
+
+	// add the joy look axis to mouse look
+	total_dx += moveDualAxis.right.x * joy_sensitivity.value;
+	total_dy += moveDualAxis.right.y * joy_sensitivity.value;
+	//
+	// jeremiah sypult -- ENDjoystick
 
 	/* TODO: fix this
 	if (m_filter.value)
@@ -588,6 +807,24 @@ void IN_SendKeyEvents (void)
 			IN_MouseMove(event.motion.xrel, event.motion.yrel);
 			break;
 
+		case SDL_JOYBALLMOTION:
+		case SDL_JOYHATMOTION:
+			// TODO: add joy ball + hat support
+			break;
+		case SDL_JOYAXISMOTION:
+			IN_JoyAxisMove(event.jaxis.axis, event.jaxis.value);
+			break;
+
+		case SDL_JOYBUTTONDOWN:
+		case SDL_JOYBUTTONUP:
+			if (event.button.button > sizeof(joyremap) / sizeof(joyremap[0]))
+			{
+				Con_Printf ("Ignored event for joy button %d\n",
+							event.button.button);
+				break;
+			}
+			Key_Event(joyremap[event.button.button], event.button.state == SDL_PRESSED);
+			break;
 		case SDL_QUIT:
 			CL_Disconnect ();
 			Sys_Quit ();
