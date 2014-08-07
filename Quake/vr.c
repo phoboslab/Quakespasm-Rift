@@ -116,8 +116,8 @@ static vr_t _vr = {0};
 
 
 cvar_t  vr_enabled = {"vr_enabled", "0", CVAR_NONE};
-cvar_t  vr_debug = {"vr_debug", "1", CVAR_NONE};
-cvar_t  vr_ipd = {"vr_ipd","60", CVAR_NONE};
+cvar_t  vr_debug = {"vr_debug", "1", CVAR_ARCHIVE};
+cvar_t  vr_ipd = {"vr_ipd","60", CVAR_ARCHIVE};
 
 // HMD settings
 cvar_t  vr_multisample = {"vr_multisample", "1", CVAR_ARCHIVE};
