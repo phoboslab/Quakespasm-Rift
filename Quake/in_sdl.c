@@ -126,6 +126,11 @@ cvar_t	joy_sensitivity = { "joy_sensitivity", "32", CVAR_ARCHIVE };
 cvar_t	joy_filter = { "joy_filter", "1", CVAR_ARCHIVE };
 cvar_t	joy_deadzone = { "joy_deadzone", "0.125", CVAR_ARCHIVE };
 cvar_t	joy_function = { "joy_function", "0", CVAR_ARCHIVE };
+cvar_t	joy_axismove_x = { "joy_axismove_x", "0", CVAR_ARCHIVE };
+cvar_t	joy_axismove_y = { "joy_axismove_y", "1", CVAR_ARCHIVE };
+cvar_t	joy_axislook_x = { "joy_axislook_x", "2", CVAR_ARCHIVE };
+cvar_t	joy_axislook_y = { "joy_axislook_y", "3", CVAR_ARCHIVE };
+cvar_t	joy_axis_debug = { "joy_axis_debug", "0", CVAR_NONE };
 
 /* total accumulated mouse movement since last frame,
  * gets updated from the main game loop via IN_MouseMove */
@@ -338,9 +343,14 @@ void IN_Init (void)
 	Cvar_RegisterVariable( &joy_filter );
 	Cvar_RegisterVariable( &joy_deadzone );
 	Cvar_RegisterVariable( &joy_function );
+	Cvar_RegisterVariable( &joy_axismove_x );
+	Cvar_RegisterVariable( &joy_axismove_y );
+	Cvar_RegisterVariable( &joy_axislook_x );
+	Cvar_RegisterVariable( &joy_axislook_y );
+	Cvar_RegisterVariable( &joy_axis_debug );
 
 	if ( SDL_InitSubSystem( SDL_INIT_JOYSTICK ) == -1 ) {
-		Con_Printf( "WARNING: Could not initialize SDL Joystick" );
+		Con_Printf( "WARNING: Could not initialize SDL Joystick\n" );
 	} else {
 		int i;
 		SDL_JoystickEventState( SDL_ENABLE );
@@ -392,15 +402,30 @@ void IN_MouseMove(int dx, int dy)
 void IN_JoyAxisMove(Uint8 axis, Sint16 value)
 {
 	float axisValue = NormalizeJoyInputValue( value );
+	Uint8 axisMap[] = {
+		(Uint8)joy_axismove_x.value,
+		(Uint8)joy_axismove_y.value,
+		(Uint8)joy_axislook_x.value,
+		(Uint8)joy_axislook_y.value
+	};
 
-	// TODO: this assumes that traditional "thumbstick" axes map to
-	// (left x/y) (right x/y)
-	switch ( axis ) {
-		default: break;
-		case 0: _rawDualAxis.left.x = axisValue; break;
-		case 1: _rawDualAxis.left.y = axisValue; break;
-		case 2: _rawDualAxis.right.x = axisValue; break;
-		case 3: _rawDualAxis.right.y = axisValue; break;
+	// attempt map the incoming axis to our cvars defining which axis index
+	// controls movement.
+	if ( axisMap[0] == axis ) {
+		_rawDualAxis.left.x = axisValue;
+	} else if ( axisMap[1] == axis ) {
+		_rawDualAxis.left.y = axisValue;
+	} else if ( axisMap[2] == axis ) {
+		_rawDualAxis.right.x = axisValue;
+	} else if ( axisMap[3] == axis ) {
+		_rawDualAxis.right.y = axisValue;
+	}
+
+	if ( joy_axis_debug.value ) {
+		Sint16 deadzone = joy_deadzone.value * 32767.6f;
+		if ( value < -deadzone || value > deadzone ) {
+			Con_Printf( "joy axis %i, value %i\n", axis, value );
+		}
 	}
 }
 
@@ -800,10 +825,15 @@ void IN_SendKeyEvents (void)
 			IN_MouseMove(event.motion.xrel, event.motion.yrel);
 			break;
 
-		case SDL_JOYBALLMOTION:
 		case SDL_JOYHATMOTION:
-			// TODO: add joy ball + hat support
+			// TODO: add hat support, AUX29-AUX32
 			break;
+
+		case SDL_JOYBALLMOTION:
+			// TODO: VERIFY joyball support, assignment other than mouse?
+			IN_MouseMove(event.jball.xrel, event.jball.yrel);
+			break;
+
 		case SDL_JOYAXISMOTION:
 			IN_JoyAxisMove(event.jaxis.axis, event.jaxis.value);
 			break;
