@@ -1,7 +1,12 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+# Visual C++ Express 2010
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "quakespasm", "quakespasm.vcxproj", "{C0F747A3-D796-4EC0-BF2A-53722CAA3B6A}"
+	ProjectSection(ProjectDependencies) = postProject
+		{934B40C7-F40A-4E4C-97A7-B9659BE0A441} = {934B40C7-F40A-4E4C-97A7-B9659BE0A441}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LibOVR", "..\..\Libs\LibOVR\Projects\Win32\VS2010\LibOVR.vcxproj", "{934B40C7-F40A-4E4C-97A7-B9659BE0A441}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,6 +24,12 @@ Global
 		{C0F747A3-D796-4EC0-BF2A-53722CAA3B6A}.Release|Win32.Build.0 = Release|Win32
 		{C0F747A3-D796-4EC0-BF2A-53722CAA3B6A}.Release|x64.ActiveCfg = Release|x64
 		{C0F747A3-D796-4EC0-BF2A-53722CAA3B6A}.Release|x64.Build.0 = Release|x64
+		{934B40C7-F40A-4E4C-97A7-B9659BE0A441}.Debug|Win32.ActiveCfg = Debug|Win32
+		{934B40C7-F40A-4E4C-97A7-B9659BE0A441}.Debug|Win32.Build.0 = Debug|Win32
+		{934B40C7-F40A-4E4C-97A7-B9659BE0A441}.Debug|x64.ActiveCfg = Debug|Win32
+		{934B40C7-F40A-4E4C-97A7-B9659BE0A441}.Release|Win32.ActiveCfg = Release|Win32
+		{934B40C7-F40A-4E4C-97A7-B9659BE0A441}.Release|Win32.Build.0 = Release|Win32
+		{934B40C7-F40A-4E4C-97A7-B9659BE0A441}.Release|x64.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

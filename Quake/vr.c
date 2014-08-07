@@ -428,6 +428,8 @@ static void VR_EyeInit(eye_t eye, vr_eye_t *vrEye, qboolean isHMDHorizontal)
 
 void VR_RendererInit()
 {
+	extern cvar_t gl_nearclip;
+	extern cvar_t gl_farclip;
 	qboolean isHMDHorizontal = true; // TODO: jeremiah sypult, support vertically-rendered HMDs
 
 	if ( ! _vr.lib ) { return; }
@@ -447,7 +449,11 @@ void VR_RendererInit()
 
 	// configure the renderer
 	// calculates the FOV and view adjustments that are gotten below
-	_vr.lib->ConfigureRenderer( vr_multisample.value,
+	_vr.lib->ConfigureRenderer( vid.width,
+							    vid.height,
+							    gl_nearclip.value,
+							    gl_farclip.value,
+							    vr_multisample.value,
 							    vr_lowpersistence.value,
 							    vr_latencytest.value,
 							    vr_dynamicprediction.value,
@@ -488,7 +494,7 @@ qboolean VR_Enable()
 
 	_vr.lib = &OVRLibrary;
 
-	vr_initialized = _vr.lib->Initialize();
+	vr_initialized = _vr.lib->Initialize( (int)vr_debug.value );
 
 	if ( ! vr_initialized ) {
 		Cvar_SetValueQuick( &vr_enabled, 0 );

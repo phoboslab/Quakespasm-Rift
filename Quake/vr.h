@@ -25,11 +25,11 @@ typedef enum _eye_t
 } eye_t;
 
 typedef struct {
-	int  (*Initialize)();
+	int  (*Initialize)(int debug);
 	void (*Shutdown)();
 	void (*ResetSensor)();
 	void (*ConfigureEye)(eye_t eye, int px, int py, int sw, int sh, GLuint texture);
-	void (*ConfigureRenderer)(float multisample, int lowpersistence, int latencytest, int dynamicprediction, int vsync, int chromatic, int timewarp, int vignette);
+	void (*ConfigureRenderer)(int width, int height, float znear, float zfar, float multisample, int lowpersistence, int latencytest, int dynamicprediction, int vsync, int chromatic, int timewarp, int vignette);
 	void (*GetFOV)(float *horizontalFOV, float *verticalFOV);
 	GLfloat*(*GetProjectionForEye)(eye_t eye);
 	void (*GetViewAdjustForEye)(eye_t eye, float viewAdjust[3]);

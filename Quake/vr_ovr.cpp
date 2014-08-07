@@ -35,17 +35,16 @@ typedef struct
 
 static OVRGlobals _OVRGlobals = {0};
 
-int OVRInitialize()
+int OVRInitialize(int debug)
 {
-	extern cvar_t vr_debug;
 	unsigned int supportedSensorCaps =
 		ovrSensorCap_Orientation|
 		ovrSensorCap_YawCorrection|
 		ovrSensorCap_Position;
 	ovrHmdType debugHMDType = ovrHmd_None;
 
-	if ( (int)vr_debug.value != 0 ) {
-		debugHMDType = (vr_debug.value == 1 ? ovrHmd_DK1 : vr_debug.value == 2 ? ovrHmd_DK2 : ovrHmd_Other);
+	if ( debug != 0 ) {
+		debugHMDType = (debug == 1 ? ovrHmd_DK1 : debug == 2 ? ovrHmd_DK2 : ovrHmd_Other);
 	}
 
 	if ( ! ovr_Initialize() ) {
@@ -95,13 +94,8 @@ void OVRConfigureEye(eye_t eye, int px, int py, int sw, int sh, GLuint texture)
     textureData->TexId                 = texture;
 }
 
-void OVRConfigureRenderer(float multisample, int lowpersistence, int latencytest, int dynamicprediction, int vsync, int chromatic, int timewarp, int vignette)
+void OVRConfigureRenderer(int width, int height, float znear, float zfar, float multisample, int lowpersistence, int latencytest, int dynamicprediction, int vsync, int chromatic, int timewarp, int vignette)
 {
-	extern cvar_t gl_nearclip;
-	extern cvar_t gl_farclip;
-	extern cvar_t vid_vsync;
-	extern cvar_t vr_vsync;
-	extern cvar_t vr_ipd;
     unsigned hmdCaps;
 	unsigned int distortionCaps;
     ovrFovPort eyeFov[EYE_ALL] = { _OVRGlobals.HMDDesc.DefaultEyeFov[EYE_LEFT], _OVRGlobals.HMDDesc.DefaultEyeFov[EYE_RIGHT] };
@@ -122,8 +116,8 @@ void OVRConfigureRenderer(float multisample, int lowpersistence, int latencytest
 
 	ovrRenderAPIConfig config = ovrRenderAPIConfig();
 	config.Header.API = ovrRenderAPI_OpenGL;
-	config.Header.RTSize.w = vid.width;
-	config.Header.RTSize.h = vid.height;
+	config.Header.RTSize.w = width;
+	config.Header.RTSize.h = height;
 	config.Header.Multisample = multisample > 1 ? 1 : 0;
 
 	// clamp fov
@@ -141,9 +135,9 @@ void OVRConfigureRenderer(float multisample, int lowpersistence, int latencytest
 
 	// create the projection
 	_OVRGlobals.Eye[EYE_LEFT].Projection =
-		ovrMatrix4f_Projection( _OVRGlobals.EyeRenderDesc[EYE_LEFT].Fov,  gl_nearclip.value, gl_farclip.value, true );
+		ovrMatrix4f_Projection( _OVRGlobals.EyeRenderDesc[EYE_LEFT].Fov, znear, zfar, true );
     _OVRGlobals.Eye[EYE_RIGHT].Projection =
-		ovrMatrix4f_Projection( _OVRGlobals.EyeRenderDesc[EYE_RIGHT].Fov,  gl_nearclip.value, gl_farclip.value, true );
+		ovrMatrix4f_Projection( _OVRGlobals.EyeRenderDesc[EYE_RIGHT].Fov, znear, zfar, true );
 
 	// transpose the projection
 	OVR::Matrix4 <float>transposeLeft = _OVRGlobals.Eye[EYE_LEFT].Projection;
