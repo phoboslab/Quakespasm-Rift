@@ -546,7 +546,8 @@ static void VR_UpdatePlayerPose()
 
 		// 5: (Default) Blended
 		default:
-		case VR_AIMMODE_BLENDED: {
+		case VR_AIMMODE_BLENDED:
+		case VR_AIMMODE_BLENDED_NOPITCH: {
 			float diffHMDYaw = orientation[YAW] - _vr.lastOrientation[YAW];
 			float diffHMDPitch = orientation[PITCH] - _vr.lastOrientation[PITCH];
 			float diffAimYaw = cl.aimangles[YAW] - _vr.lastAim[YAW];
@@ -576,7 +577,9 @@ static void VR_UpdatePlayerPose()
 					cl.aimangles[PITCH] += diffHMDPitch;
 				}
 #endif
-				cl.aimangles[PITCH] += diffHMDPitch;
+				if ( (int)vr_aimmode.value == VR_AIMMODE_BLENDED ) {
+					cl.aimangles[PITCH] += diffHMDPitch;
+				}
 			}
 
 			break;
@@ -761,8 +764,8 @@ void VR_ShowCrosshair()
 	// laser crosshair
 	case VR_CROSSHAIR_LINE:
 
-		// trace to first entity
-		VectorMA( start, 4096, forward, end );
+		// trace to first entity or depth
+		VectorMA( start, vr_crosshair_depth.value > 0 ? vr_crosshair_depth.value : 4096, forward, end );
 		TraceLineToEntity( start, end, impact, sv_player );
 
 		glColor4f( 1, 0, 0, crosshair_alpha );

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2780C9D51992FAA300B3B067 /* CAPI_GL_DistortionShaders.h in Headers */ = {isa = PBXBuildFile; fileRef = 2780C9D41992FAA300B3B067 /* CAPI_GL_DistortionShaders.h */; };
 		E8754F81190F1B71005FD401 /* OVR_Recording.h in Headers */ = {isa = PBXBuildFile; fileRef = E8754F7F190F1B71005FD401 /* OVR_Recording.h */; };
 		E886FE9E190737FA00D5DB45 /* OVR_CAPI_GL.h in Headers */ = {isa = PBXBuildFile; fileRef = E886FE9B190737FA00D5DB45 /* OVR_CAPI_GL.h */; };
 		E886FE9F190737FA00D5DB45 /* OVR_CAPI.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E886FE9C190737FA00D5DB45 /* OVR_CAPI.cpp */; };
@@ -122,6 +123,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		2780C9D41992FAA300B3B067 /* CAPI_GL_DistortionShaders.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CAPI_GL_DistortionShaders.h; sourceTree = "<group>"; };
 		E82D4CD31906FE640070CB3F /* libovr.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libovr.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E8754F7F190F1B71005FD401 /* OVR_Recording.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OVR_Recording.h; path = ../../../Src/OVR_Recording.h; sourceTree = "<group>"; };
 		E886FE9B190737FA00D5DB45 /* OVR_CAPI_GL.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OVR_CAPI_GL.h; path = ../../../Src/OVR_CAPI_GL.h; sourceTree = "<group>"; };
@@ -404,6 +406,7 @@
 			children = (
 				E8AA41D0190724E600D5F144 /* CAPI_GL_DistortionRenderer.cpp */,
 				E8AA41D1190724E600D5F144 /* CAPI_GL_DistortionRenderer.h */,
+				2780C9D41992FAA300B3B067 /* CAPI_GL_DistortionShaders.h */,
 				E8AA41D2190724E600D5F144 /* CAPI_GL_Util.cpp */,
 				E8AA41D3190724E600D5F144 /* CAPI_GL_Util.h */,
 			);
@@ -441,6 +444,7 @@
 				E8AA418D190722BB00D5F144 /* OVR_SensorFilter.h in Headers */,
 				E8AA40F91907221900D5F144 /* OVR_Types.h in Headers */,
 				E8AA40D91907221900D5F144 /* OVR_ContainerAllocator.h in Headers */,
+				2780C9D51992FAA300B3B067 /* CAPI_GL_DistortionShaders.h in Headers */,
 				E8754F81190F1B71005FD401 /* OVR_Recording.h in Headers */,
 				E8AA40D71907221900D5F144 /* OVR_Atomic.h in Headers */,
 				E8AA41E4190724E600D5F144 /* CAPI_FrameTimeManager.h in Headers */,

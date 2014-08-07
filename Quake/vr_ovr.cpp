@@ -54,6 +54,7 @@ int OVRInitialize()
 
 	_OVRGlobals.HMD = ovrHmd_Create(0);
 
+	// no HMD? check for vr_debug and attempt to create a debug HMD
 	if ( ! _OVRGlobals.HMD && (
 		 ! ( debugHMDType != ovrHmd_None ) ||
 		 ! ( _OVRGlobals.HMD = ovrHmd_CreateDebug( debugHMDType ) ) ) ) {

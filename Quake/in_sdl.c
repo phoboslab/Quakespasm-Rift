@@ -148,43 +148,35 @@ static int FilterMouseEvents (const SDL_Event *event)
 
 static float NormalizeJoyInputValue (const Sint16 input)
 {
-	unsigned short convert = (unsigned short)(32768 + input);
+	Uint16 convert = (Uint16)(32768 + input);
 	float output = (convert / 32767.5f) - 1.0f;
 	return output;
 }
 
-static float NormalizeJoyAxis( joyAxis_t *v )
-{
-	float	length, ilength;
-
-	length = v->x * v->x + v->y * v->y;
-	length = sqrtf(length);
-
-	if ( length ) {
-		ilength = 1.0/length;
-		v->x *= ilength;
-		v->y *= ilength;
-	}
-
-	return length;
-}
-
 /*
 // adapted in part from:
-// http://gamasutra.com/blogs/JoshSutphin/20130415/190541/Doing_Thumbstick_Dead_Zones_Right.php
+// http://www.third-helix.com/2013/04/12/doing-thumbstick-dead-zones-right.html
 */
 static joyAxis_t ApplyJoyDeadzone(joyAxis_t axis, float deadzone)
 {
 	joyAxis_t result = {0};
-	float length = NormalizeJoyAxis( &axis );
+	float magnitude = sqrtf( (axis.x * axis.x) + (axis.y * axis.y) );
 
-	if ( length < deadzone ) {
+	if ( magnitude < deadzone ) {
 		result.x = result.y = 0.0f;
 	} else {
-		// stickInput = stickInput.normalized * ((stickInput.magnitude - deadzone) / (1 - deadzone));
-		float gradient = ( (length - deadzone) / (1.0f - deadzone) );
-		result.x = axis.x * gradient;
-		result.y = axis.y * gradient;
+		joyAxis_t normalized;
+		float gradient;
+
+		if ( magnitude > 1.0f ) {
+			magnitude = 1.0f;
+		}
+
+		normalized.x = axis.x / magnitude;
+		normalized.y = axis.y / magnitude;
+		gradient = ( (magnitude - deadzone) / (1.0f - deadzone) );
+		result.x = normalized.x * gradient;
+		result.y = normalized.y * gradient;
 	}
 
 	return result;
@@ -397,7 +389,7 @@ void IN_MouseMove(int dx, int dy)
 	total_dy += dy;
 }
 
-void IN_JoyAxisMove(Uint8 axis, Uint16 value)
+void IN_JoyAxisMove(Uint8 axis, Sint16 value)
 {
 	float axisValue = NormalizeJoyInputValue( value );
 
@@ -443,10 +435,11 @@ void IN_Move (usercmd_t *cmd)
 		case 5: dualfunc( moveDualAxis, quintic );   break;
 	}
 
-	// TODO: determine whether to apply deadzone before or after functions?
+	// TODO: determine whether to apply deadzone before or after axis functions?
 	moveDualAxis.left = ApplyJoyDeadzone( moveDualAxis.left, joy_deadzone.value );
 	moveDualAxis.right = ApplyJoyDeadzone( moveDualAxis.right, joy_deadzone.value );
 
+	// movements are not scaled by sensitivity
 	if ( moveDualAxis.left.x != 0.0f ) {
 		cmd->sidemove += (cl_sidespeed.value * moveDualAxis.left.x);
 	}
