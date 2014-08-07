@@ -63,8 +63,8 @@ typedef struct
 {
 	joyAxis_t	_oldleft;
 	joyAxis_t	_oldright;
-	joyAxis_t	left;
-	joyAxis_t	right;
+	joyAxis_t	left;		/* TODO: assumed move, rename */
+	joyAxis_t	right;		/* TODO: assumed look, rename? */
 } dualAxis_t;
 
 static int buttonremap[] =
@@ -399,6 +399,31 @@ void IN_MouseMove(int dx, int dy)
 	total_dy += dy;
 }
 
+void IN_JoyHatEvent(Uint8 hat, Uint8 value)
+{
+	// map hat to K_AUX29 - K_AUX32
+	// value flags: 1 = up, 2 = right, 4 = down, 8 = left
+	static Uint8 _oldValue = 0;
+	int i;
+
+	for (i=0; i<4; i++)
+	{
+		if ( (value & (1<<i)) && !(_oldValue & (1<<i)) )
+		{
+			// hat enabled
+			Key_Event(K_AUX29+i, true);
+		}
+		
+		if ( !(value & (1<<i)) && (_oldValue & (1<<i)) )
+		{
+			// hat disabled
+			Key_Event(K_AUX29+i, false);
+		}
+	}
+
+	_oldValue = value;
+}
+
 void IN_JoyAxisMove(Uint8 axis, Sint16 value)
 {
 	float axisValue = NormalizeJoyInputValue( value );
@@ -409,8 +434,7 @@ void IN_JoyAxisMove(Uint8 axis, Sint16 value)
 		(Uint8)joy_axislook_y.value
 	};
 
-	// attempt map the incoming axis to our cvars defining which axis index
-	// controls movement.
+	// map the incoming axis to the cvars defining which axis index controls movement.
 	if ( axisMap[0] == axis ) {
 		_rawDualAxis.left.x = axisValue;
 	} else if ( axisMap[1] == axis ) {
@@ -826,7 +850,8 @@ void IN_SendKeyEvents (void)
 			break;
 
 		case SDL_JOYHATMOTION:
-			// TODO: add hat support, AUX29-AUX32
+			// TODO: VERIFY hat support, handle multiple hats?
+			IN_JoyHatEvent(event.jhat.hat, event.jhat.value);
 			break;
 
 		case SDL_JOYBALLMOTION:
