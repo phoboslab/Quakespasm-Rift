@@ -59,12 +59,11 @@ cvar_t	v_idlescale = {"v_idlescale", "0", CVAR_NONE};
 
 cvar_t	crosshair = {"crosshair", "0", CVAR_ARCHIVE};
 
-
 cvar_t	gl_cshiftpercent = {"gl_cshiftpercent", "100", CVAR_NONE};
 
 //phoboslab -- cvars for oculus rift
 extern cvar_t vr_enabled;
-//
+//phoboslab
 
 float	v_dmg_time, v_dmg_roll, v_dmg_pitch;
 
@@ -706,7 +705,7 @@ void V_CalcViewRoll (void)
 
 	if (cl.stats[STAT_HEALTH] <= 0)
 	{
-		// only roll when the rift is not enabled
+		// only roll when vr is not enabled
 		if (!vr_enabled.value)
 			r_refdef.viewangles[ROLL] = 80;	// dead view angle
 		
@@ -737,9 +736,19 @@ void V_CalcIntermissionRefdef (void)
 
 	if (vr_enabled.value)
 	{
+		vec3_t orientation = {0};
+
 		VectorCopy (r_refdef.viewangles, r_refdef.aimangles);
-		VR_AddOrientationToViewAngles(r_refdef.viewangles);
+		VR_AddOrientationToViewAngles(orientation);
+
+		// do not force the YAW or ROLL for VR
+		// TODO: adjust the YAW for being based on a 'centered' (forward-looking) orientation?
+		r_refdef.viewangles[YAW] += orientation[YAW];
+		r_refdef.viewangles[PITCH] = orientation[PITCH];
+		r_refdef.viewangles[ROLL] = orientation[ROLL];
+
 		VR_SetAngles(r_refdef.viewangles);
+		VR_AddPositionToViewOrigin(r_refdef.vieworg);
 	}
 
 // allways idle in intermission
@@ -754,7 +763,6 @@ void V_CalcIntermissionRefdef (void)
 V_CalcRefdef
 ==================
 */
-
 void V_CalcRefdef (void)
 {
 	entity_t	*ent, *view;

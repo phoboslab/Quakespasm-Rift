@@ -832,7 +832,14 @@ void R_RenderView (void)
 	else if (gl_finish.value)
 		glFinish ();
 
-	R_SetupView (); //johnfitz -- this does everything that should be done once per frame
+	if (vr_enabled.value)
+	{
+		VR_SetupView (); // jeremiah sypult -- allow VR to get in there before R_SetupView
+	}
+	else
+	{
+		R_SetupView (); //johnfitz -- this does everything that should be done once per frame
+	}
 
 	//johnfitz -- stereo rendering -- full of hacky goodness
 	if (r_stereo.value)
@@ -864,10 +871,6 @@ void R_RenderView (void)
 		VectorMA (r_refdef.vieworg, -0.5f * eyesep, vright, r_refdef.vieworg);
 		frustum_skew = 0.0f;
 	}
-	else if (vr_enabled.value)
-	{
-		VR_RenderScene (); // jeremiah sypult -- VR setup for R_RenderScene
-	}
 	else
 	{
 		R_RenderScene ();
@@ -895,5 +898,4 @@ void R_RenderView (void)
 					rs_dynamiclightmaps);
 	//johnfitz
 }
-
 

@@ -16,6 +16,33 @@
 #define	VR_CROSSHAIR_POINT 1 // Point crosshair projected to depth of object it is in front of
 #define	VR_CROSSHAIR_LINE 2 // Line crosshair
 
+typedef enum _vr_menu_options_t
+{
+	VR_OPTION_ENABLED,
+	VR_OPTION_DEBUG,
+	VR_OPTION_IPD,
+	VR_OPTION_POSITION,
+
+	VR_OPTION_MULTISAMPLE,
+	VR_OPTION_LOWPERSISTENCE,
+	VR_OPTION_DYNAMICPREDICTION,
+	VR_OPTION_VSYNC,
+
+	VR_OPTION_CHROMATIC,
+	VR_OPTION_TIMEWARP,
+	VR_OPTION_VIGNETTE,
+	VR_OPTION_OVERDRIVE,
+
+	VR_OPTION_AIMMODE,
+	VR_OPTION_DEADZONE,
+	VR_OPTION_CROSSHAIR,
+	VR_OPTION_CROSSHAIR_DEPTH,
+	VR_OPTION_CROSSHAIR_SIZE,
+	VR_OPTION_CROSSHAIR_ALPHA,
+
+	VR_OPTION_MAX
+} vr_menu_options_t;
+
 typedef enum _eye_t
 {
 	EYE_LEFT     = 0,
@@ -24,16 +51,24 @@ typedef enum _eye_t
 	EYE_BOTH     = 2
 } eye_t;
 
+typedef enum _vr_position_t
+{
+	VR_POSITION_NONE = 0,
+	VR_POSITION_DEFAULT = 1,
+	VR_POSITION_VIEWENTITY = 2,
+	VR_POSITION_MAX
+} vr_position_t;
+
 typedef struct {
 	int  (*Initialize)(int debug);
 	void (*Shutdown)();
-	void (*ResetSensor)();
+	void (*ResetTracking)();
 	void (*ConfigureEye)(eye_t eye, int px, int py, int sw, int sh, GLuint texture);
-	void (*ConfigureRenderer)(int width, int height, float znear, float zfar, float multisample, int lowpersistence, int latencytest, int dynamicprediction, int vsync, int chromatic, int timewarp, int vignette);
+	int  (*ConfigureRenderer)(int width, int height, float znear, float zfar, float ipd, float multisample, int lowpersistence, int dynamicprediction, int vsync, int chromatic, int timewarp, int vignette, int state, int flip, int srgb, int overdrive, int profile);
 	void (*GetFOV)(float *horizontalFOV, float *verticalFOV);
-	GLfloat*(*GetProjectionForEye)(eye_t eye);
+	GLfloat* (*GetProjectionForEye)(eye_t eye);
 	void (*GetViewAdjustForEye)(eye_t eye, float viewAdjust[3]);
-	void (*GetViewAngles)(float viewAngles[3]);
+	int  (*GetPose)(float viewAngles[3], float position[3]);
 	void (*BeginFrame)();
 	void (*EndFrame)();
 	void (*BeginEyeRender)(eye_t eye);
@@ -47,13 +82,20 @@ qboolean VR_Enable();
 void VR_Disable();
 
 void VR_SetFrustum();
-void VR_RenderScene();
+void VR_SetupView();
 void VR_UpdateScreenContent();
 
 void VR_ShowCrosshair();
 void VR_Sbar_Draw();
+void VR_AddPositionToViewOrigin(vec3_t position);
 void VR_AddOrientationToViewAngles(vec3_t angles);
+
+void VR_Draw2D();
 void VR_SetAngles();
 void VR_ResetOrientation();
+
+extern void (*vr_menucmdfn)(void); // jeremiah sypult
+extern void (*vr_menudrawfn)(void);
+extern void (*vr_menukeyfn)(int key);
 
 #endif
