@@ -11,7 +11,7 @@ Now includes an in-game `VR/HMD Options` menu to toggle most VR settings.
 Toggle the console by using the `~` key. The console allows you to enter commands and change console variables (cvars).
 
 ## Suggested cvars:
-- `cl_bob 0` – Disabled viewthe original in-game view bobbing.
+- `cl_bob 0` – Disable the original in-game view bobbing.
 - `r_texturemode GL_NEAREST` – Favors pixellated vs. "blurry" textures. Harkens back to the software rendering roots and makes the low-resolution textures look sharper to my eyes.
 - `r_particles 2` – Renders particles as squares instead of circles. Also harkens back to the software rendering roots.
 - `host_maxfps 240` – Allows the game to run at up to 240 frames per second, given your computer has the capabilities and that `vid_vsync` or `vr_vsync` are disabled. Enabling `vsync` will cause the game to run at the monitor refresh rate (traditionally 60Hz, or 75Hz with the Oculus Rift DK2).
@@ -25,7 +25,7 @@ Toggle the console by using the `~` key. The console allows you to enter command
 
 ## HMD cvars:
 - `vr_multisample` – Multisample eye rendering by this multiplier. Try a value of 1.5 or 2. Default 1.
-- `vr_lowpesistence` – Low persistence HMD mode. Default 0.
+- `vr_lowpersistence` – Low persistence HMD mode. Default 0.
 - `vr_dynamicprediction` – Dynamic prediction. Default 0.
 - `vr_vsync` – Vertical sync control over the SDK distortion renderer. Default 0.
 
