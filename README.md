@@ -6,7 +6,7 @@ Under development and requires some manual tweaking to get up and running. Stand
 
 - `quakespasm +vr_enabled 1 +map start`
 
-To dismiss the `Health & Safety` warning, simply tap on your HMD after a few seconds.
+To dismiss the `HEALTH & SAFETY` warning, simply tap on your HMD after a few seconds.
 
 Now includes an in-game `VR/HMD Options` menu to toggle most VR settings.
 
