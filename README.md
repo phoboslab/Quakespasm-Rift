@@ -24,6 +24,7 @@ Toggle the console by using the `~` key. The console allows you to enter command
 - `vr_debug` – Determine what debug HMD to use when none are connected. 0: disables VR, 1: DK1, 2: DK2. Default 1.
 - `vr_ipd` – Override the interpupillary distance in millimeters. Default 60.
 - `vr_position` – Configure position tracking (Windows only). 0: off, 1: default (camera-only, detached view model), 2: view entity. Default 1.
+- `vr_reset` – This is a command that takes no arguments. It resets the player to a 'home' position according to your offset to the camera. You can bind this to a key or joystick button with `bind vr_reset xxx` (where xxx is a key or JOYx/AUXx button).
 
 ## HMD cvars:
 - `vr_multisample` – Multisample eye rendering by this multiplier. Try a value of 1.5 or 2. Default 1.
