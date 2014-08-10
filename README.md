@@ -1,6 +1,6 @@
 # QUAKE for Oculus Rift
 
-Enables support for the Oculus Rift for id Software's QUAKE. Based on [QuakeSpasm-Rift](https://github.com/phoboslab/Quakespasm-Rift) by [phoboslab](http://phoboslab.org/log/2013/07/quake-for-oculus-rift) and [QuakeSpasm](http://quakespasm.sourceforge.net/).
+Enables support for the Oculus Rift for id Software's QUAKE. Based on [QuakeSpasm-Rift](https://github.com/phoboslab/Quakespasm-Rift) by [phoboslab](http://phoboslab.org/log/2013/07/quake-for-oculus-rift) and [QuakeSpasm](http://quakespasm.sourceforge.net/). Special thanks to [dghost](https://github.com/dghost) for [Quake II VR](https://github.com/q2vr/quake2vr) and its code, which sped up development.
 
 Under development and requires some manual tweaking to get up and running. Standalone 2D is not yet 'rift ready'. However, you can attempt to start up the game directly in VR mode with the following command line:
 
