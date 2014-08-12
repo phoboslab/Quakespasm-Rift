@@ -95,7 +95,6 @@
     <ClInclude Include="..\..\..\Src\Util\Util_LatencyTest2Reader.h" />
     <ClInclude Include="..\..\..\Src\Util\Util_LatencyTest2State.h" />
     <ClInclude Include="..\..\..\Src\Util\Util_Render_Stereo.h" />
-    <ClInclude Include="..\..\..\Src\Util\Util_Settings.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\Src\CAPI\CAPI_DistortionRenderer.cpp" />
@@ -168,7 +167,6 @@
     <ClCompile Include="..\..\..\Src\Util\Util_Interface.cpp" />
     <ClCompile Include="..\..\..\Src\Util\Util_LatencyTest2Reader.cpp" />
     <ClCompile Include="..\..\..\Src\Util\Util_Render_Stereo.cpp" />
-    <ClCompile Include="..\..\..\Src\Util\Util_Settings.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\..\..\Src\CAPI\Shaders\DistortionChroma_ps.psh">
@@ -363,8 +361,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <TargetName>libovr</TargetName>
-    <IncludePath>C:\WinDDK\7600.16385.1\inc\atl71;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\WinDDK\7600.16385.1\lib\ATL\i386;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetName>libovr64</TargetName>
@@ -381,7 +377,7 @@
       <MinimalRebuild>false</MinimalRebuild>
       <OmitDefaultLibName>true</OmitDefaultLibName>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>$(DXSDK_DIR)/Include;../../../../3rdParty/glext/;C:\WinDDK\7600.16385.1\inc\atl71;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(DXSDK_DIR)/Include;../../../../3rdParty/glext/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -427,7 +423,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <OmitDefaultLibName>true</OmitDefaultLibName>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(DXSDK_DIR)/Include;../../../../3rdParty/glext/;C:\WinDDK\7600.16385.1\inc\atl71\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(DXSDK_DIR)/Include;../../../../3rdParty/glext/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
     <Link>
