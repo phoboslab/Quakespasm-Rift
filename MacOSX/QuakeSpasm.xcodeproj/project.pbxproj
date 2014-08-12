@@ -864,12 +864,12 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					USE_QS_CONBACK,
 					SDL_FRAMEWORK,
-					INCLUDE_LIBOVR_0_3,
 				);
 				GCC_VERSION = "";
 				HEADER_SEARCH_PATHS = (
 					"$(HEADER_SEARCH_PATHS)",
 					"$(SRCROOT)/../Libs/LibOVR/Include",
+					"$(SRCROOT)/../Libs/LibOVR/Src",
 				);
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
@@ -909,12 +909,12 @@
 					USE_CODEC_WAVE,
 					USE_QS_CONBACK,
 					SDL_FRAMEWORK,
-					INCLUDE_LIBOVR_0_3,
 				);
 				GCC_VERSION = "";
 				HEADER_SEARCH_PATHS = (
 					"$(HEADER_SEARCH_PATHS)",
 					"$(SRCROOT)/../Libs/LibOVR/Include",
+					"$(SRCROOT)/../Libs/LibOVR/Src",
 				);
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";

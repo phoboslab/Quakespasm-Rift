@@ -2,25 +2,10 @@
 // 2014 Jeremiah Sypult - github.com/jeremiah-sypult
 
 #include "vr.h"
-#include "../Src/Kernel/OVR_Math.h"
-#include "../Src/OVR_Stereo.h"
-#include "../Src/OVR_CAPI.h"
-#include "../Src/OVR_CAPI_GL.h"
-
-#if defined( INCLUDE_LIBOVR_0_3 )
-#include "OVRVersion.h"		// Oculus SDK v0.3
-#else
-#include "OVR_Version.h"	// Oculus SDK v0.4
-#endif
-
-#if (OVR_MAJOR_VERSION == 0)
-# if (OVR_MINOR_VERSION == 3)
-#  define USING_OVR_SDK_0_3 1
-# endif
-# if (OVR_MINOR_VERSION == 4)
-#  define USING_OVR_SDK_0_4 1
-# endif
-#endif
+#include "OVR.h"
+#include "OVR_CAPI_GL.h"
+#include "CAPI/CAPI_HSWDisplay.h"
+#include "OVR_Stereo.h"
 
 typedef struct
 {
@@ -46,17 +31,10 @@ static OVRGlobals _OVRGlobals = {0};
 
 int OVRInitialize(int debug)
 {
-#if defined( USING_OVR_SDK_0_3 )
-	unsigned int supportedSensorCaps =
-		ovrSensorCap_Orientation|
-		ovrSensorCap_YawCorrection|
-		ovrSensorCap_Position;
-#elif defined( USING_OVR_SDK_0_4 )
 	unsigned int supportedTrackingCaps =
 		ovrTrackingCap_Orientation|
 		ovrTrackingCap_MagYawCorrection|
 		ovrTrackingCap_Position;
-#endif
 	ovrHmdType debugHMDType = ovrHmd_None;
 
 	if ( debug != 0 ) {
@@ -75,26 +53,17 @@ int OVRInitialize(int debug)
 		 ! ( _OVRGlobals.HMD = ovrHmd_CreateDebug( debugHMDType ) ) ) ) {
 		return 0;
 	}
-#if defined( USING_OVR_SDK_0_3 )
-	ovrHmd_GetDesc( _OVRGlobals.HMD, &_OVRGlobals.HMDDesc );
 
-	if ( ! ovrHmd_StartSensor( _OVRGlobals.HMD, supportedSensorCaps, ovrSensorCap_Orientation ) ) {
-		return 0;
-	}
-#elif defined( USING_OVR_SDK_0_4 )
 	if ( ! ovrHmd_ConfigureTracking( _OVRGlobals.HMD, supportedTrackingCaps, ovrTrackingCap_Orientation ) ) {
 		return 0;
 	}
-#endif
+
 	return 1;
 }
 
 void OVRShutdown()
 {
 	if ( _OVRGlobals.HMD ) {
-#if defined( USING_OVR_SDK_0_3 )
-		ovrHmd_StopSensor( _OVRGlobals.HMD );
-#endif
 		ovrHmd_ConfigureRendering( _OVRGlobals.HMD, NULL, 0, NULL, NULL );
 		ovrHmd_Destroy( _OVRGlobals.HMD );
 		_OVRGlobals.HMD = NULL;
@@ -120,16 +89,11 @@ int OVRConfigureRenderer(int width, int height, float znear, float zfar, float i
 {
     unsigned hmdCaps;
 	unsigned int distortionCaps;
-#if defined( USING_OVR_SDK_0_3 )
-    ovrFovPort eyeFov[EYE_ALL] = { _OVRGlobals.HMDDesc.DefaultEyeFov[EYE_LEFT], _OVRGlobals.HMDDesc.DefaultEyeFov[EYE_RIGHT] };
-    float FovSideTanMax   = OVR::FovPort::Max(_OVRGlobals.HMDDesc.DefaultEyeFov[EYE_LEFT], _OVRGlobals.HMDDesc.DefaultEyeFov[EYE_RIGHT]).GetMaxSideTan();
-	//float FovSideTanLimit = OVR::FovPort::Max(_OVRGlobals.HMDDesc.MaxEyeFov[EYE_LEFT], _OVRGlobals.HMDDesc.MaxEyeFov[EYE_RIGHT]).GetMaxSideTan();
-#elif defined( USING_OVR_SDK_0_4 )
     ovrFovPort eyeFov[EYE_ALL] = { _OVRGlobals.HMD->DefaultEyeFov[EYE_LEFT], _OVRGlobals.HMD->DefaultEyeFov[EYE_RIGHT] };
     float FovSideTanMax   = OVR::FovPort::Max(_OVRGlobals.HMD->DefaultEyeFov[EYE_LEFT], _OVRGlobals.HMD->DefaultEyeFov[EYE_RIGHT]).GetMaxSideTan();
 	//float FovSideTanLimit = OVR::FovPort::Max(_OVRGlobals.HMD->MaxEyeFov[EYE_LEFT], _OVRGlobals.HMD->MaxEyeFov[EYE_RIGHT]).GetMaxSideTan();
-#endif
 	ovrBool didSetIPD = 0;
+
 	// generate the HMD and distortion caps
 	hmdCaps = (lowpersistence ? ovrHmdCap_LowPersistence : 0) |
 	          (dynamicprediction ? ovrHmdCap_DynamicPrediction : 0) |
@@ -138,15 +102,12 @@ int OVRConfigureRenderer(int width, int height, float znear, float zfar, float i
 	distortionCaps = (chromatic ? ovrDistortionCap_Chromatic : 0) |
 	                 (timewarp ? ovrDistortionCap_TimeWarp : 0) |
 	                 (vignette ? ovrDistortionCap_Vignette : 0) |
-#if defined( USING_OVR_SDK_0_3 )
-					0;
-#elif defined( USING_OVR_SDK_0_4 )
 					(state ? 0 : ovrDistortionCap_NoRestore) |
 					(flip ? ovrDistortionCap_FlipInput : 0) |
 					(srgb ? ovrDistortionCap_SRGB : 0) |
 					(overdrive ? ovrDistortionCap_Overdrive : 0) |
 					(profile ? ovrDistortionCap_ProfileNoTimewarpSpinWaits : 0);
-#endif
+
 	didSetIPD = ovrHmd_SetFloat( _OVRGlobals.HMD, OVR_KEY_IPD, ipd * 0.001 );
 
 	ovrHmd_SetEnabledCaps( _OVRGlobals.HMD, hmdCaps );
@@ -165,10 +126,12 @@ int OVRConfigureRenderer(int width, int height, float znear, float zfar, float i
         return 0;
     }
 
-#if defined( USING_OVR_SDK_0_3 )
-	// update the HMD descriptor
-	ovrHmd_GetDesc( _OVRGlobals.HMD, &_OVRGlobals.HMDDesc );
+#ifdef DEBUG
+	ovrhmd_EnableHSWDisplaySDKRender( _OVRGlobals.HMD, false );
+#else
+	ovrHmd_DismissHSWDisplay( _OVRGlobals.HMD );
 #endif
+
 	_OVRGlobals.IPD = ovrHmd_GetFloat( _OVRGlobals.HMD, OVR_KEY_IPD, ipd * 0.001 );
 
 	// create the projection
@@ -189,11 +152,7 @@ int OVRConfigureRenderer(int width, int height, float znear, float zfar, float i
 
 void OVRResetTracking()
 {
-#if defined( USING_OVR_SDK_0_3 )
-	ovrHmd_ResetSensor( _OVRGlobals.HMD );
-#elif defined( USING_OVR_SDK_0_4 )
 	ovrHmd_RecenterPose( _OVRGlobals.HMD );
-#endif
 }
 
 void OVRGetFOV(float *horizontalFOV, float *verticalFOV)
@@ -243,15 +202,9 @@ int OVRGetPose(float viewAngles[3], float position[3])
 	double absTime = _OVRGlobals.FrameTiming.ThisFrameSeconds ?
 		_OVRGlobals.FrameTiming.ScanoutMidpointSeconds :
 		ovr_GetTimeInSeconds();
-#if defined( USING_OVR_SDK_0_3 )
-	ovrSensorState ss = ovrHmd_GetSensorState( _OVRGlobals.HMD, absTime );
-	ovrPosef pose = ss.Predicted.Pose;
-	unsigned int statusFlags = ss.StatusFlags;
-#elif defined( USING_OVR_SDK_0_4 )
 	ovrTrackingState ts = ovrHmd_GetTrackingState( _OVRGlobals.HMD, absTime );
 	ovrPosef pose = ts.HeadPose.ThePose;
 	unsigned int statusFlags = ts.StatusFlags;
-#endif
 
 	if ( viewAngles && ( statusFlags & ovrStatus_OrientationTracked ) ) {
 		OVR::Quatf q = pose.Orientation;
@@ -275,9 +228,6 @@ void OVRBeginFrame()
 
 void OVREndFrame()
 {
-#if defined( USING_OVR_SDK_0_3 )
-	ovrHmd_EndFrame( _OVRGlobals.HMD );
-#elif defined( USING_OVR_SDK_0_4 )
 	ovrPosef headPose[2] = {
 		ovrHmd_GetEyePose( _OVRGlobals.HMD, _OVRGlobals.HMD->EyeRenderOrder[0] ),
 		ovrHmd_GetEyePose( _OVRGlobals.HMD, _OVRGlobals.HMD->EyeRenderOrder[1] )
@@ -286,25 +236,9 @@ void OVREndFrame()
 		_OVRGlobals.Eye[0].Texture,
 		_OVRGlobals.Eye[1].Texture
 	};
+
 	ovrHmd_EndFrame( _OVRGlobals.HMD, headPose, eyeTextures );
-#endif
 	memset( &_OVRGlobals.FrameTiming, 0, sizeof(ovrFrameTiming) );
-}
-
-void OVRBeginEyeRender(eye_t eye)
-{
-#if defined( USING_OVR_SDK_0_3 )
-	ovrEyeType eyeType = _OVRGlobals.HMDDesc.EyeRenderOrder[eye];
-	_OVRGlobals.Eye[eyeType].Pose = ovrHmd_BeginEyeRender( _OVRGlobals.HMD, eyeType );
-#endif
-}
-
-void OVREndEyeRender(eye_t eye)
-{
-#if defined( USING_OVR_SDK_0_3 )
-	ovrEyeType eyeType = _OVRGlobals.HMDDesc.EyeRenderOrder[eye];
-	ovrHmd_EndEyeRender( _OVRGlobals.HMD, eyeType, _OVRGlobals.Eye[eyeType].Pose, &_OVRGlobals.Eye[eyeType].Texture );
-#endif
 }
 
 extern "C" {
@@ -319,8 +253,6 @@ extern "C" {
 		OVRGetViewAdjustForEye,
 		OVRGetPose,
 		OVRBeginFrame,
-		OVREndFrame,
-		OVRBeginEyeRender,
-		OVREndEyeRender
+		OVREndFrame
 	};
 }
