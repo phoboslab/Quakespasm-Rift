@@ -67,6 +67,7 @@ typedef struct {
 	int  (*ConfigureRenderer)(int width, int height, float znear, float zfar, float ipd, float multisample, int lowpersistence, int dynamicprediction, int vsync, int chromatic, int timewarp, int vignette, int state, int flip, int srgb, int overdrive, int profile);
 	void (*GetFOV)(float *horizontalFOV, float *verticalFOV);
 	GLfloat* (*GetProjectionForEye)(eye_t eye);
+	GLfloat* (*GetOrthoProjectionForEye)(eye_t eye);
 	void (*GetViewAdjustForEye)(eye_t eye, float viewAdjust[3]);
 	int  (*GetPose)(float viewAngles[3], float position[3]);
 	void (*BeginFrame)();
@@ -80,6 +81,7 @@ qboolean VR_Enable();
 void VR_Disable();
 
 void VR_SetFrustum();
+void VR_SetCanvas(canvastype newcanvas);
 void VR_SetupView();
 void VR_UpdateScreenContent();
 

@@ -7,11 +7,16 @@
 #include "CAPI/CAPI_HSWDisplay.h"
 #include "OVR_Stereo.h"
 
+// TODO: dismiss HSW?
+// ovrHmd_DismissHSWDisplay
+// ovrhmd_EnableHSWDisplaySDKRender(hmd, false)
+
 typedef struct
 {
     ovrPosef            Pose;
     ovrTexture          Texture;
     ovrMatrix4f         Projection;
+    ovrMatrix4f         OrthoProjection;
 } OVREyeGlobals;
 
 typedef struct
@@ -147,6 +152,25 @@ int OVRConfigureRenderer(int width, int height, float znear, float zfar, float i
 	_OVRGlobals.Eye[EYE_LEFT].Projection = transposeLeft.Transposed();
 	_OVRGlobals.Eye[EYE_RIGHT].Projection = transposeRight.Transposed();
 
+	// TODO: ortho
+	{
+		float    orthoDistance = 0.8f; // 2D is 0.8 meter from camera
+		OVR::Vector2f orthoScale0   = OVR::Vector2f(1.0f) / OVR::Vector2f(_OVRGlobals.EyeRenderDesc[EYE_LEFT].PixelsPerTanAngleAtCenter);
+		OVR::Vector2f orthoScale1   = OVR::Vector2f(1.0f) / OVR::Vector2f(_OVRGlobals.EyeRenderDesc[EYE_RIGHT].PixelsPerTanAngleAtCenter);
+
+		_OVRGlobals.Eye[EYE_LEFT].OrthoProjection =
+			ovrMatrix4f_OrthoSubProjection(_OVRGlobals.Eye[EYE_LEFT].Projection, orthoScale0, orthoDistance, _OVRGlobals.EyeRenderDesc[EYE_LEFT].ViewAdjust.x);
+
+		_OVRGlobals.Eye[EYE_RIGHT].OrthoProjection =
+			ovrMatrix4f_OrthoSubProjection(_OVRGlobals.Eye[EYE_RIGHT].Projection, orthoScale1, orthoDistance, _OVRGlobals.EyeRenderDesc[EYE_RIGHT].ViewAdjust.x);
+
+		OVR::Matrix4 <float>transposeLeftOrtho = _OVRGlobals.Eye[EYE_LEFT].OrthoProjection;
+		OVR::Matrix4 <float>transposeRightOrtho = _OVRGlobals.Eye[EYE_RIGHT].OrthoProjection;
+
+		_OVRGlobals.Eye[EYE_LEFT].OrthoProjection = transposeLeftOrtho.Transposed();
+		_OVRGlobals.Eye[EYE_RIGHT].OrthoProjection = transposeRightOrtho.Transposed();
+	}
+
 	return 1;
 }
 
@@ -180,6 +204,17 @@ GLfloat *OVRGetProjectionForEye(eye_t eye)
 	switch ( eye ) {
 		case EYE_LEFT: return (GLfloat*)&_OVRGlobals.Eye[EYE_LEFT].Projection; break;
 		case EYE_RIGHT: return (GLfloat*)&_OVRGlobals.Eye[EYE_RIGHT].Projection; break;
+		default: return NULL; break;
+	}
+
+	return NULL;
+}
+
+GLfloat *OVRGetOrthoProjectionForEye(eye_t eye)
+{
+	switch ( eye ) {
+		case EYE_LEFT: return (GLfloat*)&_OVRGlobals.Eye[EYE_LEFT].OrthoProjection; break;
+		case EYE_RIGHT: return (GLfloat*)&_OVRGlobals.Eye[EYE_RIGHT].OrthoProjection; break;
 		default: return NULL; break;
 	}
 
@@ -250,6 +285,7 @@ extern "C" {
 		OVRConfigureRenderer,
 		OVRGetFOV,
 		OVRGetProjectionForEye,
+		OVRGetOrthoProjectionForEye,
 		OVRGetViewAdjustForEye,
 		OVRGetPose,
 		OVRBeginFrame,

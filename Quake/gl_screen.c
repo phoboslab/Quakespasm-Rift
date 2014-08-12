@@ -1003,7 +1003,7 @@ void SCR_UpdateScreenContent (void)
 //
 	V_RenderView ();
 
-	if(vr_enabled.value && !con_forcedup)
+	if (vr_enabled.value && !con_forcedup)
 	{
 		VR_Draw2D (); // phoboslab / jeremiah sypult
 	}
@@ -1085,8 +1085,8 @@ void SCR_UpdateScreen (void)
 		SCR_CalcRefdef ();
 
 	SCR_SetUpToDrawConsole ();
-	
-	if (vr_enabled.value && !con_forcedup)
+
+	if (vr_enabled.value)
 	{
 		VR_UpdateScreenContent(); // phoboslab
 	}

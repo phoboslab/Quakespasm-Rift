@@ -724,7 +724,7 @@ GL_EndRendering
 void GL_EndRendering (void)
 {
 	// jeremiah sypult -- VR handles buffer swaps
-	if (vr_enabled.value && cls.state == ca_connected)
+	if (vr_enabled.value)
 		scr_skipupdate = true;
 
 	if (!scr_skipupdate)

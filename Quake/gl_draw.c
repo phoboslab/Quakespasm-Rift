@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // draw.c -- 2d drawing
 
 #include "quakedef.h"
+#include "vr.h"
 
 //extern unsigned char d_15to8table[65536]; //johnfitz -- never used
 
@@ -784,8 +785,15 @@ void GL_SetCanvas (canvastype newcanvas)
 
 	currentcanvas = newcanvas;
 
-	if(vr_enabled.value && !con_forcedup)
+	if (vr_enabled.value && con_forcedup)
+	{
+		VR_SetCanvas(newcanvas);
 		return;
+	}
+	else if (vr_enabled.value && !con_forcedup)
+	{
+		return;
+	}
 
 	glMatrixMode(GL_PROJECTION);
     glLoadIdentity ();

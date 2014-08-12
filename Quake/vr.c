@@ -39,18 +39,22 @@ typedef struct
 
 typedef struct
 {
+	vec3_t          now;
+	vec3_t          last;
+	vec3_t          diff;
+} vec3_diff_t;
+
+typedef struct
+{
 	vr_library_t    *lib;
 	vr_eye_t        *rendering_eye;
 	vr_eye_t        eye[EYE_ALL];
 	float           viewport_fov_x;
 	float           viewport_fov_y;
 	GLboolean       gl_extensions_initialized;
-	vec3_t          thisAim;
-	vec3_t          lastAim;
-	vec3_t          thisOrientation;
-	vec3_t          lastOrientation;
-	vec3_t          thisPosition;
-	vec3_t          lastPosition;
+	vec3_diff_t     aim;
+	vec3_diff_t     orientation;
+	vec3_diff_t     position;
 } vr_t;
 
 // OpenGL Extensions
@@ -136,7 +140,7 @@ static vr_t _vr = {0};
 static int	vr_options_cursor = 0;
 
 
-cvar_t  vr_enabled = {"vr_enabled", "0", CVAR_NONE};
+cvar_t  vr_enabled = {"vr_enabled", "0", CVAR_ARCHIVE};
 cvar_t  vr_debug = {"vr_debug", "1", CVAR_ARCHIVE};
 cvar_t  vr_ipd = {"vr_ipd","60", CVAR_ARCHIVE};
 cvar_t  vr_position = {"vr_position","1", CVAR_ARCHIVE};
@@ -1029,75 +1033,82 @@ static void VR_UpdatePlayerPose()
 	_vr.lib->GetPose( orientation, position );
 
 	// convert the orientation from radians to degrees
-	_vr.thisOrientation[0] = orientation[0] = (-orientation[0] * 180.0f) / M_PI;
-	_vr.thisOrientation[1] = orientation[1] = (orientation[1] * 180.0f) / M_PI;
-	_vr.thisOrientation[2] = orientation[2] = (-orientation[2] * 180.0f) / M_PI;
+	orientation[0] = (-orientation[0] * 180.0f) / M_PI;
+	orientation[1] = (orientation[1] * 180.0f) / M_PI;
+	orientation[2] = (-orientation[2] * 180.0f) / M_PI;
 
 	// convert the position from meters to quake world units
-	_vr.thisPosition[0] = MeterToQuake( position[0] );
-	_vr.thisPosition[1] = MeterToQuake( position[1] );
-	_vr.thisPosition[2] = MeterToQuake( position[2] );
+	position[0] = MeterToQuake( position[0] );
+	position[1] = MeterToQuake( position[1] );
+	position[2] = MeterToQuake( position[2] );
+
+	VectorCopy( _vr.orientation.now, _vr.orientation.last );
+	VectorCopy( orientation, _vr.orientation.now );
+	VectorSubtract( _vr.orientation.now, _vr.orientation.last, _vr.orientation.diff );
+
+	VectorCopy( _vr.position.now, _vr.position.last );
+	VectorCopy( position, _vr.position.now );
+	VectorSubtract( _vr.position.now, _vr.position.last, _vr.position.diff );
+
+	VectorCopy( _vr.aim.now, _vr.aim.last );
+	VectorCopy( cl.aimangles, _vr.aim.now );
+	VectorSubtract( _vr.aim.now, _vr.aim.last, _vr.aim.diff );
 
 	switch ( (int)vr_aimmode.value ) {
 		// 1: Head Aiming; View YAW is mouse+head, PITCH is head
 		case VR_AIMMODE_HEAD_MYAW:
-			cl.viewangles[PITCH] = cl.aimangles[PITCH] = orientation[PITCH];
-			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - _vr.lastOrientation[YAW];
+			cl.viewangles[PITCH] = cl.aimangles[PITCH] = _vr.orientation.now[PITCH];
+			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + _vr.orientation.diff[YAW];
 			break;
 
 		// 2: Head Aiming; View YAW and PITCH is mouse+head
 		case VR_AIMMODE_HEAD_MYAW_MPITCH:
-			cl.viewangles[PITCH] = cl.aimangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH] - _vr.lastOrientation[PITCH];
-			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - _vr.lastOrientation[YAW];
+			cl.viewangles[PITCH] = cl.aimangles[PITCH] = cl.aimangles[PITCH] + _vr.orientation.diff[PITCH];
+			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + _vr.orientation.diff[YAW];
 			break;
 
 		// 3: Mouse Aiming; View YAW is mouse+head, PITCH is head
 		case VR_AIMMODE_MOUSE_MYAW:
-			cl.viewangles[PITCH] = orientation[PITCH];
-			cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW];
+			cl.viewangles[PITCH] = _vr.orientation.now[PITCH];
+			cl.viewangles[YAW]   = cl.aimangles[YAW] + _vr.orientation.now[YAW];
 			break;
 
 		// 4: Mouse Aiming; View YAW and PITCH is mouse+head
 		case VR_AIMMODE_MOUSE_MYAW_MPITCH:
-			cl.viewangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH];
-			cl.viewangles[YAW]   = cl.aimangles[YAW] + orientation[YAW];
+			cl.viewangles[PITCH] = cl.aimangles[PITCH] + _vr.orientation.now[PITCH];
+			cl.viewangles[YAW]   = cl.aimangles[YAW] + _vr.orientation.now[YAW];
 			break;
 
 		// 5: (Default) Blended
 		default:
 		case VR_AIMMODE_BLENDED:
 		case VR_AIMMODE_BLENDED_NOPITCH: {
-			float diffHMDYaw = orientation[YAW] - _vr.lastOrientation[YAW];
-			float diffHMDPitch = orientation[PITCH] - _vr.lastOrientation[PITCH];
-			float diffAimYaw = cl.aimangles[YAW] - _vr.lastAim[YAW];
-			//float diffAimPitch = cl.aimangles[PITCH] - lastAim[PITCH];
-			float diffYaw, diffPitch;
+			// pitch is always set by orientation
+			cl.viewangles[PITCH] = _vr.orientation.now[PITCH];
 
-			cl.viewangles[PITCH] = orientation[PITCH];
-
-			// find new view position based on orientation delta
-			cl.viewangles[YAW] += diffHMDYaw;
+			// find new view yaw position based on orientation delta
+			cl.viewangles[YAW] += _vr.orientation.diff[YAW];
 
 			// if deadzone is >= 180, totally separate gun aiming frim the view
 			// this also disables the aiming from following the HMD pitch (up/down)
 			if ( vr_deadzone.value < 180 ) {
 				// find difference between view and aim yaw
-				diffYaw = cl.viewangles[YAW] - cl.aimangles[YAW];
-				diffPitch = cl.viewangles[PITCH] - cl.aimangles[PITCH];
+				float diffYaw = cl.viewangles[YAW] - cl.aimangles[YAW];
+				//float diffPitch = cl.viewangles[PITCH] - cl.aimangles[PITCH];
 
 				if ( abs( diffYaw ) > vr_deadzone.value * 0.5f ) {
 					// apply the difference from each set of angles to the other
-					cl.aimangles[YAW] += diffHMDYaw;
-					cl.viewangles[YAW] += diffAimYaw;
+					cl.aimangles[YAW] += _vr.orientation.diff[YAW];
+					cl.viewangles[YAW] += _vr.aim.diff[YAW];
 				}
 #if 0
 				// TODO: aim pitch uses deadzone within the deadzone radius?
 				if ( abs( diffPitch ) > vr_deadzone.value * 0.5f ) {
-					cl.aimangles[PITCH] += diffHMDPitch;
+					cl.aimangles[PITCH] += _vr.orientation.diff[PITCH];
 				}
 #endif
 				if ( (int)vr_aimmode.value == VR_AIMMODE_BLENDED ) {
-					cl.aimangles[PITCH] += diffHMDPitch;
+					cl.aimangles[PITCH] += _vr.orientation.diff[PITCH];
 				}
 			}
 
@@ -1105,20 +1116,20 @@ static void VR_UpdatePlayerPose()
 		}
 	}
 
-	cl.viewangles[ROLL]  = orientation[ROLL];
-#if 1 // TODO: debug intermission
-	VectorCopy( cl.aimangles, _vr.thisAim );
+	// roll is always set by orientation
+	cl.viewangles[ROLL]  = _vr.orientation.now[ROLL];
 
-	VectorCopy( _vr.thisAim, _vr.lastAim );
-	VectorCopy( _vr.thisOrientation, _vr.lastOrientation );
-	VectorCopy( _vr.thisPosition, _vr.lastPosition );
+#if 1 // TODO: debug intermission
+	VectorCopy( _vr.aim.now, _vr.aim.last );
+	VectorCopy( cl.aimangles, _vr.aim.now );
+	VectorSubtract( _vr.aim.now, _vr.aim.last, _vr.aim.diff );
 
 	VectorCopy( cl.aimangles, r_refdef.aimangles );
 	VectorCopy( cl.viewangles, r_refdef.viewangles );
 #else // original method
-	VectorCopy( orientation, _vr.lastOrientation );
-	VectorCopy( cl.aimangles, _vr.lastAim );
-	VectorCopy( _vr.thisPosition, _vr.lastPosition );
+	VectorCopy( orientation, _vr.orientation.last );
+	VectorCopy( cl.aimangles, _vr.aim.last );
+	VectorCopy( _vr.position.now, _vr.position.last );
 
 	VectorCopy( cl.viewangles, r_refdef.viewangles );
 	VectorCopy( cl.aimangles, r_refdef.aimangles );
@@ -1136,6 +1147,130 @@ void VR_SetFrustum()
 	}
 }
 
+void VR_SetCanvas(canvastype newcanvas)
+{
+	if ( _vr.rendering_eye != NULL ) {
+		extern vrect_t scr_vrect;
+		float s = 1.0f;
+		int lines = 0;
+		float orthoDistance = 0.8f; // TODO?
+		float orthoHorizontalOffset = _vr.rendering_eye->view_adjust[0] / orthoDistance;
+
+		GLint oldglx = glx,
+		oldgly = gly;
+
+		GLsizei oldglwidth = glwidth,
+		oldglheight = glheight,
+		oldconwidth = vid.conwidth,
+		oldconheight = vid.conheight;
+
+		glx *= _vr.rendering_eye->viewport.width;
+		gly *= _vr.rendering_eye->viewport.height;
+
+		glwidth *= _vr.rendering_eye->viewport.width;
+		glheight *= _vr.rendering_eye->viewport.height;
+
+//		vid.conwidth = (scr_conwidth.value > 0) ? (int)scr_conwidth.value : (scr_conscale.value > 0) ? (int)(glwidth/scr_conscale.value) : glwidth;
+//		vid.conwidth = CLAMP (320, vid.conwidth, glwidth);
+//		vid.conwidth &= 0xFFFFFFF8;
+//		vid.conheight = vid.conwidth * glheight / glwidth;
+
+//		vid.conwidth *= _vr.rendering_eye->viewport.width;
+//		vid.conheight *= _vr.rendering_eye->viewport.height;
+//		vid.conwidth *= vr_multisample.value;
+//		vid.conheight *= vr_multisample.value;
+#if 0
+		glx /= vr_multisample.value;
+		gly /= vr_multisample.value;
+		glwidth /= vr_multisample.value;
+		glheight /= vr_multisample.value;
+		vid.conwidth /= vr_multisample.value;
+		vid.conheight /= vr_multisample.value;
+#endif
+//		GLfloat *projection = _vr.lib->GetOrthoProjectionForEye( _vr.rendering_eye->index );
+
+		glMatrixMode( GL_PROJECTION );
+		glLoadIdentity();
+
+		switch( newcanvas ) {
+			case CANVAS_DEFAULT:
+				glOrtho (0, glwidth, glheight, 0, -99999, 99999);
+				glViewport (glx, gly, glwidth, glheight);
+				break;
+			case CANVAS_CONSOLE:
+				lines = vid.conheight - (((scr_con_current * vid.conheight) / glheight) * vr_multisample.value);
+				glOrtho (0, vid.conwidth, vid.conheight + lines, lines, -99999, 99999);
+				glViewport (glx, gly, glwidth, glheight);
+				break;
+			case CANVAS_MENU:
+				s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
+				s = CLAMP (1.0, scr_menuscale.value, s);
+				s *= vr_multisample.value;
+				glOrtho (0, 320, 200, 0, -99999, 99999);
+				glViewport (glx + (glwidth - 320*s) / 2, gly + (glheight - 200*s) / 2, 320*s, 200*s);
+				break;
+			case CANVAS_SBAR:
+				s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+				s *= vr_multisample.value;
+				if (cl.gametype == GAME_DEATHMATCH)
+				{
+					glOrtho (0, glwidth / s, 48, 0, -99999, 99999);
+					glViewport (glx, gly, glwidth, 48*s);
+				}
+				else
+				{
+					glOrtho (0, 320, 48, 0, -99999, 99999);
+					glViewport (glx + (glwidth - 320*s) / 2, gly, 320*s, 48*s);
+				}
+				break;
+			case CANVAS_WARPIMAGE:
+				glOrtho (0, 128, 0, 128, -99999, 99999);
+				glViewport (glx, gly+glheight-gl_warpimagesize, gl_warpimagesize, gl_warpimagesize);
+				break;
+			case CANVAS_CROSSHAIR: //0,0 is center of viewport
+				s = CLAMP (1.0, scr_crosshairscale.value, 10.0);
+				s *= vr_multisample.value;
+				glOrtho (scr_vrect.width/-2/s, scr_vrect.width/2/s, scr_vrect.height/2/s, scr_vrect.height/-2/s, -99999, 99999);
+				glViewport (scr_vrect.x, glheight - scr_vrect.y - scr_vrect.height, scr_vrect.width & ~1, scr_vrect.height & ~1);
+				break;
+			case CANVAS_BOTTOMLEFT: //used by devstats
+				s = (float)glwidth/vid.conwidth; //use console scale
+				s *= vr_multisample.value;
+				glOrtho (0, 320, 200, 0, -99999, 99999);
+				glViewport (glx, gly, 320*s, 200*s);
+				break;
+			case CANVAS_BOTTOMRIGHT: //used by fps/clock
+				s = (float)glwidth/vid.conwidth; //use console scale
+				s *= vr_multisample.value;
+				glOrtho (0, 320, 200, 0, -99999, 99999);
+				glViewport (glx+glwidth-320*s, gly, 320*s, 200*s);
+				break;
+			case CANVAS_TOPRIGHT: //used by disc
+				s = 1;
+				s *= vr_multisample.value;
+				glOrtho (0, 320, 200, 0, -99999, 99999);
+				glViewport (glx+glwidth-320*s, gly+glheight-200*s, 320*s, 200*s);
+				break;
+			default:
+				Sys_Error ("GL_SetCanvas: bad canvas type");
+		}
+
+//		glLoadMatrixf( projection );
+
+		glMatrixMode( GL_MODELVIEW );
+		glLoadIdentity();
+
+		glx = oldglx;
+		gly = oldgly;
+		glwidth = oldglwidth;
+		glheight = oldglheight;
+		vid.conwidth = oldconwidth;
+		vid.conheight = oldconheight;
+	} else {
+		Sys_Error( "VR_SetFrustum: NULL VR rendering_eye" );
+	}
+}
+
 // credit to Luke Groeninger (dghost)
 // via QUAKE II VR
 void VR_AddPositionToViewOrigin(vec3_t position)
@@ -1144,7 +1279,7 @@ void VR_AddPositionToViewOrigin(vec3_t position)
 	vec3_t flatView, forward, right, up;
 	float yaw;
 		
-	yaw = r_refdef.viewangles[YAW] - _vr.thisOrientation[YAW];
+	yaw = r_refdef.viewangles[YAW] - _vr.orientation.now[YAW];
 
 	// clamp yaw to [-180,180]
 	yaw = yaw - floor( (yaw + 180.0f) * (1.0f / 360.0f) ) * 360.0f;
@@ -1163,9 +1298,9 @@ void VR_AddPositionToViewOrigin(vec3_t position)
 	VectorNormalize( right );
 
 	// apply this using X forward, Y right, Z up
-	VectorScale( forward, _vr.thisPosition[0], forward );
-	VectorScale( right,_vr.thisPosition[1], right );
-	VectorScale( up, _vr.thisPosition[2], up );
+	VectorScale( forward, _vr.position.now[0], forward );
+	VectorScale( right,_vr.position.now[1], right );
+	VectorScale( up, _vr.position.now[2], up );
 
 	VectorAdd( forward, up, out );
 	VectorAdd( out, right, out );
@@ -1263,7 +1398,10 @@ void VR_UpdateScreenContent()
 	// add the head position to the viewentity here, if enabled
 	if ( (int)vr_position.value == VR_POSITION_VIEWENTITY ) {
 		entity_t *viewentity = &cl_entities[cl.viewentity];
-		VR_AddPositionToViewOrigin( viewentity->origin );
+
+		if ( viewentity ) {
+			VR_AddPositionToViewOrigin( viewentity->origin );
+		}
 	}
 
 	// render each eye to their respective FBO
@@ -1277,14 +1415,9 @@ void VR_UpdateScreenContent()
 void VR_AddOrientationToViewAngles(vec3_t angles)
 {
 	if ( vr_enabled.value ) {
-		vec3_t orientation = {0};
-
-		// Update the current orientation of the HMD?
-		//VR_UpdatePlayerPose();
-
-		angles[PITCH] += _vr.thisOrientation[PITCH];
-		angles[YAW] += _vr.thisOrientation[YAW];
-		angles[ROLL] = _vr.thisOrientation[ROLL];
+		angles[PITCH] += _vr.orientation.now[PITCH];
+		angles[YAW] += _vr.orientation.now[YAW];
+		angles[ROLL] = _vr.orientation.now[ROLL];
 	}
 }
 
@@ -1497,7 +1630,7 @@ void VR_SetAngles(vec3_t angles)
 {
 	VectorCopy( angles, cl.aimangles );
 	VectorCopy( angles, cl.viewangles );
-	VectorCopy( angles, _vr.lastAim );
+	VectorCopy( angles, _vr.aim.last );
 }
 
 void VR_ResetOrientation()
@@ -1510,6 +1643,6 @@ void VR_ResetOrientation()
 		_vr.lib->ResetTracking();
 		// TODO: is this necessary?
 		// VR_UpdatePlayerPose();
-		VectorCopy( cl.aimangles, _vr.lastAim );
+		VectorCopy( cl.aimangles, _vr.aim.last );
 	}
 }
