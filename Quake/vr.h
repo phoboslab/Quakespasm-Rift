@@ -75,6 +75,7 @@ typedef struct {
 } vr_library_t;
 
 void VR_Init();
+int VR_ConfigureRenderer();
 void VR_RendererInit();
 
 qboolean VR_Enable();

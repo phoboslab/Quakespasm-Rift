@@ -111,6 +111,7 @@ struct
 };
 
 // main screen & 2D drawing
+extern void SCR_SetUpToDrawConsole (void);
 extern void SCR_UpdateScreenContent();
 extern qboolean	scr_drawdialog;
 extern void SCR_DrawNotifyString (void);
@@ -379,7 +380,7 @@ static void VR_IPD_f (cvar_t *var)
 	_vr.eye[EYE_LEFT].view_offset[0] = -view_offset;
 	_vr.eye[EYE_RIGHT].view_offset[0] = view_offset;
 
-	VR_RendererInit();
+	VR_ConfigureRenderer();
 }
 
 static void VR_Deadzone_f (cvar_t *var)
@@ -393,9 +394,9 @@ static void VR_Deadzone_f (cvar_t *var)
 	}
 }
 
-static void VR_RendererReinit_f (cvar_t *var)
+static void VR_ConfigureRenderer_f (cvar_t *var)
 {
-	VR_RendererInit();
+	VR_ConfigureRenderer();
 }
 
 
@@ -865,23 +866,23 @@ void VR_Init()
 	Cvar_RegisterVariable( &vr_position );
 
 	Cvar_RegisterVariable( &vr_multisample );
-	Cvar_SetCallback( &vr_multisample, VR_RendererReinit_f );
+	Cvar_SetCallback( &vr_multisample, VR_ConfigureRenderer_f );
 	Cvar_RegisterVariable( &vr_lowpersistence );
-	Cvar_SetCallback( &vr_lowpersistence, VR_RendererReinit_f );
+	Cvar_SetCallback( &vr_lowpersistence, VR_ConfigureRenderer_f );
 	Cvar_RegisterVariable( &vr_dynamicprediction );
-	Cvar_SetCallback( &vr_dynamicprediction, VR_RendererReinit_f );
+	Cvar_SetCallback( &vr_dynamicprediction, VR_ConfigureRenderer_f );
 	Cvar_RegisterVariable( &vr_vsync );
-	Cvar_SetCallback( &vr_vsync, VR_RendererReinit_f );
+	Cvar_SetCallback( &vr_vsync, VR_ConfigureRenderer_f );
 
 	// distortion settings
 	Cvar_RegisterVariable( &vr_chromatic );
-	Cvar_SetCallback( &vr_chromatic, VR_RendererReinit_f );
+	Cvar_SetCallback( &vr_chromatic, VR_ConfigureRenderer_f );
 	Cvar_RegisterVariable( &vr_timewarp );
-	Cvar_SetCallback( &vr_timewarp, VR_RendererReinit_f );
+	Cvar_SetCallback( &vr_timewarp, VR_ConfigureRenderer_f );
 	Cvar_RegisterVariable( &vr_vignette );
-	Cvar_SetCallback( &vr_vignette, VR_RendererReinit_f );
+	Cvar_SetCallback( &vr_vignette, VR_ConfigureRenderer_f );
 	Cvar_RegisterVariable( &vr_overdrive );
-	Cvar_SetCallback( &vr_overdrive, VR_RendererReinit_f );
+	Cvar_SetCallback( &vr_overdrive, VR_ConfigureRenderer_f );
 
 	// gameplay settings
 	Cvar_RegisterVariable( &vr_aimmode );
@@ -896,6 +897,18 @@ void VR_Init()
 	vr_menucmdfn = VR_Menu_f;
 	vr_menudrawfn = VR_MenuDraw;
 	vr_menukeyfn = VR_MenuKey;
+
+	// this is here to force quake to begin rendering during Host_Init()
+	Con_Printf("\n-------- VR Initialization --------\n");
+
+	// set the cvar if invoked from a command line parameter
+	{
+		int i = COM_CheckParm("-vr");
+
+		if ( i && i < com_argc - 1 ) {
+			Cvar_SetQuick( &vr_enabled, "1" /*com_argv[i+1]*/ );
+		}
+	}
 }
 
 static void VR_EyeInit(eye_t eye, vr_eye_t *vrEye, qboolean isHMDHorizontal)
@@ -926,22 +939,13 @@ static void VR_EyeInit(eye_t eye, vr_eye_t *vrEye, qboolean isHMDHorizontal)
 						   vrEye->fbo.texture );
 }
 
-void VR_RendererInit()
+int VR_ConfigureRenderer()
 {
 	extern cvar_t gl_nearclip;
 	extern cvar_t gl_farclip;
 	qboolean isHMDHorizontal = true; // TODO: jeremiah sypult, support vertically-rendered HMDs
 
-	if ( ! _vr.lib ) { return; }
-
-	if ( ! _vr.gl_extensions_initialized ) {
-		_vr.gl_extensions_initialized = InitGLExtensions();
-	}
-
-	if ( ! _vr.gl_extensions_initialized ) {
-		Con_Printf( "VR_RendererInit: failed to initialize OpenGL Extensions\n" );
-		return;
-	}
+	if ( ! _vr.lib ) { return 0; }
 
 	// initialize eyes
 	VR_EyeInit( EYE_LEFT, &_vr.eye[EYE_LEFT], isHMDHorizontal );
@@ -949,23 +953,25 @@ void VR_RendererInit()
 
 	// configure the renderer
 	// calculates the FOV and view adjustments that are gotten below
-	_vr.lib->ConfigureRenderer( vid.width,
-							    vid.height,
-							    gl_nearclip.value,
-							    gl_farclip.value,
-							    vr_ipd.value,
-							    vr_multisample.value,
-							    vr_lowpersistence.value,
-							    vr_dynamicprediction.value,
-							    vr_vsync.value,
-							    vr_chromatic.value,
-							    vr_timewarp.value,
-							    vr_vignette.value,
-							    1 /*vr_state.value*/,
-							    0 /*vr_flip.value*/,
-							    0 /*vr_rgb.value*/,
-							    vr_overdrive.value,
-							    0 /*vr_profile.value*/ );
+	if ( ! _vr.lib->ConfigureRenderer(vid.width,
+									  vid.height,
+									  gl_nearclip.value,
+									  gl_farclip.value,
+									  vr_ipd.value,
+									  vr_multisample.value,
+									  vr_lowpersistence.value,
+									  vr_dynamicprediction.value,
+									  vr_vsync.value,
+									  vr_chromatic.value,
+									  vr_timewarp.value,
+									  vr_vignette.value,
+									  1 /*vr_state.value*/,
+									  0 /*vr_flip.value*/,
+									  0 /*vr_srgb.value*/,
+									  vr_overdrive.value,
+									  0 /*vr_profile.value*/ ) ) {
+		return 0;
+	}
 
 	// set the viewport FOV in degrees **** calculated after ConfigureRenderer()
 	_vr.lib->GetFOV( &_vr.viewport_fov_x, &_vr.viewport_fov_y );
@@ -979,10 +985,46 @@ void VR_RendererInit()
 	_vr.eye[EYE_LEFT].view_offset[0] = -HMDViewOffset( vr_ipd.value );
 	_vr.eye[EYE_RIGHT].view_offset[0] = HMDViewOffset( vr_ipd.value );
 
+	vid.recalc_refdef = true;
+
+	return 1;
+}
+
+void VR_RendererInit()
+{
+	if ( ! _vr.lib ) { return; }
+
+	if ( ! _vr.gl_extensions_initialized ) {
+		_vr.gl_extensions_initialized = InitGLExtensions();
+	}
+
+	if ( ! _vr.gl_extensions_initialized ) {
+		Con_Printf( "VR_RendererInit: failed to initialize OpenGL Extensions\n" );
+		return;
+	}
+
+	if ( ! VR_ConfigureRenderer() ) {
+		VR_Disable();
+		Con_Printf( "configure VR distortion renderer: FAILED!\n" );
+		return;
+	}
+
+#if 0
+	Con_Printf( "configure VR distortion renderer: succeeded\n" );
+	Con_Printf( "IPD: %.2f\n", vr_ipd.value );
+	Con_Printf( "Multisample: %.2f\n", vr_multisample.value );
+	Con_Printf( "Low Peristence: %s\n", vr_lowpersistence.value == 0 ? "off" : "on" );
+	Con_Printf( "Dynamic Prediction: %s\n", vr_dynamicprediction.value == 0 ? "off" : "on" );
+	Con_Printf( "Vertical Sync: %s\n", vr_vsync.value == 0 ? "off" : "on" );
+	Con_Printf( "Chromatic: %s\n", vr_chromatic.value == 0 ? "off" : "on" );
+	Con_Printf( "Time Warping: %s\n", vr_timewarp.value == 0 ? "off" : "on" );
+	Con_Printf( "Vignette: %s\n", vr_vignette.value == 0 ? "off" : "on" );
+	Con_Printf( "Overdrive: %s\n", vr_overdrive.value == 0 ? "off" : "on" );
+	Con_Printf( "\n" );
+#endif
+
 	// TODO: jeremiah sypult - HMD doesn't render on OS X unless this is called
 	glUseProgramObjectARB( 0 );
-
-	vid.recalc_refdef = true;
 }
 
 static void VR_RendererShutdown()
@@ -1153,8 +1195,6 @@ void VR_SetCanvas(canvastype newcanvas)
 		extern vrect_t scr_vrect;
 		float s = 1.0f;
 		int lines = 0;
-		float orthoDistance = 0.8f; // TODO?
-		float orthoHorizontalOffset = _vr.rendering_eye->view_adjust[0] / orthoDistance;
 
 		GLint oldglx = glx,
 		oldgly = gly;
@@ -1170,24 +1210,8 @@ void VR_SetCanvas(canvastype newcanvas)
 		glwidth *= _vr.rendering_eye->viewport.width;
 		glheight *= _vr.rendering_eye->viewport.height;
 
-//		vid.conwidth = (scr_conwidth.value > 0) ? (int)scr_conwidth.value : (scr_conscale.value > 0) ? (int)(glwidth/scr_conscale.value) : glwidth;
-//		vid.conwidth = CLAMP (320, vid.conwidth, glwidth);
-//		vid.conwidth &= 0xFFFFFFF8;
-//		vid.conheight = vid.conwidth * glheight / glwidth;
-
-//		vid.conwidth *= _vr.rendering_eye->viewport.width;
-//		vid.conheight *= _vr.rendering_eye->viewport.height;
-//		vid.conwidth *= vr_multisample.value;
-//		vid.conheight *= vr_multisample.value;
-#if 0
-		glx /= vr_multisample.value;
-		gly /= vr_multisample.value;
-		glwidth /= vr_multisample.value;
-		glheight /= vr_multisample.value;
-		vid.conwidth /= vr_multisample.value;
-		vid.conheight /= vr_multisample.value;
-#endif
-//		GLfloat *projection = _vr.lib->GetOrthoProjectionForEye( _vr.rendering_eye->index );
+		Cvar_SetValue( "scr_conscale", scr_conscale.value );
+		SCR_SetUpToDrawConsole();
 
 		glMatrixMode( GL_PROJECTION );
 		glLoadIdentity();
@@ -1198,7 +1222,7 @@ void VR_SetCanvas(canvastype newcanvas)
 				glViewport (glx, gly, glwidth, glheight);
 				break;
 			case CANVAS_CONSOLE:
-				lines = vid.conheight - (((scr_con_current * vid.conheight) / glheight) * vr_multisample.value);
+				lines = vid.conheight - ((scr_con_current * vid.conheight) / glheight);
 				glOrtho (0, vid.conwidth, vid.conheight + lines, lines, -99999, 99999);
 				glViewport (glx, gly, glwidth, glheight);
 				break;
@@ -1254,8 +1278,6 @@ void VR_SetCanvas(canvastype newcanvas)
 			default:
 				Sys_Error ("GL_SetCanvas: bad canvas type");
 		}
-
-//		glLoadMatrixf( projection );
 
 		glMatrixMode( GL_MODELVIEW );
 		glLoadIdentity();
