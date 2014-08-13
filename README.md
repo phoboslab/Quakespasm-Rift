@@ -2,13 +2,15 @@
 
 Enables support for the Oculus Rift for id Software's QUAKE. Based on [QuakeSpasm-Rift](https://github.com/phoboslab/Quakespasm-Rift) by [phoboslab](http://phoboslab.org/log/2013/07/quake-for-oculus-rift) and [QuakeSpasm](http://quakespasm.sourceforge.net/). Special thanks to [dghost](https://github.com/dghost) for [Quake II VR](https://github.com/q2vr/quake2vr) and its code, which sped up development.
 
-Under development and requires some manual tweaking to get up and running. Standalone 2D is not yet 'rift ready'. However, you can attempt to start up the game directly in VR mode with the following command line:
+This fork is focusing on extending features related to Oculus Rift DK2 support (while maintaining Rift DK1 support).
 
-- `quakespasm +vr_enabled 1 +map start`
+You can attempt to start up the game directly in VR mode with the following command line:
 
-To dismiss the `HEALTH & SAFETY` warning, simply tap on your HMD after a few seconds.
+- `quakespasm -vr`
 
-Now includes an in-game `VR/HMD Options` menu to toggle most VR settings.
+To dismiss the `HEALTH & SAFETY` warning, simply tap on your HMD, or wait a few seconds.
+
+Supports 2D menus and includes an in-game `VR/HMD Options` menu to toggle most VR settings.
 
 Toggle the console by using the `~` key. The console allows you to enter commands and change console variables (cvars).
 
@@ -18,12 +20,13 @@ Toggle the console by using the `~` key. The console allows you to enter command
 - `r_particles 2` – Renders particles as squares instead of circles. Also harkens back to the software rendering roots.
 - `host_maxfps 240` – Allows the game to run at up to 240 frames per second, given your computer has the capabilities and that `vid_vsync` or `vr_vsync` are disabled. Enabling `vsync` will cause the game to run at the monitor refresh rate (traditionally 60Hz, or 75Hz with the Oculus Rift DK2).
 - `scr_showfps 1` – Display the rendering frame rate. You can use this to verify that an Oculus Rift DK2 is outputting 75 Hz with `vr_vsync` enabled. Can also help you tune `vr_multisample` (explained below) if your computer isn't capable of multisampling 2x. Simply set `scr_showfps 0` to disable.
+- `scr_menuscale 2` – Scales the menu up 2x. You can also adjust this via the `Options` menu via the `Scale` slider.
 
 ## Primary VR cvars:
 - `vr_enabled` – Enables or disables VR rendering and tracking input. Default 0.
 - `vr_debug` – Determine what debug HMD to use when none are connected. 0: disables VR, 1: DK1, 2: DK2. Default 1.
 - `vr_ipd` – Override the interpupillary distance in millimeters. Default 60.
-- `vr_position` – Configure position tracking (Windows only). 0: off, 1: default (camera-only, detached view model), 2: view entity. Default 1.
+- `vr_position` – Configure position tracking. 0: off, 1: default (camera-only, detached view model), 2: view entity. Default 1.
 - `vr_reset` – This is a command that takes no arguments. It resets the player to a 'home' position according to your offset to the camera. You can bind this to a key or joystick button with `bind xxx vr_reset` (where xxx is a key or JOYx/AUXx button).
 
 ## HMD cvars:
@@ -35,7 +38,7 @@ Toggle the console by using the `~` key. The console allows you to enter command
 ## Distortion cvars:
 - `vr_chromatic` – Use chromatic aberration correction. Default 1.
 - `vr_timewarp` – Time warping. Default 0.
-- `vr_vignette` – Shader vignette. Currently appears busted in the SDK distortion renderer, tied to chromatic flagging. Default 1.
+- `vr_vignette` – Shader vignette. Default 1.
 
 ## Additional cvars:
 - `vr_crosshair` – 0: disabled, 1: point, 2: laser sight
