@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2774F956199AA191000EF7FC /* CAPI_GL_DistortionShaders.h in Headers */ = {isa = PBXBuildFile; fileRef = 2774F955199AA191000EF7FC /* CAPI_GL_DistortionShaders.h */; };
 		4683CEBE1970867300285E02 /* CAPI_GL_HSWDisplay.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4683CEBC1970867300285E02 /* CAPI_GL_HSWDisplay.cpp */; };
 		4683CEBF1970867300285E02 /* CAPI_GL_HSWDisplay.h in Headers */ = {isa = PBXBuildFile; fileRef = 4683CEBD1970867300285E02 /* CAPI_GL_HSWDisplay.h */; };
 		E8094D0F196FAE8800937940 /* CAPI_HSWDisplay.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E8094D0D196FAE8800937940 /* CAPI_HSWDisplay.cpp */; };
@@ -120,6 +121,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		2774F955199AA191000EF7FC /* CAPI_GL_DistortionShaders.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CAPI_GL_DistortionShaders.h; sourceTree = "<group>"; };
 		4683CEBC1970867300285E02 /* CAPI_GL_HSWDisplay.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = CAPI_GL_HSWDisplay.cpp; path = GL/CAPI_GL_HSWDisplay.cpp; sourceTree = "<group>"; };
 		4683CEBD1970867300285E02 /* CAPI_GL_HSWDisplay.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CAPI_GL_HSWDisplay.h; path = GL/CAPI_GL_HSWDisplay.h; sourceTree = "<group>"; };
 		E8094D0D196FAE8800937940 /* CAPI_HSWDisplay.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CAPI_HSWDisplay.cpp; sourceTree = "<group>"; };
@@ -438,6 +440,7 @@
 			children = (
 				E8AA41D0190724E600D5F144 /* CAPI_GL_DistortionRenderer.cpp */,
 				E8AA41D1190724E600D5F144 /* CAPI_GL_DistortionRenderer.h */,
+				2774F955199AA191000EF7FC /* CAPI_GL_DistortionShaders.h */,
 				E8AA41D2190724E600D5F144 /* CAPI_GL_Util.cpp */,
 				E8AA41D3190724E600D5F144 /* CAPI_GL_Util.h */,
 			);
@@ -457,6 +460,7 @@
 				E8AA41E2190724E600D5F144 /* CAPI_DistortionRenderer.h in Headers */,
 				E8094D10196FAE8800937940 /* CAPI_HSWDisplay.h in Headers */,
 				4683CEBF1970867300285E02 /* CAPI_GL_HSWDisplay.h in Headers */,
+				2774F956199AA191000EF7FC /* CAPI_GL_DistortionShaders.h in Headers */,
 				E87DF471196A1BEF005E383C /* OVR_SharedMemory.h in Headers */,
 				E87DF4D2196A232F005E383C /* OVR_DeviceConstants.h in Headers */,
 				E8AA40DF1907221900D5F144 /* OVR_KeyCodes.h in Headers */,
