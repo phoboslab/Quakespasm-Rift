@@ -167,16 +167,16 @@ cvar_t  vr_crosshair_size = {"vr_crosshair_size","3.0", CVAR_ARCHIVE};
 cvar_t  vr_crosshair_alpha = {"vr_crosshair_alpha","0.25", CVAR_ARCHIVE};
 
 
-// Wolfenstein 3d, DOOM and QUAKE use the same coordinate/unit system:
+// Wolfenstein 3D, DOOM and QUAKE use the same coordinate/unit system:
 // 8 foot (96 inch) height wall == 64 pixel units
 // 1.5 inches per pixel unit
 // 1.0 pixel unit / 1.5 inch == 0.666666 pixel units per inch
 // QuakeEd shows the *eye* height to be ~46 units high
 // 46 units * 1.5 inch ratio == 69 inches / 12 inches == 5 foot 9 inch *eye level*
 
-#define INCH_TO_METER (0.0254f)
-#define QUAKE_TO_METER ((1.0f/1.5f) * INCH_TO_METER)
-#define METER_TO_QUAKE (1.0f/QUAKE_TO_METER)
+#define INCH_TO_METER (0.0254)
+#define QUAKE_TO_METER (1.5 * INCH_TO_METER) // 0.0381 meters per quake pixel unit
+#define METER_TO_QUAKE (1.0/QUAKE_TO_METER) // 26.24671916 quake pixel units per meter
 
 // ----------------------------------------------------------------------------
 // inline utilities
