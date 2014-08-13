@@ -71,8 +71,6 @@ typedef struct {
 	int  (*GetPose)(float viewAngles[3], float position[3]);
 	void (*BeginFrame)();
 	void (*EndFrame)();
-	void (*BeginEyeRender)(eye_t eye);
-	void (*EndEyeRender)(eye_t eye);
 } vr_library_t;
 
 void VR_Init();

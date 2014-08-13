@@ -1218,9 +1218,7 @@ static void RenderScreenForEye(vr_eye_t *eye)
 	glClear( GL_DEPTH_BUFFER_BIT );
 
 	_vr.rendering_eye = eye; // for VR_SetFrustum and VR_SetupView
-	_vr.lib->BeginEyeRender( eye->index );
 	SCR_UpdateScreenContent();
-	_vr.lib->EndEyeRender( eye->index );
 	_vr.rendering_eye = NULL;
 
 	glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, 0 );
