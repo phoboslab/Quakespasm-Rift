@@ -1195,6 +1195,7 @@ void VR_SetCanvas(canvastype newcanvas)
 		extern vrect_t scr_vrect;
 		float s = 1.0f;
 		int lines = 0;
+		float multisample = vr_multisample.value < 1 ? 1 : vr_multisample.value;
 
 		GLint oldglx = glx,
 		oldgly = gly;
@@ -1202,13 +1203,18 @@ void VR_SetCanvas(canvastype newcanvas)
 		GLsizei oldglwidth = glwidth,
 		oldglheight = glheight,
 		oldconwidth = vid.conwidth,
-		oldconheight = vid.conheight;
+		oldconheight = vid.conheight,
+		oldwidth = r_refdef.vrect.width,
+		oldheight = r_refdef.vrect.height;
 
 		glx *= _vr.rendering_eye->viewport.width;
 		gly *= _vr.rendering_eye->viewport.height;
 
 		glwidth *= _vr.rendering_eye->viewport.width;
 		glheight *= _vr.rendering_eye->viewport.height;
+
+		r_refdef.vrect.width *= _vr.rendering_eye->viewport.width * multisample;
+		r_refdef.vrect.height *= _vr.rendering_eye->viewport.height * multisample;
 
 		Cvar_SetValue( "scr_conscale", scr_conscale.value );
 		SCR_SetUpToDrawConsole();
@@ -1229,13 +1235,13 @@ void VR_SetCanvas(canvastype newcanvas)
 			case CANVAS_MENU:
 				s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
 				s = CLAMP (1.0, scr_menuscale.value, s);
-				s *= vr_multisample.value;
+				s *= multisample;
 				glOrtho (0, 320, 200, 0, -99999, 99999);
 				glViewport (glx + (glwidth - 320*s) / 2, gly + (glheight - 200*s) / 2, 320*s, 200*s);
 				break;
 			case CANVAS_SBAR:
 				s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
-				s *= vr_multisample.value;
+				s *= multisample;
 				if (cl.gametype == GAME_DEATHMATCH)
 				{
 					glOrtho (0, glwidth / s, 48, 0, -99999, 99999);
@@ -1253,25 +1259,25 @@ void VR_SetCanvas(canvastype newcanvas)
 				break;
 			case CANVAS_CROSSHAIR: //0,0 is center of viewport
 				s = CLAMP (1.0, scr_crosshairscale.value, 10.0);
-				s *= vr_multisample.value;
+				s *= multisample;
 				glOrtho (scr_vrect.width/-2/s, scr_vrect.width/2/s, scr_vrect.height/2/s, scr_vrect.height/-2/s, -99999, 99999);
 				glViewport (scr_vrect.x, glheight - scr_vrect.y - scr_vrect.height, scr_vrect.width & ~1, scr_vrect.height & ~1);
 				break;
 			case CANVAS_BOTTOMLEFT: //used by devstats
 				s = (float)glwidth/vid.conwidth; //use console scale
-				s *= vr_multisample.value;
+				s *= multisample;
 				glOrtho (0, 320, 200, 0, -99999, 99999);
 				glViewport (glx, gly, 320*s, 200*s);
 				break;
 			case CANVAS_BOTTOMRIGHT: //used by fps/clock
 				s = (float)glwidth/vid.conwidth; //use console scale
-				s *= vr_multisample.value;
+				s *= multisample;
 				glOrtho (0, 320, 200, 0, -99999, 99999);
 				glViewport (glx+glwidth-320*s, gly, 320*s, 200*s);
 				break;
 			case CANVAS_TOPRIGHT: //used by disc
 				s = 1;
-				s *= vr_multisample.value;
+				s *= multisample;
 				glOrtho (0, 320, 200, 0, -99999, 99999);
 				glViewport (glx+glwidth-320*s, gly+glheight-200*s, 320*s, 200*s);
 				break;
@@ -1288,6 +1294,8 @@ void VR_SetCanvas(canvastype newcanvas)
 		glheight = oldglheight;
 		vid.conwidth = oldconwidth;
 		vid.conheight = oldconheight;
+		r_refdef.vrect.width = oldwidth;
+		r_refdef.vrect.height = oldheight;
 	} else {
 		Sys_Error( "VR_SetFrustum: NULL VR rendering_eye" );
 	}
@@ -1555,11 +1563,14 @@ void VR_Draw2D()
 	qboolean draw_sbar = false;
 	vec3_t menu_angles, forward, right, up, target;
 	float scale_hud = 0.13;
+	float multisample = vr_multisample.value < 1 ? 1 : vr_multisample.value;
 
 	int oldglwidth = glwidth, 
 		oldglheight = glheight,
 		oldconwidth = vid.conwidth,
-		oldconheight = vid.conheight;
+		oldconheight = vid.conheight,
+		oldwidth = r_refdef.vrect.width,
+		oldheight = r_refdef.vrect.height;
 
 	glwidth = 320;
 	glheight = 200;
@@ -1572,6 +1583,10 @@ void VR_Draw2D()
 	vid.conwidth = 320;
 	vid.conheight = 200;
 #endif
+
+	r_refdef.vrect.width *= _vr.rendering_eye->viewport.width * multisample;
+	r_refdef.vrect.height *= _vr.rendering_eye->viewport.height * multisample;
+
 	// draw 2d elements 1m from the users face, centered
 	glPushMatrix();
 	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another
@@ -1642,6 +1657,8 @@ void VR_Draw2D()
 	if(draw_sbar)
 		VR_Sbar_Draw();
 
+	r_refdef.vrect.width = oldwidth;
+	r_refdef.vrect.height = oldheight;
 	glwidth = oldglwidth;
 	glheight = oldglheight;
 	vid.conwidth = oldconwidth;

@@ -310,13 +310,14 @@ static void VID_Restart (void)
 {
 	int width, height, bpp;
 	qboolean fullscreen;
+	qboolean vr_is_enabled = vr_enabled.value;
 
 	if (vid_locked || !vid_changed)
 		return;
 
-	if (vr_enabled.value) // phoboslab
+	if (vr_is_enabled) // phoboslab
 	{ 
-		VR_Disable();
+		Cvar_SetValueQuick( &vr_enabled, 0 );
 	}
 
 	width = (int)vid_width.value;
@@ -366,9 +367,9 @@ static void VID_Restart (void)
 			IN_Activate();
 	}
 
-	if (vr_enabled.value) // phoboslab
+	if (vr_is_enabled) // phoboslab
 	{ 
-		VR_Enable();
+		Cvar_SetValueQuick( &vr_enabled, 1 );
 	}
 }
 
