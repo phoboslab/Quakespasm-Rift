@@ -4,7 +4,7 @@
 
 Based on [Quakespasm](http://quakespasm.sourceforge.net/). This enables support for the Oculus Rift DK2 in Direct Mode for idsoftware's original Quake. You need the Oculus SDK 0.6 and SDL to compile this.
 
-More info: http://phoboslab.org/log/2013/07/quake-for-oculus-rift
+More info: http://phoboslab.org/log/2015/07/quake-for-oculus-dk2-direct-mode
 
 The release version comes with a sensible `config.cfg` and `autoexec.cfg` file that enables VR Mode by default, disables view bobbing and sets the texture mode to NEAREST for the proper, pixelated oldschool vibe.
 
