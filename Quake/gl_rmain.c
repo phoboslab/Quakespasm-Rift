@@ -325,37 +325,6 @@ void GL_SetFrustum(float fovx, float fovy)
 	glFrustum(-xmax + frustum_skew, xmax + frustum_skew, -ymax, ymax, NEARCLIP, gl_farclip.value);
 }
 
-/*
-=============
-GL_SetFrustumVR  -- dghost -- replacement GL_SetFrustrum for HMD's
-Generates perspective matrices given a FOV and offset.
-=============
-*/
-
-void GL_SetFrustumVR(float fovx, float fovy,float offset)
-{
-	GLfloat aspect = fovx/fovy;
-	float f = 1.0f / tanf((fovy / 2.0f) * M_PI / 180);
-    float nf = 1.0f / (NEARCLIP - gl_farclip.value);
-	float out[16];
-    out[0] = f / aspect;
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-    out[4] = 0;
-    out[5] = f;
-    out[6] = 0;
-    out[7] = 0;
-    out[8] = -offset;
-    out[9] = 0;
-    out[10] = (gl_farclip.value + NEARCLIP) * nf;
-    out[11] = -1;
-    out[12] = 0;
-    out[13] = 0;
-    out[14] = (2.0f * gl_farclip.value * NEARCLIP) * nf;
-    out[15] = 0;
-	glLoadMatrixf(out);
-}
 
 /*
 =============
@@ -363,39 +332,38 @@ R_SetupGL
 =============
 */
 
-extern float vr_view_offset;
-extern float vr_proj_offset;
-
 void R_SetupGL (void)
 {
 	//johnfitz -- rewrote this section
-	glMatrixMode(GL_PROJECTION);
-    glLoadIdentity ();
-	glViewport (glx + r_refdef.vrect.x,
-				gly + glheight - r_refdef.vrect.y - r_refdef.vrect.height,
-				r_refdef.vrect.width,
-				r_refdef.vrect.height);
-	//johnfitz
 
 	if (vr_enabled.value) {
-		GL_SetFrustumVR (r_fovx, r_fovy, vr_proj_offset);
+		VR_SetMatrices ();
 	}
 	else 
 	{
+		//johnfitz
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity ();
+
+		glViewport (glx + r_refdef.vrect.x,
+				gly + glheight - r_refdef.vrect.y - r_refdef.vrect.height,
+				r_refdef.vrect.width,
+				r_refdef.vrect.height);
 		GL_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
-	}
 
-//	glCullFace(GL_BACK); //johnfitz -- glquake used CCW with backwards culling -- let's do it right
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity ();
 
-	glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity ();
+		glRotatef (-90,  1, 0, 0);	    // put Z going up
+		glRotatef (90,  0, 0, 1);	    // put Z going up
 
-    glRotatef (-90,  1, 0, 0);	    // put Z going up
-    glRotatef (90,  0, 0, 1);	    // put Z going up
-    glRotatef (-r_refdef.viewangles[2],  1, 0, 0);
-    glRotatef (-r_refdef.viewangles[0],  0, 1, 0);
-    glRotatef (-r_refdef.viewangles[1],  0, 0, 1);
-    glTranslatef (-r_refdef.vieworg[0],  -r_refdef.vieworg[1],  -r_refdef.vieworg[2]);
+		glRotatef (-r_refdef.viewangles[2],  1, 0, 0);
+		glRotatef (-r_refdef.viewangles[0],  0, 1, 0);
+		glRotatef (-r_refdef.viewangles[1],  0, 0, 1);
+	
+		glTranslatef (-r_refdef.vieworg[0],  -r_refdef.vieworg[1],  -r_refdef.vieworg[2]);
+	}	
+
 
 	glGetFloatv (GL_MODELVIEW_MATRIX, r_world_matrix);
 
@@ -844,7 +812,7 @@ void R_RenderScene (void)
 R_RenderView
 ================
 */
-extern float vr_view_offset;
+
 void R_RenderView (void)
 {
 	double	time1, time2;
@@ -902,7 +870,6 @@ void R_RenderView (void)
 	}
 	else
 	{
-		VectorMA (r_refdef.vieworg, vr_view_offset, vright, r_refdef.vieworg);
 		R_RenderScene ();
 	}
 	//johnfitz

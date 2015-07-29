@@ -149,7 +149,6 @@ void V_StartPitchDrift (void)
 {
 	if(vr_enabled.value)
 	{
-//		VR_SetAngles(cl.viewangles);
 		VR_ResetOrientation();
 		return;
 	}

@@ -84,6 +84,8 @@
     <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
     <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
     <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
+    <IncludePath Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\SDL;$(WindowsSdkDir)\common\include;$(IncludePath)</IncludePath>
+    <IncludePath Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\SDL;$(WindowsSdkDir)\common\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -100,8 +102,8 @@
       <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libovrd.lib;libvorbisfile.lib;libvorbis.lib;libogg.lib;libmad.lib;WSOCK32.lib;OPENGL32.lib;winmm.lib;SDL.lib;SDLmain.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>G:\OculusSDK\LibOVR\Lib\Win32;..\codecs\x86;C:\SDL\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>LibOVR.lib;libvorbisfile.lib;libvorbis.lib;libogg.lib;libmad.lib;WSOCK32.lib;OPENGL32.lib;winmm.lib;SDL.lib;SDLmain.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>G:\OculusSDK\LibOVR\Lib\Windows\Win32\Release\VS2010;..\codecs\x86;C:\SDL\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -112,7 +114,7 @@
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>G:\OculusSDK\LibOVR\Include;C:\SDL\include;..\codecs\include;..\..\Quake;.;..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>G:\OculusSDK\LibOVRKernel\Src;G:\OculusSDK\LibOVR\Include;C:\SDL\include;..\codecs\include;..\..\Quake;.;..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_QS_CONBACK;USE_CODEC_MP3;USE_CODEC_VORBIS;USE_CODEC_WAVE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -123,8 +125,8 @@
       <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libovr.lib;libvorbisfile.lib;libvorbis.lib;libogg.lib;libmad.lib;WSOCK32.lib;OPENGL32.lib;winmm.lib;SDL.lib;SDLmain.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>G:\OculusSDK\LibOVR\Lib\Win32;..\codecs\x86;C:\SDL\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>LibOVR.lib;libvorbisfile.lib;libvorbis.lib;libogg.lib;libmad.lib;WSOCK32.lib;OPENGL32.lib;winmm.lib;SDL.lib;SDLmain.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>G:\OculusSDK\LibOVR\Lib\Windows\Win32\Release\VS2010;..\codecs\x86;C:\SDL\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -201,11 +203,9 @@
     <ClCompile Include="..\..\Quake\console.c" />
     <ClCompile Include="..\..\Quake\crc.c" />
     <ClCompile Include="..\..\Quake\cvar.c" />
-    <ClCompile Include="..\..\Quake\vr_ovr.cpp">
-      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsCpp</CompileAs>
-      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsCpp</CompileAs>
+    <ClCompile Include="..\..\Quake\vr.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
     </ClCompile>
-    <ClCompile Include="..\..\Quake\vr.c" />
     <ClCompile Include="dirent.c" />
     <ClCompile Include="..\..\Quake\gl_draw.c" />
     <ClCompile Include="..\..\Quake\gl_fog.c" />
@@ -279,7 +279,6 @@
     <ClInclude Include="..\..\Quake\crc.h" />
     <ClInclude Include="..\..\Quake\cfgfile.h" />
     <ClInclude Include="..\..\Quake\cvar.h" />
-    <ClInclude Include="..\..\Quake\vr_ovr.h" />
     <ClInclude Include="..\..\Quake\vr.h" />
     <ClInclude Include="dirent.h" />
     <ClInclude Include="..\..\Quake\draw.h" />

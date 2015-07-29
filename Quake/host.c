@@ -85,6 +85,8 @@ cvar_t devstats = {"devstats","0",CVAR_NONE}; //johnfitz -- track developer stat
 devstats_t dev_stats, dev_peakstats;
 overflowtimes_t dev_overflows; //this stores the last time overflow messages were displayed, not the last time overflows occured
 
+extern cvar_t vr_enabled;
+
 /*
 ================
 Max_Edicts_f -- johnfitz
@@ -574,7 +576,9 @@ qboolean Host_FilterTime (float time)
 
 	//johnfitz -- max fps cvar
 	maxfps = CLAMP (10.0, host_maxfps.value, 1000.0);
-	if (!cls.timedemo && realtime - oldrealtime < 1.0/maxfps)
+
+	// don't limit framerate for VR; libOVR will cap itself
+	if (!cls.timedemo && !vr_enabled.value && realtime - oldrealtime < 1.0/maxfps)
 		return false; // framerate is too high
 	//johnfitz
 

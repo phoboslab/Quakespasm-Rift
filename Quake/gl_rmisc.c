@@ -49,14 +49,9 @@ extern cvar_t r_nolerp_list;
 
 //phoboslab -- cvars for vr
 extern cvar_t vr_enabled;
-extern cvar_t vr_supersample;
-extern cvar_t vr_prediction;
-extern cvar_t vr_driftcorrect;
 extern cvar_t vr_crosshair;
 extern cvar_t r_oculusrift_crosshair_depth;
-extern cvar_t vr_chromabr;
 extern cvar_t vr_aimmode;
-extern cvar_t vr_ipd;
 extern cvar_t vr_deadzone;
 //
 

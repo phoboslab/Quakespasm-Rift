@@ -2,294 +2,87 @@
 
 #include "quakedef.h"
 #include "vr.h"
-#include "vr_ovr.h"
+
+#include "OVR_CAPI_GL.h"
 
 typedef struct {
-	GLhandleARB program;
-	GLhandleARB vert_shader;
-	GLhandleARB frag_shader;
-	const char *vert_source;
-	const char *frag_source;
-} shader_t;
-
-
-typedef struct {
-	GLuint framebuffer, texture, renderbuffer;
+	GLuint framebuffer, depth_texture;
+	ovrSwapTextureSet *color_textures;
+	struct {
+		float width, height;
+	} size;
 } fbo_t;
 
 typedef struct {
-	float offset;
-	float lens_shift;
-	struct {
-		float left, top, width, height;
-	} viewport;
+	int index;
 	fbo_t fbo;
+	ovrEyeRenderDesc render_desc;
+	ovrPosef pose;
+	float fov_x, fov_y;
 } vr_eye_t;
 
-// GL Extensions
-static PFNGLATTACHOBJECTARBPROC glAttachObjectARB;
-static PFNGLCOMPILESHADERARBPROC glCompileShaderARB;
-static PFNGLCREATEPROGRAMOBJECTARBPROC glCreateProgramObjectARB;
-static PFNGLCREATESHADEROBJECTARBPROC glCreateShaderObjectARB;
-static PFNGLDELETEOBJECTARBPROC glDeleteObjectARB;
-static PFNGLGETINFOLOGARBPROC glGetInfoLogARB;
-static PFNGLGETOBJECTPARAMETERIVARBPROC glGetObjectParameterivARB;
-static PFNGLGETUNIFORMLOCATIONARBPROC glGetUniformLocationARB;
-static PFNGLLINKPROGRAMARBPROC glLinkProgramARB;
-static PFNGLSHADERSOURCEARBPROC glShaderSourceARB;
-static PFNGLUNIFORM2FARBPROC glUniform2fARB;
-static PFNGLUNIFORM4FARBPROC glUniform4fARB;
-static PFNGLUSEPROGRAMOBJECTARBPROC glUseProgramObjectARB;
-static PFNGLBINDRENDERBUFFEREXTPROC glBindRenderbufferEXT;
-static PFNGLDELETERENDERBUFFERSEXTPROC glDeleteRenderbuffersEXT;
-static PFNGLGENRENDERBUFFERSEXTPROC glGenRenderbuffersEXT;
-static PFNGLRENDERBUFFERSTORAGEEXTPROC glRenderbufferStorageEXT;
+
+// OpenGL Extensions
+#define GL_READ_FRAMEBUFFER_EXT 0x8CA8
+#define GL_DRAW_FRAMEBUFFER_EXT 0x8CA9
+
+typedef void (APIENTRYP PFNGLBLITFRAMEBUFFEREXTPROC) (GLint,  GLint,  GLint,  GLint,  GLint,  GLint,  GLint,  GLint,  GLbitfield,  GLenum);
+typedef BOOL (APIENTRYP PFNWGLSWAPINTERVALEXTPROC) (int);
+
 static PFNGLBINDFRAMEBUFFEREXTPROC glBindFramebufferEXT;
+static PFNGLBLITFRAMEBUFFEREXTPROC glBlitFramebufferEXT;
 static PFNGLDELETEFRAMEBUFFERSEXTPROC glDeleteFramebuffersEXT;
 static PFNGLGENFRAMEBUFFERSEXTPROC glGenFramebuffersEXT;
 static PFNGLFRAMEBUFFERTEXTURE2DEXTPROC glFramebufferTexture2DEXT;
 static PFNGLFRAMEBUFFERRENDERBUFFEREXTPROC glFramebufferRenderbufferEXT;
+static PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
 
 struct {
 	void *func; char *name;
 } gl_extensions[] = {
-	{&glAttachObjectARB, "glAttachObjectARB"},
-	{&glCompileShaderARB, "glCompileShaderARB"},
-	{&glCreateProgramObjectARB, "glCreateProgramObjectARB"},
-	{&glCreateShaderObjectARB, "glCreateShaderObjectARB"},
-	{&glDeleteObjectARB, "glDeleteObjectARB"},
-	{&glGetInfoLogARB, "glGetInfoLogARB"},
-	{&glGetObjectParameterivARB, "glGetObjectParameterivARB"},
-	{&glGetUniformLocationARB, "glGetUniformLocationARB"},
-	{&glLinkProgramARB, "glLinkProgramARB"},
-	{&glShaderSourceARB, "glShaderSourceARB"},
-	{&glUniform2fARB, "glUniform2fARB"},
-	{&glUniform4fARB, "glUniform4fARB"},
-	{&glUseProgramObjectARB, "glUseProgramObjectARB"},
-	{&glBindRenderbufferEXT, "glBindRenderbufferEXT"},
-	{&glDeleteRenderbuffersEXT, "glDeleteRenderbuffersEXT"},
-	{&glGenRenderbuffersEXT, "glGenRenderbuffersEXT"},
-	{&glRenderbufferStorageEXT, "glRenderbufferStorageEXT"},
 	{&glBindFramebufferEXT, "glBindFramebufferEXT"},
+	{&glBlitFramebufferEXT, "glBlitFramebufferEXT"},
 	{&glDeleteFramebuffersEXT, "glDeleteFramebuffersEXT"},
 	{&glGenFramebuffersEXT, "glGenFramebuffersEXT"},
 	{&glFramebufferTexture2DEXT, "glFramebufferTexture2DEXT"},
 	{&glFramebufferRenderbufferEXT, "glFramebufferRenderbufferEXT"},
+	{&wglSwapIntervalEXT, "wglSwapIntervalEXT"},
 	{NULL, NULL},
 };
 
 
-// Default Lens Warp Shader
-static shader_t lens_warp_shader_norm = {
-	0, 0, 0,
-	
-	// vertex shader (identity)
-	"varying vec2 vUv;\n"
-	"void main(void) {\n"
-		"gl_Position = gl_Vertex;\n"
-		"vUv = vec2(gl_MultiTexCoord0);\n"
-	"}\n",
-
-	// fragment shader
-	"varying vec2 vUv;\n"
-	"uniform vec2 scale;\n"
-	"uniform vec2 scaleIn;\n"
-	"uniform vec2 lensCenter;\n"
-	"uniform vec4 hmdWarpParam;\n"
-	"uniform sampler2D texture;\n"
-	"void main()\n"
-	"{\n"
-		"vec2 uv = (vUv*2.0)-1.0;\n" // range from [0,1] to [-1,1]
-		"vec2 theta = (uv-lensCenter)*scaleIn;\n"
-		"float rSq = theta.x*theta.x + theta.y*theta.y;\n"
-		"vec2 rvector = theta*(hmdWarpParam.x + hmdWarpParam.y*rSq + hmdWarpParam.z*rSq*rSq + hmdWarpParam.w*rSq*rSq*rSq);\n"
-		"vec2 tc = (lensCenter + scale * rvector);\n"
-		"tc = (tc+1.0)/2.0;\n" // range from [-1,1] to [0,1]
-		"if (any(bvec2(clamp(tc, vec2(0.0,0.0), vec2(1.0,1.0))-tc)))\n"
-			"gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);\n"
-		"else\n"
-			"gl_FragColor = texture2D(texture, tc);\n"
-	"}\n"
-};
-
-// Lens Warp Shader with Chromatic Aberration 
-static shader_t lens_warp_shader_chrm = {
-	0, 0, 0,
-	
-	// vertex shader (identity)
-	"varying vec2 vUv;\n"
-	"void main(void) {\n"
-		"gl_Position = gl_Vertex;\n"
-		"vUv = vec2(gl_MultiTexCoord0);\n"
-	"}\n",
-
-	// fragment shader
-	"varying vec2 vUv;\n"
-	"uniform vec2 lensCenter;\n"
-	"uniform vec2 scale;\n"
-	"uniform vec2 scaleIn;\n"
-	"uniform vec4 hmdWarpParam;\n"
-	"uniform vec4 chromAbParam;\n"
-	"uniform sampler2D texture;\n"
-
-	// Scales input texture coordinates for distortion.
-	// ScaleIn maps texture coordinates to Scales to ([-1, 1]), although top/bottom will be
-	// larger due to aspect ratio.
-	"void main()\n"
-	"{\n"
-		"vec2 uv = (vUv*2.0)-1.0;\n" // range from [0,1] to [-1,1]
-		"vec2 theta = (uv-lensCenter)*scaleIn;\n"
-		"float rSq = theta.x*theta.x + theta.y*theta.y;\n"
-		"vec2 theta1 = theta*(hmdWarpParam.x + hmdWarpParam.y*rSq + hmdWarpParam.z*rSq*rSq + hmdWarpParam.w*rSq*rSq*rSq);\n"
-
-		// Detect whether blue texture coordinates are out of range since these will scaled out the furthest.
-		"vec2 thetaBlue = theta1 * (chromAbParam.z + chromAbParam.w * rSq);\n"
-		"vec2 tcBlue = lensCenter + scale * thetaBlue;\n"
-		"tcBlue = (tcBlue+1.0)/2.0;\n" // range from [-1,1] to [0,1]
-		"if (any(bvec2(clamp(tcBlue, vec2(0.0,0.0), vec2(1.0,1.0))-tcBlue)))\n"
-		"{\n"
-			"gl_FragColor = vec4(0.0,0.0,0.0,1.0);\n"
-			"return;\n"
-		"}\n"
-
-		// Now do blue texture lookup.
-		"float blue = texture2D(texture, tcBlue).b;\n"
-
-		// Do green lookup (no scaling).
-		"vec2  tcGreen = lensCenter + scale * theta1;\n"
-		"tcGreen = (tcGreen+1.0)/2.0;\n" // range from [-1,1] to [0,1]
-		"vec4  center = texture2D(texture, tcGreen);\n"
-
-		// Do red scale and lookup.
-		"vec2  thetaRed = theta1 * (chromAbParam.x + chromAbParam.y * rSq);\n"
-		"vec2  tcRed = lensCenter + scale * thetaRed;\n"
-		"tcRed = (tcRed+1.0)/2.0;\n" // range from [-1,1] to [0,1]
-		"float red = texture2D(texture, tcRed).r;\n"
-
-		"gl_FragColor = vec4(red, center.g, blue, center.a);\n"
-	"}\n"
-};
-
-
-
-// Current lens warp shader and uniform location
-static struct {
-	shader_t *shader;
-	struct {
-		GLuint scale;
-		GLuint scale_in;
-		GLuint lens_center;
-		GLuint hmd_warp_param;
-		GLuint chrom_ab_param;
-	} uniform;
-} lens_warp;
-
-vr_interface_t *vr_interface = NULL;
-
-static vr_eye_t left_eye = {0, 0, {0, 0, 0.5, 1}, 0};
-static vr_eye_t right_eye = {0, 0, {0.5, 0, 0.5, 1}, 0};
-static float viewport_fov_x;
-static float viewport_fov_y;
-
-static vr_hmd_settings_t hmd;
-
-static qboolean shader_support;
-
-static const float player_height_units = 56;
-static const float player_height_m = 1.75;
-
-extern cvar_t gl_farclip;
-extern cvar_t r_stereodepth;
-
-extern int glx, gly, glwidth, glheight;
-extern void SCR_UpdateScreenContent();
-extern void SCR_CalcRefdef();
-extern refdef_t r_refdef;
-extern vec3_t vright;
-
+static ovrHmd hmd;
+static vr_eye_t eyes[2];
+static vr_eye_t *current_eye = NULL;
 static vec3_t lastOrientation = {0, 0, 0};
 static vec3_t lastAim = {0, 0, 0};
 
-cvar_t  vr_enabled = {"vr_enabled", "0", CVAR_NONE};
-cvar_t  vr_ipd = {"vr_ipd","-1",CVAR_NONE};
+static qboolean vr_initialized = false;
+static ovrGLTexture *mirror_texture;
+static GLuint mirror_fbo = 0;
 
-cvar_t  vr_supersample = {"vr_supersample", "2", CVAR_ARCHIVE};
-cvar_t  vr_prediction = {"vr_prediction","40", CVAR_ARCHIVE};
-cvar_t  vr_driftcorrect = {"vr_driftcorrect","1", CVAR_ARCHIVE};
+static const float meters_to_units = 32.0f;
+
+
+extern cvar_t gl_farclip;
+extern int glwidth, glheight;
+extern void SCR_UpdateScreenContent();
+extern refdef_t r_refdef;
+
+cvar_t  vr_enabled = {"vr_enabled", "0", CVAR_NONE};
 cvar_t  vr_crosshair = {"vr_crosshair","1", CVAR_ARCHIVE};
 cvar_t  vr_crosshair_depth = {"vr_crosshair_depth","0", CVAR_ARCHIVE};
 cvar_t  vr_crosshair_size = {"vr_crosshair_size","3.0", CVAR_ARCHIVE};
-cvar_t  vr_chromabr = {"vr_chromabr","1", CVAR_ARCHIVE};
 cvar_t  vr_aimmode = {"vr_aimmode","1", CVAR_ARCHIVE};
 cvar_t  vr_deadzone = {"vr_deadzone","30",CVAR_ARCHIVE};
 
 
-
-
-
-static qboolean CompileShader(GLhandleARB shader, const char *source)
-{
-	GLint status;
-
-	glShaderSourceARB(shader, 1, &source, NULL);
-	glCompileShaderARB(shader);
-	glGetObjectParameterivARB(shader, GL_OBJECT_COMPILE_STATUS_ARB, &status);
-	if (status == 0)
-	{
-		GLint length;
-		char *info;
-
-		glGetObjectParameterivARB(shader, GL_OBJECT_INFO_LOG_LENGTH_ARB, &length);
-		info = SDL_stack_alloc(char, length+1);
-		glGetInfoLogARB(shader, length, NULL, info);
-		Con_Warning("Failed to compile shader:\n%s\n%s", source, info);
-		SDL_stack_free(info);
-	}
-
-	return !!status;
-}
-
-static qboolean CompileShaderProgram(shader_t *shader)
-{
-	glGetError();
-	if (shader)
-	{
-		shader->program = glCreateProgramObjectARB();
-
-		shader->vert_shader = glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);
-		if (!CompileShader(shader->vert_shader, shader->vert_source)) {
-			return false;
-		}
-
-		shader->frag_shader = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
-		if (!CompileShader(shader->frag_shader, shader->frag_source)) {
-			return false;
-		}
-
-		glAttachObjectARB(shader->program, shader->vert_shader);
-		glAttachObjectARB(shader->program, shader->frag_shader);
-		glLinkProgramARB(shader->program); 
-	}
-	return (glGetError() == GL_NO_ERROR);
-}
-
-static void DestroyShaderProgram(shader_t *shader)
-{
-	if (shader_support && shader) 
-	{
-		glDeleteObjectARB(shader->vert_shader);
-		glDeleteObjectARB(shader->frag_shader);
-		glDeleteObjectARB(shader->program);
-	}
-}
-
-
-static qboolean InitShaderExtension()
+static qboolean InitOpenGLExtensions()
 {
 	int i;
-	static qboolean shader_support_initialized;
+	static qboolean extensions_initialized;
 
-	if (shader_support_initialized)
+	if (extensions_initialized)
 		return true;
 
 	for( i = 0; gl_extensions[i].func; i++ ) {
@@ -300,45 +93,88 @@ static qboolean InitShaderExtension()
 		*((void **)gl_extensions[i].func) = func;
 	}
 
-	shader_support_initialized = true;
-	return shader_support_initialized;
+	extensions_initialized = true;
+	return extensions_initialized;
 }
 
 fbo_t CreateFBO(int width, int height) {
-	fbo_t ret;
-	GLuint fbo, texture, renderbuffer;
+	int i;
+	fbo_t fbo;
 
-	glGenFramebuffersEXT(1, &fbo);
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo);
+	fbo.size.width = width;
+	fbo.size.height = height;
 
-	glGenRenderbuffersEXT(1, &renderbuffer);
-	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, renderbuffer);
-	glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT16, width, height);
+	glGenFramebuffersEXT(1, &fbo.framebuffer);
 
-	glGenTextures(1, &texture);
-	glBindTexture(GL_TEXTURE_2D, texture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glGenTextures(1, &fbo.depth_texture);
+	glBindTexture(GL_TEXTURE_2D,  fbo.depth_texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
 
-	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, texture, 0);
-	glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, renderbuffer);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	
-	ret.framebuffer = fbo;
-	ret.texture = texture;
-	ret.renderbuffer = renderbuffer;
+	ovrHmd_CreateSwapTextureSetGL(hmd, GL_RGBA, width, height, &fbo.color_textures);
+	for( i = 0; i < fbo.color_textures->TextureCount; ++i ) {
+		ovrGLTexture* tex = (ovrGLTexture*)&fbo.color_textures->Textures[i];
 
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+		glBindTexture(GL_TEXTURE_2D, tex->OGL.TexId);
 
-	return ret;
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	}
+
+	return fbo;
 }
 
 void DeleteFBO(fbo_t fbo) {
 	glDeleteFramebuffersEXT(1, &fbo.framebuffer);
-	glDeleteTextures(1, &fbo.texture);
-	glDeleteRenderbuffersEXT(1, &fbo.renderbuffer);
+	glDeleteTextures(1, &fbo.depth_texture);
+	ovrHmd_DestroySwapTextureSet(hmd, fbo.color_textures);
 }
+
+void QuatToYawPitchRoll(ovrQuatf q, vec3_t out) {
+	float sqw = q.w*q.w;
+	float sqx = q.x*q.x;
+	float sqy = q.y*q.y;
+	float sqz = q.z*q.z;
+	float unit = sqx + sqy + sqz + sqw; // if normalised is one, otherwise is correction factor
+	float test = q.x*q.y + q.z*q.w;
+	if( test > 0.499*unit ) { // singularity at north pole
+		out[YAW] = 2 * atan2(q.x,q.w) / M_PI_DIV_180;
+		out[ROLL] = -M_PI/2 / M_PI_DIV_180 ;
+		out[PITCH] = 0;
+	}
+	else if( test < -0.499*unit ) { // singularity at south pole
+		out[YAW] = -2 * atan2(q.x,q.w) / M_PI_DIV_180;
+		out[ROLL] = M_PI/2 / M_PI_DIV_180;
+		out[PITCH] = 0;
+	}
+	else {
+		out[YAW] = atan2(2*q.y*q.w-2*q.x*q.z , sqx - sqy - sqz + sqw) / M_PI_DIV_180;
+		out[ROLL] = -asin(2*test/unit) / M_PI_DIV_180;
+		out[PITCH] = -atan2(2*q.x*q.w-2*q.y*q.z , -sqx + sqy - sqz + sqw) / M_PI_DIV_180;
+	}
+}
+
+void Vec3RotateZ(vec3_t in, float angle, vec3_t out) {
+	out[0] = in[0]*cos(angle) - in[1]*sin(angle);
+	out[1] = in[0]*sin(angle) + in[1]*cos(angle);
+	out[2] = in[2];
+}
+
+ovrMatrix4f TransposeMatrix(ovrMatrix4f in) {
+	ovrMatrix4f out;
+	int y, x;
+	for( y = 0; y < 4; y++ )
+		for( x = 0; x < 4; x++ )
+			out.M[x][y] = in.M[y][x];
+
+	return out;
+}
+
 
 // ----------------------------------------------------------------------------
 // Callbacks for cvars
@@ -354,52 +190,7 @@ static void VR_Enabled_f (cvar_t *var)
 		Cvar_SetValueQuick(&vr_enabled,0);
 }
 
-static void VR_SuperSample_f (cvar_t *var)
-{
-	if (!vr_interface) { return; }
 
-	// Re-init oculus tracker when, if active
-	VR_Disable();
-	VR_Enable();
-}
-
-static void VR_ChromAbr_f (cvar_t *var)
-{
-	if (!vr_interface) { return; }
-
-	// Re-init oculus tracker when active
-	VR_Disable();
-	VR_Enable();
-}
-static void VR_Prediction_f (cvar_t *var)
-{
-	if (!vr_interface) { return; }
-
-	vr_interface->set_prediction(vr_prediction.value/1000.0f);
-	Con_Printf("Motion prediction is set to %.1fms\n",vr_prediction.value);
-}
-
-static void VR_DriftCorrect_f (cvar_t *var)
-{
-	if (!vr_interface) { return; }
-
-	vr_interface->set_drift_correction((int)vr_driftcorrect.value);
-}
-
-static void VR_IPD_f (cvar_t *var)
-{
-	if (vr_ipd.value < 0) 
-	{
-		Cvar_SetValueQuick (&vr_ipd, hmd.interpupillary_distance*1000.0f);
-		return;
-	}
-
-	if (!vr_interface) { return; }
-
-	left_eye.offset = -player_height_units * (vr_ipd.value/(player_height_m * 1000.0)) * 0.5;
-	right_eye.offset = -left_eye.offset;
-	Con_Printf("Your IPD is set to %.1fmm (SDK default:%.1fmm)\n", vr_ipd.value, hmd.interpupillary_distance*1000.0f);
-}
 
 static void VR_Deadzone_f (cvar_t *var)
 {
@@ -411,211 +202,147 @@ static void VR_Deadzone_f (cvar_t *var)
 
 
 
-
 // ----------------------------------------------------------------------------
 // Public vars and functions
-
-float vr_view_offset;
-float vr_proj_offset;
 
 void VR_Init()
 {
 	// This is only called once at game start
-
 	Cvar_RegisterVariable (&vr_enabled);
 	Cvar_SetCallback (&vr_enabled, VR_Enabled_f);
-	Cvar_RegisterVariable (&vr_supersample);
-	Cvar_SetCallback (&vr_supersample, VR_SuperSample_f);
-	Cvar_RegisterVariable (&vr_prediction);
-	Cvar_SetCallback (&vr_prediction, VR_Prediction_f);
-	Cvar_RegisterVariable (&vr_driftcorrect);
-	Cvar_SetCallback (&vr_driftcorrect, VR_DriftCorrect_f);
 	Cvar_RegisterVariable (&vr_crosshair);
 	Cvar_RegisterVariable (&vr_crosshair_depth);
 	Cvar_RegisterVariable (&vr_crosshair_size);
-	Cvar_RegisterVariable (&vr_chromabr);
-	Cvar_SetCallback (&vr_chromabr, VR_ChromAbr_f);
 	Cvar_RegisterVariable (&vr_aimmode);
-	Cvar_RegisterVariable (&vr_ipd);
-	Cvar_SetCallback (&vr_ipd, VR_IPD_f);
 	Cvar_RegisterVariable (&vr_deadzone);
 	Cvar_SetCallback (&vr_deadzone, VR_Deadzone_f);
 }
 
 qboolean VR_Enable()
 {
-	qboolean sdk_initialized = false;
-	qboolean shaders_compiled = false;
-	float aspect, r, h;
-	float *dk, *chrm;
-	float dist_scale;
-	float fovy;
-
-	float ss = vr_supersample.value;
-
-	vr_interface = &vr_interface_ovr;
-	sdk_initialized = vr_interface->init();
-
-	if (!sdk_initialized) 
-	{
-		vr_interface = NULL;
+	int i;
+	if( ovr_Initialize(NULL) != ovrSuccess ) {
 		Con_Printf("Failed to Initialize Oculus SDK");
 		return false;
 	}
 
-	vr_interface->get_device_info(&hmd);
-
-	shader_support = InitShaderExtension();   
-	if (!shader_support) 
-	{
-		vr_interface = NULL;
-		Con_Printf("Failed to get OpenGL Extensions");
+	if( ovrHmd_Create(0, &hmd) != ovrSuccess ) {
+		Con_Printf("Failed to get HMD");
 		return false;
 	}
-	
-	if (vr_chromabr.value)
-		lens_warp.shader = &lens_warp_shader_chrm;
-	else 
-		lens_warp.shader = &lens_warp_shader_norm;
 
-
-	shaders_compiled = CompileShaderProgram(lens_warp.shader);
-	if (!shaders_compiled) 
-	{
-		vr_interface = NULL;
-		lens_warp.shader = NULL;
-		Con_Printf("Failed to Compile Shaders");
+	if( !InitOpenGLExtensions() ) {
+		Con_Printf("Failed to initialize OpenGL extensions");
 		return false;
 	}
+
+	ovrHmd_CreateMirrorTextureGL(hmd, GL_RGBA, glwidth, glheight, (ovrTexture**)&mirror_texture);
+	glGenFramebuffersEXT(1, &mirror_fbo);
+	glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, mirror_fbo);
+	glFramebufferTexture2DEXT(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, mirror_texture->OGL.TexId, 0);
+	glFramebufferRenderbufferEXT(GL_READ_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, 0);
+	glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, 0);
+
+	for( i = 0; i < 2; i++ ) {
+		ovrSizei size = ovrHmd_GetFovTextureSize(hmd, (ovrEyeType)i, hmd->DefaultEyeFov[i], 1);
+
+		eyes[i].index = i;
+		eyes[i].fbo = CreateFBO(size.w, size.h);
+		eyes[i].render_desc = ovrHmd_GetRenderDesc(hmd, (ovrEyeType)i, hmd->DefaultEyeFov[i]);
+		eyes[i].fov_x = (atan(hmd->DefaultEyeFov[i].LeftTan) + atan(hmd->DefaultEyeFov[i].RightTan)) / M_PI_DIV_180;
+		eyes[i].fov_y = (atan(hmd->DefaultEyeFov[i].UpTan) + atan(hmd->DefaultEyeFov[i].DownTan)) / M_PI_DIV_180;
+	}
+
+	ovrHmd_SetEnabledCaps(hmd, ovrHmdCap_LowPersistence|ovrHmdCap_DynamicPrediction);
+	ovrHmd_ConfigureTracking(hmd, ovrTrackingCap_Orientation|ovrTrackingCap_MagYawCorrection|ovrTrackingCap_Position, 0);
 	
-	// Calculate lens distortion and fov
-	aspect = hmd.h_resolution / (2.0f * hmd.v_resolution);
-	h = 1.0f - (2.0f * hmd.lens_separation_distance) / hmd.h_screen_size;
-	r = -1.0f - h;
+	wglSwapIntervalEXT(0); // Disable V-Sync
 
-	dk = hmd.distortion_k;
-	chrm = hmd.chrom_abr;
-	dist_scale = (dk[0] + dk[1] * pow(r,2) + dk[2] * pow(r,4) + dk[3] * pow(r,6));
-	fovy = 2 * atan2(hmd.v_screen_size * dist_scale, 2 * hmd.eye_to_screen_distance);
-	viewport_fov_y = fovy * 180 / M_PI;
-	viewport_fov_x = viewport_fov_y * aspect;
-
-	// Set up eyes
-	left_eye.lens_shift = h;
-	left_eye.offset = -player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
-	left_eye.fbo = CreateFBO(glwidth * left_eye.viewport.width * ss, glheight * left_eye.viewport.height * ss);
-
-	right_eye.lens_shift = -h;
-	right_eye.offset = player_height_units * (hmd.interpupillary_distance/player_height_m) * 0.5;
-	right_eye.fbo = CreateFBO(glwidth * right_eye.viewport.width * ss, glheight * right_eye.viewport.height * ss);
-
-	// Get uniform location and set some values
-	glUseProgramObjectARB(lens_warp.shader->program);
-	lens_warp.uniform.scale = glGetUniformLocationARB(lens_warp.shader->program, "scale");
-	lens_warp.uniform.scale_in = glGetUniformLocationARB(lens_warp.shader->program, "scaleIn");
-	lens_warp.uniform.lens_center = glGetUniformLocationARB(lens_warp.shader->program, "lensCenter");
-	lens_warp.uniform.hmd_warp_param = glGetUniformLocationARB(lens_warp.shader->program, "hmdWarpParam");
-	lens_warp.uniform.chrom_ab_param = glGetUniformLocationARB(lens_warp.shader->program, "chromAbParam");
-
-	glUniform4fARB(lens_warp.uniform.chrom_ab_param,chrm[0],chrm[1],chrm[2],chrm[3]);
-	glUniform4fARB(lens_warp.uniform.hmd_warp_param, dk[0], dk[1], dk[2], dk[3]);
-	glUniform2fARB(lens_warp.uniform.scale_in, 1.0f, 1.0f/aspect);
-	glUniform2fARB(lens_warp.uniform.scale, 1.0f/dist_scale, 1.0f * aspect/dist_scale);
-	glUseProgramObjectARB(0);
-	
-
-	VR_IPD_f(&vr_ipd);
-	VR_Prediction_f(&vr_prediction);
-	VR_DriftCorrect_f(&vr_driftcorrect);
-
+	vr_initialized = true;
 	return true;
 }
 
 void VR_Disable()
 {
-	if (vr_interface) 
-	{
-		DestroyShaderProgram(lens_warp.shader);
-		lens_warp.shader = NULL;
-		DeleteFBO(left_eye.fbo);
-		DeleteFBO(right_eye.fbo);
-		vr_interface->release();
+	int i;
+	if( !vr_initialized )
+		return;
+	
+	for( i = 0; i < 2; i++ ) {
+		DeleteFBO(eyes[i].fbo);
 	}
-	vr_interface = NULL;
-
-	vid.recalc_refdef = true;
+	ovrHmd_DestroyMirrorTexture(hmd, (ovrTexture*)mirror_texture);
+	ovrHmd_Destroy(hmd);
+	ovr_Shutdown();
+	vr_initialized = false;
 }
 
-static void RenderScreenForEye(vr_eye_t *eye)
+static void RenderScreenForCurrentEye()
 {
-	// Remember the current vrect.width and vieworg; we have to modify it here
-	// for each eye
-	int oldwidth = r_refdef.vrect.width;
-	int oldheight = r_refdef.vrect.height;
+	ovrGLTexture *current_texture;
+
+	// Remember the current glwidht/height; we have to modify it here for each eye
 	int oldglheight = glheight;
 	int oldglwidth = glwidth;
 
-	float ss = vr_supersample.value;
+	glwidth = current_eye->fbo.size.width;
+	glheight = current_eye->fbo.size.height;
 
-	r_refdef.vrect.width *= eye->viewport.width * ss;
-	r_refdef.vrect.height *= eye->viewport.height * ss;
-	glwidth *= ss;
-	glheight *= ss;
+	// Set up current FBO
+	current_eye->fbo.color_textures->CurrentIndex = (current_eye->fbo.color_textures->CurrentIndex + 1) % current_eye->fbo.color_textures->TextureCount;
+	current_texture = (ovrGLTexture*)&current_eye->fbo.color_textures->Textures[current_eye->fbo.color_textures->CurrentIndex];
 
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, eye->fbo.framebuffer);
-	glClear(GL_DEPTH_BUFFER_BIT);
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, current_eye->fbo.framebuffer);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, current_texture->OGL.TexId, 0);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_TEXTURE_2D, current_eye->fbo.depth_texture, 0);
 
-	vr_view_offset = eye->offset;
-	vr_proj_offset = eye->lens_shift;
+	glViewport(0, 0, current_eye->fbo.size.width, current_eye->fbo.size.height);
+	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	srand((int) (cl.time * 1000)); //sync random stuff between eyes
-
-	r_refdef.fov_x = viewport_fov_x;
-	r_refdef.fov_y = viewport_fov_y;
 
 	// Draw everything
+	srand((int) (cl.time * 1000)); //sync random stuff between eyes
+
+	r_refdef.fov_x = current_eye->fov_x;
+	r_refdef.fov_y = current_eye->fov_y;
+
 	SCR_UpdateScreenContent ();
 
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-	r_refdef.vrect.width = oldwidth;
-	r_refdef.vrect.height = oldheight;
-
+	
+	// Reset
 	glwidth = oldglwidth;
 	glheight = oldglheight;
-
-	vr_proj_offset = 0;
-	vr_view_offset = 0;
-}
-
-static void RenderEyeOnScreen(vr_eye_t *eye)
-{
-	glViewport(
-		(glwidth-glx) * eye->viewport.left,
-		(glheight-gly) * eye->viewport.top,
-		glwidth * eye->viewport.width,
-		glheight * eye->viewport.height
-	);
-
-	glUniform2fARB(lens_warp.uniform.lens_center, eye->lens_shift, 0);
-	glBindTexture(GL_TEXTURE_2D, eye->fbo.texture);
 	
-	glBegin(GL_QUADS);
-	glTexCoord2f (0, 0); glVertex2f (-1, -1);
-	glTexCoord2f (1, 0); glVertex2f (1, -1);
-	glTexCoord2f (1, 1); glVertex2f (1, 1);
-	glTexCoord2f (0, 1); glVertex2f (-1, 1);
-	glEnd();
-
-	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, 0, 0);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_TEXTURE_2D, 0, 0);
 }
 
 void VR_UpdateScreenContent()
 {
+	int i;
 	vec3_t orientation;
+	ovrVector3f view_offset[2];
+	ovrPosef render_pose[2];
+
+	ovrFrameTiming ftiming;
+	ovrTrackingState hmdState;
+
+	ovrViewScaleDesc viewScaleDesc;
+	ovrLayerEyeFov ld;
+	ovrLayerHeader* layers;
+	
+	GLint w = mirror_texture->OGL.Header.TextureSize.w;
+	GLint h = mirror_texture->OGL.Header.TextureSize.h;
+	
 
 	// Get current orientation of the HMD
-	vr_interface->get_view(orientation);
+	ftiming = ovrHmd_GetFrameTiming(hmd, 0);
+	hmdState = ovrHmd_GetTrackingState(hmd, ftiming.DisplayMidpointSeconds);
 
+
+	// Calculate HMD angles and blend with input angles based on current aim mode
+	QuatToYawPitchRoll(hmdState.HeadPose.ThePose.Orientation, orientation);
 	switch( (int)vr_aimmode.value )
 	{
 		// 1: (Default) Head Aiming; View YAW is mouse+head, PITCH is head
@@ -625,7 +352,7 @@ void VR_UpdateScreenContent()
 			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastOrientation[YAW];
 			break;
 		
-		// 2: Head Aiming; View YAW and PITCH is mouse+head
+		// 2: Head Aiming; View YAW and PITCH is mouse+head (this is stupid)
 		case VR_AIMMODE_HEAD_MYAW_MPITCH:
 			cl.viewangles[PITCH] = cl.aimangles[PITCH] = cl.aimangles[PITCH] + orientation[PITCH] - lastOrientation[PITCH];
 			cl.aimangles[YAW] = cl.viewangles[YAW] = cl.aimangles[YAW] + orientation[YAW] - lastOrientation[YAW];
@@ -667,55 +394,106 @@ void VR_UpdateScreenContent()
 			}
 			break;
 	}
-
 	cl.viewangles[ROLL]  = orientation[ROLL];
 
-	VectorCopy(orientation,lastOrientation);
-	VectorCopy(cl.aimangles,lastAim);
+	VectorCopy (orientation, lastOrientation);
+	VectorCopy (cl.aimangles, lastAim);
 	
 	VectorCopy (cl.viewangles, r_refdef.viewangles);
 	VectorCopy (cl.aimangles, r_refdef.aimangles);
 
+
+	// Calculate eye poses
+	view_offset[0] = eyes[0].render_desc.HmdToEyeViewOffset;
+	view_offset[1] = eyes[1].render_desc.HmdToEyeViewOffset;
+
+	ovr_CalcEyePoses(hmdState.HeadPose.ThePose, view_offset, render_pose);
+	eyes[0].pose = render_pose[0];
+	eyes[1].pose = render_pose[1];
+
+
 	// Render the scene for each eye into their FBOs
-	RenderScreenForEye(&left_eye);
-	RenderScreenForEye(&right_eye);
+	for( i = 0; i < 2; i++ ) {
+		current_eye = &eyes[i];
+		RenderScreenForCurrentEye();
+	}
+	
+
+	// Submit the FBOs to OVR
+	viewScaleDesc.HmdSpaceToWorldScaleInMeters = meters_to_units;
+	viewScaleDesc.HmdToEyeViewOffset[0] = view_offset[0];
+	viewScaleDesc.HmdToEyeViewOffset[1] = view_offset[1];
+
+	ld.Header.Type = ovrLayerType_EyeFov;
+	ld.Header.Flags = ovrLayerFlag_TextureOriginAtBottomLeft;
+
+	for( i = 0; i < 2; i++ ) {
+		ld.ColorTexture[i] = eyes[i].fbo.color_textures;
+		ld.Viewport[i].Pos.x = 0;
+		ld.Viewport[i].Pos.y = 0;
+		ld.Viewport[i].Size.w = eyes[i].fbo.size.width;
+		ld.Viewport[i].Size.h = eyes[i].fbo.size.height;
+		ld.Fov[i] = hmd->DefaultEyeFov[i];
+		ld.RenderPose[i] = eyes[i].pose;
+	}
+
+	layers = &ld.Header;
+	ovrHmd_SubmitFrame(hmd, 0, &viewScaleDesc, &layers, 1);
+
+	// Blit mirror texture to back buffer
+	glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, mirror_fbo);
+	glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, 0);
+	glBlitFramebufferEXT(0, h, w, 0, 0, 0, w, h,GL_COLOR_BUFFER_BIT, GL_NEAREST);
+	glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, 0);
+}
+
+void VR_SetMatrices() {
+	vec3_t temp, orientation, position;
+	ovrMatrix4f projection;
+
+	// Calculat HMD projection matrix and view offset position
+	projection = TransposeMatrix(ovrMatrix4f_Projection(hmd->DefaultEyeFov[current_eye->index], 4, gl_farclip.value, ovrProjection_RightHanded));
+	
+	// We need to scale the view offset position to quake units and rotate it by the current input angles (viewangle - eye orientation)
+	QuatToYawPitchRoll(current_eye->pose.Orientation, orientation);
+	temp[0] = -current_eye->pose.Position.z * meters_to_units;
+	temp[1] = -current_eye->pose.Position.x * meters_to_units;
+	temp[2] = current_eye->pose.Position.y * meters_to_units;
+	Vec3RotateZ(temp, (r_refdef.viewangles[YAW]-orientation[YAW])*M_PI_DIV_180, position);
 
 
-	// Render the views onto the screen with the lens warp shader
+	// Set OpenGL projection and view matrices
 	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity ();
+	glLoadMatrixf((GLfloat*)projection.M);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity ();
-
-	glDisable(GL_CULL_FACE);
-	glDisable(GL_DEPTH_TEST);
-
-	glUseProgramObjectARB(lens_warp.shader->program);
-	RenderEyeOnScreen(&left_eye);
-	RenderEyeOnScreen(&right_eye);
-	glUseProgramObjectARB(0);
+	
+	glRotatef (-90,  1, 0, 0); // put Z going up
+	glRotatef (90,  0, 0, 1); // put Z going up
+		
+	glRotatef (-r_refdef.viewangles[PITCH],  0, 1, 0);
+	glRotatef (-r_refdef.viewangles[ROLL],  1, 0, 0);
+	glRotatef (-r_refdef.viewangles[YAW],  0, 0, 1);
+	
+	glTranslatef (-r_refdef.vieworg[0] -position[0],  -r_refdef.vieworg[1]-position[1],  -r_refdef.vieworg[2]-position[2]);
 }
 
 void VR_AddOrientationToViewAngles(vec3_t angles)
 {
-	if (vr_enabled.value)
-	{
 	vec3_t orientation;
-	// Get current orientation of the HMD
-	vr_interface->get_view(orientation);
+	QuatToYawPitchRoll(current_eye->pose.Orientation, orientation);
 
 	angles[PITCH] = angles[PITCH] + orientation[PITCH]; 
 	angles[YAW] = angles[YAW] + orientation[YAW]; 
 	angles[ROLL] = orientation[ROLL];
-	}
 }
 
 void VR_ShowCrosshair ()
 {
 	vec3_t forward, up, right;
 	vec3_t start, end, impact;
-	float ss, size;
+	float size;
 	if( (sv_player && (int)(sv_player->v.weapon) == IT_AXE) )
 		return;
 
@@ -733,49 +511,45 @@ void VR_ShowCrosshair ()
 	start[2] -= cl.viewheight - 10;
 	AngleVectors (cl.aimangles, forward, right, up);
 
-	ss = vr_supersample.value;
 	size = CLAMP (1.0, vr_crosshair_size.value, 5.0);
 
 	switch((int) vr_crosshair.value)
 	{	
-		// point crosshair
-	default:
-	case VR_CROSSHAIR_POINT:
+		default:
+		case VR_CROSSHAIR_POINT:
+			if (vr_crosshair_depth.value <= 0) {
+				 // trace to first wall
+				VectorMA (start, 4096, forward, end);
+				TraceLine (start, end, impact);
+			} else {
+				// fix crosshair to specific depth
+				VectorMA (start, vr_crosshair_depth.value * meters_to_units, forward, impact);
+			}
 
-		if (vr_crosshair_depth.value <= 0) {
-			 // trace to first wall
+			glEnable(GL_POINT_SMOOTH);
+			glColor4f (1, 0, 0, 0.5);
+			glPointSize( size * glwidth / 1280.0f );
+
+			glBegin(GL_POINTS);
+			glVertex3f (impact[0], impact[1], impact[2]);
+			glEnd();
+			glDisable(GL_POINT_SMOOTH);
+			break;
+
+		case VR_CROSSHAIR_LINE:
+			// trace to first entity
 			VectorMA (start, 4096, forward, end);
-			TraceLine (start, end, impact);
-		} else {
-			// fix crosshair to specific depth
-			VectorMA (start, vr_crosshair_depth.value * (player_height_units / player_height_m), forward, impact);
-		}
+			TraceLineToEntity (start, end, impact, sv_player);
 
-		glEnable(GL_POINT_SMOOTH);
-		glColor4f (1, 0, 0, 0.5);
-		glPointSize( size * glwidth / (1280 * ss) );
-
-		glBegin(GL_POINTS);
-		glVertex3f (impact[0], impact[1], impact[2]);
-		glEnd();
-		glDisable(GL_POINT_SMOOTH);
-		break;
-
-		// laser crosshair
-	case VR_CROSSHAIR_LINE:
-
-		// trace to first entity
-		VectorMA (start, 4096, forward, end);
-		TraceLineToEntity (start, end, impact, sv_player);
-
-		glColor4f (1, 0, 0, 0.4);
-		glLineWidth( size * glwidth / (1280 * ss) );
-		glBegin (GL_LINES);
-		glVertex3f (start[0], start[1], start[2]);
-		glVertex3f (impact[0], impact[1], impact[2]);
-		glEnd ();
-		break;
+			glColor4f (1, 0, 0, 0.4);
+			glLineWidth( size * glwidth / (1280.0f) );
+			glBegin (GL_LINES);
+			glVertex3f (start[0], start[1], start[2]);
+			glVertex3f (impact[0], impact[1], impact[2]);
+			glEnd ();
+			break;
 	}
+
 	// cleanup gl
 	glColor3f (1,1,1);
 	glEnable (GL_TEXTURE_2D);
@@ -789,7 +563,7 @@ void VR_ShowCrosshair ()
 void VR_Sbar_Draw()
 {	
 	vec3_t sbar_angles, forward, right, up, target;
-	float scale_hud = 0.04;
+	float scale_hud = 0.03;
 
 	glPushMatrix();
 	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another
@@ -821,18 +595,14 @@ void VR_SetAngles(vec3_t angles)
 	VectorCopy(angles,cl.aimangles);
 	VectorCopy(angles,cl.viewangles);
 	VectorCopy(angles,lastAim);
-
 }
 
 void VR_ResetOrientation()
 {
 	cl.aimangles[YAW] = cl.viewangles[YAW];	
 	cl.aimangles[PITCH] = cl.viewangles[PITCH];
-//	cl.aimangles[ROLL] = 0;
-	if (vr_enabled.value)
-	{
-		vr_interface->reset_orientation();
-		vr_interface->get_view(lastOrientation);
+	if (vr_enabled.value) {
+		ovrHmd_RecenterPose(hmd);
 		VectorCopy(cl.aimangles,lastAim);
 	}
 }

@@ -15,32 +15,7 @@
 #define	VR_CROSSHAIR_POINT 1 // Point crosshair projected to depth of object it is in front of
 #define	VR_CROSSHAIR_LINE 2 // Line crosshair
 
-typedef struct {
-	unsigned int h_resolution;
-	unsigned int v_resolution;
-	float h_screen_size;
-	float v_screen_size;
-	float interpupillary_distance;
-	float lens_separation_distance;
-	float eye_to_screen_distance;
-	float distortion_k[4];
-	float chrom_abr[4];
-} vr_hmd_settings_t;
-
-
-typedef struct {
-	int (*init)();
-	void (*release)();
-	int (*get_device_info)(vr_hmd_settings_t *hmd_settings);
-	void (*get_view)(float view[3]);
-	void (*reset_orientation)();
-	void (*set_prediction)(float time);
-	void (*set_drift_correction)(int enable);
-} vr_interface_t;
-
-
 void VR_Init();
-
 qboolean VR_Enable();
 void VR_Disable();
 
@@ -48,7 +23,8 @@ void VR_UpdateScreenContent();
 void VR_ShowCrosshair();
 void VR_Sbar_Draw();
 void VR_AddOrientationToViewAngles(vec3_t angles);
-void VR_SetAngles();
+void VR_SetAngles(vec3_t angles);
 void VR_ResetOrientation();
+void VR_SetMatrices();
 
 #endif
