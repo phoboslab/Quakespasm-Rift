@@ -332,9 +332,18 @@ void VR_UpdateScreenContent()
 	ovrLayerEyeFov ld;
 	ovrLayerHeader* layers;
 	
-	GLint w = mirror_texture->OGL.Header.TextureSize.w;
-	GLint h = mirror_texture->OGL.Header.TextureSize.h;
+	GLint w, h;
 	
+	
+	// Last chance to enable VR Mode - we get here when the game already start up with vr_enabled 1
+	// If enabling fails, unset the cvar and return.
+	if( !vr_initialized && !VR_Enable() ) {
+		Cvar_Set ("vr_enabled", "0");
+		return;
+	}
+
+	w = mirror_texture->OGL.Header.TextureSize.w;
+	h= mirror_texture->OGL.Header.TextureSize.h;
 
 	// Get current orientation of the HMD
 	ftiming = ovrHmd_GetFrameTiming(hmd, 0);

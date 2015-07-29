@@ -87,6 +87,8 @@ enum m_state_e	m_return_state;
 qboolean	m_return_onerror;
 char		m_return_reason [32];
 
+extern	cvar_t	vr_enabled;
+
 #define StartingGame	(m_multiplayer_cursor == 1)
 #define JoiningGame		(m_multiplayer_cursor == 0)
 #define	IPXConfig		(m_net_cursor == 0)
@@ -959,6 +961,7 @@ enum
 	OPT_ALWAYSMLOOK,
 	OPT_LOOKSPRING,
 	OPT_LOOKSTRAFE,
+	OPT_VR,
 //#ifdef _WIN32
 //	OPT_USEMOUSE,
 //#endif
@@ -1069,6 +1072,10 @@ void M_AdjustSliders (int dir)
 	case OPT_LOOKSTRAFE:	// lookstrafe
 		Cvar_Set ("lookstrafe", lookstrafe.value ? "0" : "1");
 		break;
+
+	case OPT_VR:
+		Cvar_Set ("vr_enabled", vr_enabled.value ? "0" : "1");
+		break;
 	}
 }
 
@@ -1178,6 +1185,10 @@ void M_Options_Draw (void)
 	// OPT_LOOKSTRAFE:
 	M_Print (16, 32 + 8*OPT_LOOKSTRAFE,	"            Lookstrafe");
 	M_DrawCheckbox (220, 32 + 8*OPT_LOOKSTRAFE, lookstrafe.value);
+
+	// OPT_VR:
+	M_Print (16, 32 + 8*OPT_VR,	        "               VR Mode");
+	M_DrawCheckbox (220, 32 + 8*OPT_VR, vr_enabled.value);
 
 	// OPT_VIDEO:
 	if (vid_menudrawfn)
