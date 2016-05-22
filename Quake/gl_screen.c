@@ -711,6 +711,12 @@ void SCR_SetUpToDrawConsole (void)
 
 	timescale = (host_timescale.value > 0) ? host_timescale.value : 1; //johnfitz -- timescale
 
+	// No console animation in VR mode
+	if (vr_enabled.value && scr_con_current != scr_conlines)
+	{
+		scr_con_current = scr_conlines;
+	}
+
 	if (scr_conlines < scr_con_current)
 	{
 		scr_con_current -= scr_conspeed.value*host_frametime/timescale; //johnfitz -- timescale
