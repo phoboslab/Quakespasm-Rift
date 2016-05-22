@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "bgmusic.h"
+#include "vr.h"
 #include <setjmp.h>
 
 /*
@@ -933,6 +934,7 @@ void Host_Shutdown(void)
 		S_Shutdown ();
 		IN_Shutdown ();
 		VID_Shutdown();
+		VR_Shutdown();
 	}
 
 	LOG_Close ();

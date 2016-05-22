@@ -287,6 +287,10 @@ qboolean VR_Enable()
 	return true;
 }
 
+void VR_Shutdown() {
+	VR_Disable();
+}
+
 void VR_Disable()
 {
 	int i;

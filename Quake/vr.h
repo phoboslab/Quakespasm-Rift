@@ -16,6 +16,7 @@
 #define	VR_CROSSHAIR_LINE 2 // Line crosshair
 
 void VR_Init();
+void VR_Shutdown();
 qboolean VR_Enable();
 void VR_Disable();
 
