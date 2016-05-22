@@ -25,6 +25,7 @@ typedef struct {
 // OpenGL Extensions
 #define GL_READ_FRAMEBUFFER_EXT 0x8CA8
 #define GL_DRAW_FRAMEBUFFER_EXT 0x8CA9
+#define GL_FRAMEBUFFER_SRGB_EXT 0x8DB9
 
 typedef void (APIENTRYP PFNGLBLITFRAMEBUFFEREXTPROC) (GLint,  GLint,  GLint,  GLint,  GLint,  GLint,  GLint,  GLint,  GLbitfield,  GLenum);
 typedef BOOL (APIENTRYP PFNWGLSWAPINTERVALEXTPROC) (int);
@@ -71,12 +72,13 @@ extern int glwidth, glheight;
 extern void SCR_UpdateScreenContent();
 extern refdef_t r_refdef;
 
-cvar_t  vr_enabled = {"vr_enabled", "0", CVAR_NONE};
-cvar_t  vr_crosshair = {"vr_crosshair","1", CVAR_ARCHIVE};
-cvar_t  vr_crosshair_depth = {"vr_crosshair_depth","0", CVAR_ARCHIVE};
-cvar_t  vr_crosshair_size = {"vr_crosshair_size","3.0", CVAR_ARCHIVE};
-cvar_t  vr_aimmode = {"vr_aimmode","1", CVAR_ARCHIVE};
-cvar_t  vr_deadzone = {"vr_deadzone","30",CVAR_ARCHIVE};
+cvar_t vr_enabled = {"vr_enabled", "0", CVAR_NONE};
+cvar_t vr_crosshair = {"vr_crosshair","1", CVAR_ARCHIVE};
+cvar_t vr_crosshair_depth = {"vr_crosshair_depth","0", CVAR_ARCHIVE};
+cvar_t vr_crosshair_size = {"vr_crosshair_size","3.0", CVAR_ARCHIVE};
+cvar_t vr_aimmode = {"vr_aimmode","1", CVAR_ARCHIVE};
+cvar_t vr_deadzone = {"vr_deadzone","30",CVAR_ARCHIVE};
+cvar_t vr_perfhud = {"vr_perfhud", "0", CVAR_ARCHIVE};
 
 
 static qboolean InitOpenGLExtensions()
@@ -217,6 +219,14 @@ static void VR_Deadzone_f (cvar_t *var)
 		Cvar_SetValueQuick(&vr_deadzone, deadzone);
 }
 
+static void VR_Perfhud_f (cvar_t *var)
+{
+	if (vr_initialized)
+	{
+		ovr_SetInt(session, OVR_PERF_HUD_MODE, (int)vr_perfhud.value);
+	}
+}
+
 
 
 // ----------------------------------------------------------------------------
@@ -233,6 +243,8 @@ void VR_Init()
 	Cvar_RegisterVariable (&vr_aimmode);
 	Cvar_RegisterVariable (&vr_deadzone);
 	Cvar_SetCallback (&vr_deadzone, VR_Deadzone_f);
+	Cvar_RegisterVariable (&vr_perfhud);
+	Cvar_SetCallback (&vr_perfhud, VR_Perfhud_f);
 }
 
 qboolean VR_Enable()
@@ -483,7 +495,7 @@ void VR_UpdateScreenContent()
 	layers = &ld.Header;
 	ovr_SubmitFrame(session, 0, &viewScaleDesc, &layers, 1);
 
-	// Blit mirror texture to back buffer
+	// Blit mirror texture to backbuffer
 	glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, mirror_fbo);
 	glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, 0);
 	glBlitFramebufferEXT(0, h, w, 0, 0, 0, w, h,GL_COLOR_BUFFER_BIT, GL_NEAREST);
