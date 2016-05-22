@@ -1208,7 +1208,7 @@ void Con_DrawConsole (int lines, qboolean drawinput)
 //draw version number in bottom right
 	y += 8;
 	//sprintf (ver, "QuakeSpasm %1.2f.%d", (float)FITZQUAKE_VERSION, QUAKESPASM_VER_PATCH);
-	sprintf (ver, "RiftQuake %1.2f", (float) RIFTQUAKE_VERSION);
+	sprintf (ver, "VRQuake %1.2f", (float) VRQUAKE_VERSION);
 	for (x = 0; x < (int)strlen(ver); x++)
 		Draw_Character ((con_linewidth - strlen(ver) + x + 2)<<3, y, ver[x] /*+ 128*/);
 }
