@@ -7,7 +7,7 @@
 
 typedef struct {
 	GLuint framebuffer, depth_texture;
-	ovrSwapTextureSet *color_textures;
+	ovrTextureSwapChain swap_chain;
 	struct {
 		float width, height;
 	} size;
@@ -51,14 +51,16 @@ struct {
 };
 
 
-static ovrHmd hmd;
+static ovrSession session;
+static ovrHmdDesc hmd;
 static vr_eye_t eyes[2];
 static vr_eye_t *current_eye = NULL;
 static vec3_t lastOrientation = {0, 0, 0};
 static vec3_t lastAim = {0, 0, 0};
 
 static qboolean vr_initialized = false;
-static ovrGLTexture *mirror_texture;
+static ovrMirrorTexture mirror_texture;
+static ovrMirrorTextureDesc mirror_texture_desc;
 static GLuint mirror_fbo = 0;
 
 static const float meters_to_units = 32.0f;
@@ -100,6 +102,8 @@ static qboolean InitOpenGLExtensions()
 fbo_t CreateFBO(int width, int height) {
 	int i;
 	fbo_t fbo;
+	ovrTextureSwapChainDesc swap_desc;
+	int swap_chain_length = 0;
 
 	fbo.size.width = width;
 	fbo.size.height = height;
@@ -114,12 +118,25 @@ fbo_t CreateFBO(int width, int height) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
 
-	ovrHmd_CreateSwapTextureSetGL(hmd, GL_RGBA, width, height, &fbo.color_textures);
-	for( i = 0; i < fbo.color_textures->TextureCount; ++i ) {
-		ovrGLTexture* tex = (ovrGLTexture*)&fbo.color_textures->Textures[i];
+	
+	swap_desc.Type = ovrTexture_2D;
+	swap_desc.ArraySize = 1;
+	swap_desc.Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB;
+	swap_desc.Width = width;
+	swap_desc.Height = height;
+	swap_desc.MipLevels = 1;
+	swap_desc.SampleCount = 1;
+	swap_desc.StaticImage = ovrFalse;
+	swap_desc.MiscFlags = 0;
+	swap_desc.BindFlags = 0;
 
-		glBindTexture(GL_TEXTURE_2D, tex->OGL.TexId);
+	ovr_CreateTextureSwapChainGL(session, &swap_desc, &fbo.swap_chain);	
+	ovr_GetTextureSwapChainLength(session, fbo.swap_chain, &swap_chain_length);
+	for( i = 0; i < swap_chain_length; ++i ) {
+		int swap_texture_id = 0;
+		ovr_GetTextureSwapChainBufferGL(session, fbo.swap_chain, i, &swap_texture_id);
 
+		glBindTexture(GL_TEXTURE_2D, swap_texture_id);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -132,7 +149,7 @@ fbo_t CreateFBO(int width, int height) {
 void DeleteFBO(fbo_t fbo) {
 	glDeleteFramebuffersEXT(1, &fbo.framebuffer);
 	glDeleteTextures(1, &fbo.depth_texture);
-	ovrHmd_DestroySwapTextureSet(hmd, fbo.color_textures);
+	ovr_DestroyTextureSwapChain(session, fbo.swap_chain);
 }
 
 void QuatToYawPitchRoll(ovrQuatf q, vec3_t out) {
@@ -221,12 +238,15 @@ void VR_Init()
 qboolean VR_Enable()
 {
 	int i;
+	static ovrGraphicsLuid luid;
+	int mirror_texture_id = 0;
+
 	if( ovr_Initialize(NULL) != ovrSuccess ) {
 		Con_Printf("Failed to Initialize Oculus SDK");
 		return false;
 	}
 
-	if( ovrHmd_Create(0, &hmd) != ovrSuccess ) {
+	if( ovr_Create(&session, &luid) != ovrSuccess ) {
 		Con_Printf("Failed to get HMD");
 		return false;
 	}
@@ -235,26 +255,31 @@ qboolean VR_Enable()
 		Con_Printf("Failed to initialize OpenGL extensions");
 		return false;
 	}
+	
 
-	ovrHmd_CreateMirrorTextureGL(hmd, GL_RGBA, glwidth, glheight, (ovrTexture**)&mirror_texture);
+	mirror_texture_desc.Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB;
+	mirror_texture_desc.Width = glwidth;
+	mirror_texture_desc.Height = glheight;
+
+	ovr_CreateMirrorTextureGL(session, &mirror_texture_desc, &mirror_texture);
 	glGenFramebuffersEXT(1, &mirror_fbo);
 	glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, mirror_fbo);
-	glFramebufferTexture2DEXT(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, mirror_texture->OGL.TexId, 0);
+
+	ovr_GetMirrorTextureBufferGL(session, mirror_texture, &mirror_texture_id);
+	glFramebufferTexture2DEXT(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, mirror_texture_id, 0);
 	glFramebufferRenderbufferEXT(GL_READ_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, 0);
 	glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, 0);
 
+	hmd = ovr_GetHmdDesc(session);
 	for( i = 0; i < 2; i++ ) {
-		ovrSizei size = ovrHmd_GetFovTextureSize(hmd, (ovrEyeType)i, hmd->DefaultEyeFov[i], 1);
+		ovrSizei size = ovr_GetFovTextureSize(session, (ovrEyeType)i, hmd.DefaultEyeFov[i], 1.0f);
 
 		eyes[i].index = i;
 		eyes[i].fbo = CreateFBO(size.w, size.h);
-		eyes[i].render_desc = ovrHmd_GetRenderDesc(hmd, (ovrEyeType)i, hmd->DefaultEyeFov[i]);
-		eyes[i].fov_x = (atan(hmd->DefaultEyeFov[i].LeftTan) + atan(hmd->DefaultEyeFov[i].RightTan)) / M_PI_DIV_180;
-		eyes[i].fov_y = (atan(hmd->DefaultEyeFov[i].UpTan) + atan(hmd->DefaultEyeFov[i].DownTan)) / M_PI_DIV_180;
+		eyes[i].render_desc = ovr_GetRenderDesc(session, (ovrEyeType)i, hmd.DefaultEyeFov[i]);
+		eyes[i].fov_x = (atan(hmd.DefaultEyeFov[i].LeftTan) + atan(hmd.DefaultEyeFov[i].RightTan)) / M_PI_DIV_180;
+		eyes[i].fov_y = (atan(hmd.DefaultEyeFov[i].UpTan) + atan(hmd.DefaultEyeFov[i].DownTan)) / M_PI_DIV_180;
 	}
-
-	ovrHmd_SetEnabledCaps(hmd, ovrHmdCap_LowPersistence|ovrHmdCap_DynamicPrediction);
-	ovrHmd_ConfigureTracking(hmd, ovrTrackingCap_Orientation|ovrTrackingCap_MagYawCorrection|ovrTrackingCap_Position, 0);
 	
 	wglSwapIntervalEXT(0); // Disable V-Sync
 
@@ -271,15 +296,16 @@ void VR_Disable()
 	for( i = 0; i < 2; i++ ) {
 		DeleteFBO(eyes[i].fbo);
 	}
-	ovrHmd_DestroyMirrorTexture(hmd, (ovrTexture*)mirror_texture);
-	ovrHmd_Destroy(hmd);
+	ovr_DestroyMirrorTexture(session, mirror_texture);
+	ovr_Destroy(session);
 	ovr_Shutdown();
 	vr_initialized = false;
 }
 
 static void RenderScreenForCurrentEye()
 {
-	ovrGLTexture *current_texture;
+	int swap_index = 0;
+	int swap_texture_id = 0;
 
 	// Remember the current glwidht/height; we have to modify it here for each eye
 	int oldglheight = glheight;
@@ -288,12 +314,13 @@ static void RenderScreenForCurrentEye()
 	glwidth = current_eye->fbo.size.width;
 	glheight = current_eye->fbo.size.height;
 
-	// Set up current FBO
-	current_eye->fbo.color_textures->CurrentIndex = (current_eye->fbo.color_textures->CurrentIndex + 1) % current_eye->fbo.color_textures->TextureCount;
-	current_texture = (ovrGLTexture*)&current_eye->fbo.color_textures->Textures[current_eye->fbo.color_textures->CurrentIndex];
+	
+	ovr_GetTextureSwapChainCurrentIndex(session, current_eye->fbo.swap_chain, &swap_index);
+	ovr_GetTextureSwapChainBufferGL(session, current_eye->fbo.swap_chain, swap_index, &swap_texture_id);
 
+	// Set up current FBO
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, current_eye->fbo.framebuffer);
-	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, current_texture->OGL.TexId, 0);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, swap_texture_id, 0);
 	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_TEXTURE_2D, current_eye->fbo.depth_texture, 0);
 
 	glViewport(0, 0, current_eye->fbo.size.width, current_eye->fbo.size.height);
@@ -307,6 +334,7 @@ static void RenderScreenForCurrentEye()
 	r_refdef.fov_y = current_eye->fov_y;
 
 	SCR_UpdateScreenContent ();
+	ovr_CommitTextureSwapChain(session, current_eye->fbo.swap_chain);
 
 	
 	// Reset
@@ -325,7 +353,7 @@ void VR_UpdateScreenContent()
 	ovrVector3f view_offset[2];
 	ovrPosef render_pose[2];
 
-	ovrFrameTiming ftiming;
+	double ftiming, pose_time;
 	ovrTrackingState hmdState;
 
 	ovrViewScaleDesc viewScaleDesc;
@@ -342,12 +370,13 @@ void VR_UpdateScreenContent()
 		return;
 	}
 
-	w = mirror_texture->OGL.Header.TextureSize.w;
-	h= mirror_texture->OGL.Header.TextureSize.h;
+	w = mirror_texture_desc.Width;
+	h = mirror_texture_desc.Height;
 
 	// Get current orientation of the HMD
-	ftiming = ovrHmd_GetFrameTiming(hmd, 0);
-	hmdState = ovrHmd_GetTrackingState(hmd, ftiming.DisplayMidpointSeconds);
+	ftiming = ovr_GetPredictedDisplayTime(session, 0);
+	pose_time = ovr_GetTimeInSeconds();
+	hmdState = ovr_GetTrackingState(session, ftiming, false);
 
 
 	// Calculate HMD angles and blend with input angles based on current aim mode
@@ -413,8 +442,8 @@ void VR_UpdateScreenContent()
 
 
 	// Calculate eye poses
-	view_offset[0] = eyes[0].render_desc.HmdToEyeViewOffset;
-	view_offset[1] = eyes[1].render_desc.HmdToEyeViewOffset;
+	view_offset[0] = eyes[0].render_desc.HmdToEyeOffset;
+	view_offset[1] = eyes[1].render_desc.HmdToEyeOffset;
 
 	ovr_CalcEyePoses(hmdState.HeadPose.ThePose, view_offset, render_pose);
 	eyes[0].pose = render_pose[0];
@@ -430,24 +459,25 @@ void VR_UpdateScreenContent()
 
 	// Submit the FBOs to OVR
 	viewScaleDesc.HmdSpaceToWorldScaleInMeters = meters_to_units;
-	viewScaleDesc.HmdToEyeViewOffset[0] = view_offset[0];
-	viewScaleDesc.HmdToEyeViewOffset[1] = view_offset[1];
+	viewScaleDesc.HmdToEyeOffset[0] = view_offset[0];
+	viewScaleDesc.HmdToEyeOffset[1] = view_offset[1];
 
 	ld.Header.Type = ovrLayerType_EyeFov;
 	ld.Header.Flags = ovrLayerFlag_TextureOriginAtBottomLeft;
 
 	for( i = 0; i < 2; i++ ) {
-		ld.ColorTexture[i] = eyes[i].fbo.color_textures;
+		ld.ColorTexture[i] = eyes[i].fbo.swap_chain;
 		ld.Viewport[i].Pos.x = 0;
 		ld.Viewport[i].Pos.y = 0;
 		ld.Viewport[i].Size.w = eyes[i].fbo.size.width;
 		ld.Viewport[i].Size.h = eyes[i].fbo.size.height;
-		ld.Fov[i] = hmd->DefaultEyeFov[i];
+		ld.Fov[i] = hmd.DefaultEyeFov[i];
 		ld.RenderPose[i] = eyes[i].pose;
+		ld.SensorSampleTime = pose_time;
 	}
 
 	layers = &ld.Header;
-	ovrHmd_SubmitFrame(hmd, 0, &viewScaleDesc, &layers, 1);
+	ovr_SubmitFrame(session, 0, &viewScaleDesc, &layers, 1);
 
 	// Blit mirror texture to back buffer
 	glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, mirror_fbo);
@@ -461,7 +491,7 @@ void VR_SetMatrices() {
 	ovrMatrix4f projection;
 
 	// Calculat HMD projection matrix and view offset position
-	projection = TransposeMatrix(ovrMatrix4f_Projection(hmd->DefaultEyeFov[current_eye->index], 4, gl_farclip.value, ovrProjection_RightHanded));
+	projection = TransposeMatrix(ovrMatrix4f_Projection(hmd.DefaultEyeFov[current_eye->index], 4, gl_farclip.value, ovrProjection_None));
 	
 	// We need to scale the view offset position to quake units and rotate it by the current input angles (viewangle - eye orientation)
 	QuatToYawPitchRoll(current_eye->pose.Orientation, orientation);
@@ -611,7 +641,7 @@ void VR_ResetOrientation()
 	cl.aimangles[YAW] = cl.viewangles[YAW];	
 	cl.aimangles[PITCH] = cl.viewangles[PITCH];
 	if (vr_enabled.value) {
-		ovrHmd_RecenterPose(hmd);
+		ovr_RecenterTrackingOrigin(session);
 		VectorCopy(cl.aimangles,lastAim);
 	}
 }
