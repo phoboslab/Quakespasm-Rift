@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <dirent.h>
 
 extern cvar_t	pausable;
+extern cvar_t vr_enabled;
 
 extern int com_nummissionpacks; //johnfitz
 
@@ -2198,7 +2199,15 @@ void Host_Startdemos_f (void)
 	if (!sv.active && cls.demonum != -1 && !cls.demoplayback)
 	{
 		cls.demonum = 0;
-		if (!fitzmode)
+		if (vr_enabled.value) {
+			// Start a new game when vr_enabled
+			Cbuf_AddText ("maxplayers 1\n");
+			Cbuf_AddText ("deathmatch 0\n");
+			Cbuf_AddText ("coop 0\n");
+			Cbuf_AddText ("map start\n");
+			Cbuf_AddText ("centerview\n");
+		}
+		else if (!fitzmode)
 		{  /* QuakeSpasm customization: */
 			/* go straight to menu, no CL_NextDemo */
 			Cbuf_InsertText("menu_main\n");
