@@ -929,8 +929,8 @@ void Host_Shutdown(void)
 		BGM_Shutdown();
 		S_Shutdown ();
 		IN_Shutdown ();
-		VID_Shutdown();
 		VR_Shutdown();
+		VID_Shutdown();
 	}
 
 	LOG_Close ();
