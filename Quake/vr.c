@@ -10,6 +10,8 @@
 #include "OVR_CAPI_GL.h"
 #include "OVR_CAPI_Audio.h"
 
+extern void VID_Refocus();
+
 typedef struct {
 	GLuint framebuffer, depth_texture;
 	ovrTextureSwapChain swap_chain;
@@ -59,6 +61,7 @@ struct {
 
 static ovrSession session;
 static ovrHmdDesc hmd;
+
 static vr_eye_t eyes[2];
 static vr_eye_t *current_eye = NULL;
 static vec3_t lastOrientation = {0, 0, 0};
@@ -68,6 +71,7 @@ static qboolean vr_initialized = false;
 static ovrMirrorTexture mirror_texture;
 static ovrMirrorTextureDesc mirror_texture_desc;
 static GLuint mirror_fbo = 0;
+static int attempt_to_refocus_retry = 0;
 
 static const float meters_to_units = 32.0f;
 
@@ -290,8 +294,9 @@ qboolean VR_Enable()
 	glFramebufferTexture2DEXT(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, mirror_texture_id, 0);
 	glFramebufferRenderbufferEXT(GL_READ_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, 0);
 	glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, 0);
-
+	
 	hmd = ovr_GetHmdDesc(session);
+	
 	for( i = 0; i < 2; i++ ) {
 		ovrSizei size = ovr_GetFovTextureSize(session, (ovrEyeType)i, hmd.DefaultEyeFov[i], 1.0f);
 
@@ -303,7 +308,7 @@ qboolean VR_Enable()
 	}
 	
 	wglSwapIntervalEXT(0); // Disable V-Sync
-
+	
 	// Set the Rift as audio device
 	ovr_GetAudioDeviceOutWaveId(&ovr_audio_id);
 	if (ovr_audio_id != WAVE_MAPPER)
@@ -317,6 +322,7 @@ qboolean VR_Enable()
 		}
 	}
 
+	attempt_to_refocus_retry = 900; // Try to refocus our for the first 900 frames
 	vr_initialized = true;
 	return true;
 }
@@ -401,9 +407,7 @@ void VR_UpdateScreenContent()
 	ovrViewScaleDesc viewScaleDesc;
 	ovrLayerEyeFov ld;
 	ovrLayerHeader* layers;
-	
 	GLint w, h;
-	
 	
 	// Last chance to enable VR Mode - we get here when the game already start up with vr_enabled 1
 	// If enabling fails, unset the cvar and return.
@@ -526,6 +530,15 @@ void VR_UpdateScreenContent()
 	glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, 0);
 	glBlitFramebufferEXT(0, h, w, 0, 0, 0, w, h,GL_COLOR_BUFFER_BIT, GL_NEAREST);
 	glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, 0);
+
+
+	// OVR steals the mouse focus when fading in our window. As a stupid workaround, we simply
+	// refocus the window each frame, for the first 900 frames.
+	if (attempt_to_refocus_retry > 0)
+	{
+		VID_Refocus();
+		attempt_to_refocus_retry--;
+	}
 }
 
 void VR_SetMatrices() {

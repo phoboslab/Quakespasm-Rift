@@ -129,6 +129,11 @@ SDL_Window *VID_GetWindow() {
 	return window;
 }
 
+void VID_Refocus() {
+	SDL_SetRelativeMouseMode(SDL_FALSE);
+	SDL_SetRelativeMouseMode(SDL_TRUE);
+}
+
 /*
 ================
 VID_Gamma_SetGamma -- apply gamma correction
