@@ -81,7 +81,6 @@ qboolean	scr_skipupdate;
 qboolean gl_mtexable = false;
 qboolean gl_texture_env_combine = false; //johnfitz
 qboolean gl_texture_env_add = false; //johnfitz
-qboolean gl_swap_control = false; //johnfitz
 qboolean gl_anisotropy_able = false; //johnfitz
 float gl_max_anisotropy; //johnfitz
 
@@ -250,9 +249,7 @@ static int VID_SetMode (int width, int height, qboolean fullscreen)
 	//
 	// swap control (the "before SDL_SetVideoMode" part)
 	//
-	gl_swap_control = true;
-	if (SDL_GL_SetSwapInterval((vid_vsync.value) ? 1 : 0) == -1)
-		gl_swap_control = false;
+	SDL_GL_SetSwapInterval((vid_vsync.value) ? 1 : 0);
 
 	if (window && renderer)
 	{
@@ -600,13 +597,8 @@ static void GL_CheckExtensions (void)
 	//
 	// swap control (the "after SDL_SetVideoMode" part)
 	//
-	if (!gl_swap_control)
+	if ((vid_vsync.value && swap_control != 1) || (!vid_vsync.value && swap_control != 0))
 	{
-		Con_Warning ("vertical sync not supported (SDL_GL_SetAttribute failed)\n");
-	}
-	else if ((vid_vsync.value && swap_control != 1) || (!vid_vsync.value && swap_control != 0))
-	{
-		gl_swap_control = false;
 		Con_Warning ("vertical sync not supported (swap_control doesn't match vid_vsync)\n");
 	}
 	else
@@ -1288,10 +1280,7 @@ static void VID_MenuDraw (void)
 			break;
 		case VID_OPT_VSYNC:
 			M_Print (16, y, "     Vertical sync");
-			if (gl_swap_control)
-				M_DrawCheckbox (184, y, (int)vid_vsync.value);
-			else
-				M_Print (184, y, "N/A");
+			M_DrawCheckbox (184, y, (int)vid_vsync.value);
 			break;
 		case VID_OPT_TEST:
 			y += 8; //separate the test and apply items
