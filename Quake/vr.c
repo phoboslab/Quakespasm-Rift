@@ -3,7 +3,12 @@
 #include "quakedef.h"
 #include "vr.h"
 
+#define UNICODE 1
+#include <mmsystem.h>
+#undef UNICODE
+
 #include "OVR_CAPI_GL.h"
+#include "OVR_CAPI_Audio.h"
 
 typedef struct {
 	GLuint framebuffer, depth_texture;
@@ -71,6 +76,7 @@ extern cvar_t gl_farclip;
 extern int glwidth, glheight;
 extern void SCR_UpdateScreenContent();
 extern refdef_t r_refdef;
+extern cvar_t snd_device;
 
 cvar_t vr_enabled = {"vr_enabled", "0", CVAR_NONE};
 cvar_t vr_crosshair = {"vr_crosshair","1", CVAR_ARCHIVE};
@@ -219,6 +225,8 @@ static void VR_Deadzone_f (cvar_t *var)
 		Cvar_SetValueQuick(&vr_deadzone, deadzone);
 }
 
+
+
 static void VR_Perfhud_f (cvar_t *var)
 {
 	if (vr_initialized)
@@ -252,6 +260,7 @@ qboolean VR_Enable()
 	int i;
 	static ovrGraphicsLuid luid;
 	int mirror_texture_id = 0;
+	UINT ovr_audio_id;
 
 	if( ovr_Initialize(NULL) != ovrSuccess ) {
 		Con_Printf("Failed to Initialize Oculus SDK");
@@ -295,9 +304,23 @@ qboolean VR_Enable()
 	
 	wglSwapIntervalEXT(0); // Disable V-Sync
 
+	// Set the Rift as audio device
+	ovr_GetAudioDeviceOutWaveId(&ovr_audio_id);
+	if (ovr_audio_id != WAVE_MAPPER)
+	{
+		WAVEOUTCAPS caps;
+		MMRESULT mmr = waveOutGetDevCaps(ovr_audio_id, &caps, sizeof(caps));
+		if (mmr == MMSYSERR_NOERROR)
+		{
+			char *name = SDL_iconv_string("UTF-8", "UTF-16LE", (char *)(caps.szPname), (SDL_wcslen((WCHAR *)caps.szPname)+1)*sizeof(WCHAR));
+			Cvar_SetQuick(&snd_device, name);
+		}
+	}
+
 	vr_initialized = true;
 	return true;
 }
+
 
 void VR_Shutdown() {
 	VR_Disable();
@@ -309,12 +332,15 @@ void VR_Disable()
 	if( !vr_initialized )
 		return;
 	
+	Cvar_SetQuick(&snd_device, "default");
+
 	for( i = 0; i < 2; i++ ) {
 		DeleteFBO(eyes[i].fbo);
 	}
 	ovr_DestroyMirrorTexture(session, mirror_texture);
 	ovr_Destroy(session);
 	ovr_Shutdown();
+
 	vr_initialized = false;
 }
 
