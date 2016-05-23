@@ -83,6 +83,7 @@ static	cvar_t	ambient_fade = {"ambient_fade", "100", CVAR_NONE};
 static	cvar_t	snd_noextraupdate = {"snd_noextraupdate", "0", CVAR_NONE};
 static	cvar_t	snd_show = {"snd_show", "0", CVAR_NONE};
 static	cvar_t	_snd_mixahead = {"_snd_mixahead", "0.1", CVAR_ARCHIVE};
+cvar_t	snd_device = {"snd_device", "default", CVAR_ARCHIVE};
 
 
 static void S_SoundInfo_f (void)
@@ -100,6 +101,17 @@ static void S_SoundInfo_f (void)
 	Con_Printf("%5d submission_chunk\n", shm->submission_chunk);
 	Con_Printf("%5d total_channels\n", total_channels);
 	Con_Printf("%p dma buffer\n", shm->buffer);
+}
+
+static void S_Device_f (cvar_t *var)
+{
+	if (!sound_started || !shm)
+		return;
+
+	if (!SNDDMA_UsesDefaultDevice() || !(strlen(var->string) == 0 || strcmp("default", var->string) == 0)) {
+		SNDDMA_Shutdown();
+		S_Startup();
+	}
 }
 
 
@@ -161,6 +173,9 @@ void S_Init (void)
 	Cvar_RegisterVariable(&snd_show);
 	Cvar_RegisterVariable(&_snd_mixahead);
 	Cvar_RegisterVariable(&sndspeed);
+
+	Cvar_RegisterVariable(&snd_device);
+	Cvar_SetCallback (&snd_device, S_Device_f);
 
 	if (safemode || COM_CheckParm("-nosound"))
 		return;
