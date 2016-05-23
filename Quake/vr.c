@@ -657,7 +657,7 @@ void VR_ShowCrosshair ()
 void VR_Sbar_Draw()
 {	
 	vec3_t sbar_angles, forward, right, up, target;
-	float scale_hud = 0.03;
+	float scale_hud = 0.025;
 
 	glPushMatrix();
 	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another
@@ -669,7 +669,7 @@ void VR_Sbar_Draw()
 
 	AngleVectors (sbar_angles, forward, right, up);
 
-	VectorMA (cl.viewent.origin, -0.7, forward, target);
+	VectorMA (cl.viewent.origin, 1.0, forward, target);
 
 	glTranslatef (target[0],  target[1],  target[2]);
 	glRotatef(sbar_angles[YAW] - 90, 0, 0, 1); // rotate around z
