@@ -118,7 +118,6 @@ void CL_Disconnect (void)
 // stop sounds (especially looping!)
 	S_StopAllSounds (true);
 	BGM_Stop();
-	CDAudio_Stop();
 
 // if running a local server, shut it down
 	if (cls.demoplayback)

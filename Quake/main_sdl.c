@@ -29,24 +29,25 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <stdio.h>
 
 /* need at least SDL_1.2.10 */
-#define SDL_MIN_X	1
-#define SDL_MIN_Y	2
-#define SDL_MIN_Z	10
+#define SDL_MIN_X	2
+#define SDL_MIN_Y	0
+#define SDL_MIN_Z	0
 #define SDL_REQUIREDVERSION	(SDL_VERSIONNUM(SDL_MIN_X,SDL_MIN_Y,SDL_MIN_Z))
-/* reject 1.3.0 and newer at runtime. */
-#define SDL_NEW_VERSION_REJECT	(SDL_VERSIONNUM(1,3,0))
+/* reject 3.0.0 and newer at runtime. */
+#define SDL_NEW_VERSION_REJECT	(SDL_VERSIONNUM(3,0,0))
 
 static void Sys_CheckSDL (void)
 {
-	const SDL_version *sdl_version = SDL_Linked_Version();
+	SDL_version sdl_version;
+	SDL_GetVersion(&sdl_version);
 
-	Sys_Printf("Found SDL version %i.%i.%i\n",sdl_version->major,sdl_version->minor,sdl_version->patch);
-	if (SDL_VERSIONNUM(sdl_version->major,sdl_version->minor,sdl_version->patch) < SDL_REQUIREDVERSION)
+	Sys_Printf("Found SDL version %i.%i.%i\n",sdl_version.major,sdl_version.minor,sdl_version.patch);
+	if (SDL_VERSIONNUM(sdl_version.major,sdl_version.minor,sdl_version.patch) < SDL_REQUIREDVERSION)
 	{	/*reject running under older SDL versions */
 		Sys_Error("You need at least v%d.%d.%d of SDL to run this game.", SDL_MIN_X,SDL_MIN_Y,SDL_MIN_Z);
 	}
-	if (SDL_VERSIONNUM(sdl_version->major,sdl_version->minor,sdl_version->patch) >= SDL_NEW_VERSION_REJECT)
-	{	/*reject running under newer (1.3.x) SDL */
+	if (SDL_VERSIONNUM(sdl_version.major,sdl_version.minor,sdl_version.patch) >= SDL_NEW_VERSION_REJECT)
+	{	/*reject running under newer (2.0.x) SDL */
 		Sys_Error("Your version of SDL library is incompatible with me.\n"
 			  "You need a library version in the line of %d.%d.%d\n", SDL_MIN_X,SDL_MIN_Y,SDL_MIN_Z);
 	}
@@ -57,9 +58,12 @@ static void Sys_CheckSDL (void)
 static quakeparms_t	parms;
 static Uint8		appState;
 
+extern SDL_Window *VID_GetWindow();
+
 int main(int argc, char *argv[])
 {
 	int		t;
+	int window_flags;
 	double		time, oldtime, newtime;
 
 	host_parms = &parms;
@@ -124,14 +128,14 @@ int main(int argc, char *argv[])
 	else
 	while (1)
 	{
-		appState = SDL_GetAppState();
+		window_flags = SDL_GetWindowFlags(VID_GetWindow());
 		/* If we have no input focus at all, sleep a bit */
-		if ( !(appState & (SDL_APPMOUSEFOCUS | SDL_APPINPUTFOCUS)) || cl.paused)
+		if ( !(window_flags & SDL_WINDOW_INPUT_FOCUS) || cl.paused)
 		{
 			SDL_Delay(16);
 		}
 		/* If we're minimised, sleep a bit more */
-		if ( !(appState & SDL_APPACTIVE) )
+		if (window_flags & SDL_WINDOW_MINIMIZED )
 		{
 			scr_skipupdate = 1;
 			SDL_Delay(32);

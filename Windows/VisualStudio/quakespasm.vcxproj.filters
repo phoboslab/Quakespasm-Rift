@@ -18,9 +18,6 @@
     <ClCompile Include="..\..\Quake\bgmusic.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Quake\cd_sdl.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Quake\cfgfile.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -249,9 +246,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Quake\bspfile.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Quake\cdaudio.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Quake\client.h">

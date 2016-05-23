@@ -31,6 +31,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 
 static HICON icon;
+extern SDL_Window *VID_GetWindow();
 
 void PL_SetWindowIcon (void)
 {
@@ -46,10 +47,11 @@ void PL_SetWindowIcon (void)
 
 	SDL_VERSION(&wminfo.version);
 
-	if (SDL_GetWMInfo(&wminfo) != 1)
+	
+	if (SDL_GetWindowWMInfo(VID_GetWindow(), &wminfo) != 1)
 		return;	/* wrong SDL version */
 
-	hwnd = wminfo.window;
+	hwnd = wminfo.info.win.window;
 #ifdef _WIN64
 	SetClassLongPtr(hwnd, GCLP_HICON, (LONG_PTR) icon);
 #else

@@ -26,7 +26,6 @@
 #define _BGMUSIC_H_
 
 extern qboolean	bgmloop;
-extern cvar_t	bgm_extmusic;
 
 qboolean BGM_Init (void);
 void BGM_Shutdown (void);

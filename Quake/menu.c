@@ -955,7 +955,6 @@ enum
 	OPT_SBALPHA,
 	OPT_SNDVOL,
 	OPT_MUSICVOL,
-	OPT_MUSICEXT,
 	OPT_ALWAYRUN,
 	OPT_INVMOUSE,
 	OPT_ALWAYSMLOOK,
@@ -1028,9 +1027,6 @@ void M_AdjustSliders (int dir)
 		if (f < 0)	f = 0;
 		else if (f > 1)	f = 1;
 		Cvar_SetValue ("bgmvolume", f);
-		break;
-	case OPT_MUSICEXT:	// enable external music vs cdaudio
-		Cvar_Set ("bgm_extmusic", bgm_extmusic.value ? "0" : "1");
 		break;
 	case OPT_SNDVOL:	// sfx volume
 		f = sfxvolume.value + dir * 0.1;
@@ -1161,10 +1157,6 @@ void M_Options_Draw (void)
 	M_Print (16, 32 + 8*OPT_MUSICVOL,	"          Music Volume");
 	r = bgmvolume.value;
 	M_DrawSlider (220, 32 + 8*OPT_MUSICVOL, r);
-
-	// OPT_MUSICEXT:
-	M_Print (16, 32 + 8*OPT_MUSICEXT,	"        External Music");
-	M_DrawCheckbox (220, 32 + 8*OPT_MUSICEXT, bgm_extmusic.value);
 
 	// OPT_ALWAYRUN:
 	M_Print (16, 32 + 8*OPT_ALWAYRUN,	"            Always Run");

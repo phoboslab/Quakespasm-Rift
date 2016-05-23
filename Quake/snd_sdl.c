@@ -76,7 +76,6 @@ qboolean SNDDMA_Init (dma_t *dma)
 {
 	SDL_AudioSpec desired, obtained;
 	int		tmp, val;
-	char	drivername[128];
 
 	if (SDL_InitSubSystem(SDL_INIT_AUDIO) == -1)
 	{
@@ -147,10 +146,8 @@ qboolean SNDDMA_Init (dma_t *dma)
 
 	Con_Printf ("SDL audio spec  : %d Hz, %d samples, %d channels\n",
 			obtained.freq, obtained.samples, obtained.channels);
-	if (SDL_AudioDriverName(drivername, sizeof(drivername)) == NULL)
-		strcpy(drivername, "(UNKNOWN)");
 	buffersize = shm->samples * (shm->samplebits / 8);
-	Con_Printf ("SDL audio driver: %s, %d bytes buffer\n", drivername, buffersize);
+	Con_Printf ("SDL audio driver: %s, %d bytes buffer\n", SDL_GetAudioDriver(0), buffersize);
 
 	shm->buffer = (unsigned char *) calloc (1, buffersize);
 	if (!shm->buffer)

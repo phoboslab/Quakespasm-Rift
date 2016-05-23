@@ -61,7 +61,7 @@ cvar_t	m_filter = {"m_filter","0",CVAR_NONE};
  * gets updated from the main game loop via IN_MouseMove */
 static int	total_dx, total_dy = 0;
 
-static int FilterMouseEvents (const SDL_Event *event)
+static int FilterMouseEvents (void * user_data, SDL_Event *event)
 {
 	switch (event->type)
 	{
@@ -146,6 +146,9 @@ static void IN_ReenableOSXMouseAccel (void)
 
 void IN_Activate (void)
 {
+	SDL_EventFilter filter;
+	void *filter_user_data;
+
 	if (no_mouse)
 		return;
 
@@ -155,10 +158,11 @@ void IN_Activate (void)
 		IN_DisableOSXMouseAccel();
 #endif
 
-	if (SDL_WM_GrabInput(SDL_GRAB_QUERY) != SDL_GRAB_ON)
+	if (!SDL_GetRelativeMouseMode())
 	{
-		SDL_WM_GrabInput(SDL_GRAB_ON);
-		if (SDL_WM_GrabInput(SDL_GRAB_QUERY) != SDL_GRAB_ON)
+		SDL_SetRelativeMouseMode(SDL_TRUE);
+
+		if (!SDL_GetRelativeMouseMode())
 			Con_Printf("WARNING: SDL_WM_GrabInput(SDL_GRAB_ON) failed.\n");
 	}
 
@@ -169,8 +173,10 @@ void IN_Activate (void)
 			Con_Printf("WARNING: SDL_ShowCursor(SDL_DISABLE) failed.\n");
 	}
 
-	if (SDL_GetEventFilter() != NULL)
-		SDL_SetEventFilter(NULL);
+	SDL_GetEventFilter(&filter, &filter_user_data);
+
+	if (filter != NULL)
+		SDL_SetEventFilter(NULL, NULL);
 
 	total_dx = 0;
 	total_dy = 0;
@@ -178,6 +184,9 @@ void IN_Activate (void)
 
 void IN_Deactivate (qboolean free_cursor)
 {
+	SDL_EventFilter filter;
+	void *filter_user_data;
+
 	if (no_mouse)
 		return;
 
@@ -188,10 +197,10 @@ void IN_Deactivate (qboolean free_cursor)
 
 	if (free_cursor)
 	{
-		if (SDL_WM_GrabInput(SDL_GRAB_QUERY) != SDL_GRAB_OFF)
+		if (SDL_GetRelativeMouseMode())
 		{
-			SDL_WM_GrabInput(SDL_GRAB_OFF);
-			if (SDL_WM_GrabInput(SDL_GRAB_QUERY) != SDL_GRAB_OFF)
+			SDL_SetRelativeMouseMode(SDL_FALSE);
+			if (SDL_GetRelativeMouseMode())
 				Con_Printf("WARNING: SDL_WM_GrabInput(SDL_GRAB_OFF) failed.\n");
 		}
 
@@ -204,22 +213,19 @@ void IN_Deactivate (qboolean free_cursor)
 	}
 
 	/* discard all mouse events when input is deactivated */
-	if (SDL_GetEventFilter() != FilterMouseEvents)
-		SDL_SetEventFilter(FilterMouseEvents);
+	SDL_GetEventFilter(&filter, &filter_user_data);
+	if (filter != FilterMouseEvents)
+		SDL_SetEventFilter(FilterMouseEvents, NULL);
 }
 
 void IN_Init (void)
 {
 	prev_gamekey = ((key_dest == key_game && !con_forcedup) || m_keys_bind_grab);
-	SDL_EnableUNICODE (!prev_gamekey);
-	if (SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL) == -1)
-		Con_Printf("Warning: SDL_EnableKeyRepeat() failed.\n");
-
 	if (safemode || COM_CheckParm("-nomouse"))
 	{
 		no_mouse = true;
 		/* discard all mouse events when input is deactivated */
-		SDL_SetEventFilter(FilterMouseEvents);
+		SDL_SetEventFilter(FilterMouseEvents, NULL);
 	}
 
 #ifdef MACOS_X_ACCELERATION_HACK
@@ -307,7 +313,6 @@ void IN_UpdateForKeydest (void)
 	{
 		prev_gamekey = gamekey;
 		Key_ClearStates();
-		SDL_EnableUNICODE(!gamekey);
 	}
 }
 
@@ -320,13 +325,12 @@ void IN_SendKeyEvents (void)
 	{
 		switch (event.type)
 		{
-		case SDL_ACTIVEEVENT:
-			if (event.active.state & (SDL_APPINPUTFOCUS|SDL_APPACTIVE))
-			{
-				if (event.active.gain)
-					S_UnblockSound();
-				else	S_BlockSound();
-			}
+		case SDL_WINDOWEVENT:
+			if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
+				S_UnblockSound();
+			else if(event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
+				S_BlockSound();
+
 			break;
 
 		case SDL_KEYDOWN:
@@ -348,32 +352,32 @@ void IN_SendKeyEvents (void)
 			state = event.key.state;
 			modstate = SDL_GetModState();
 
-			if (event.key.keysym.unicode != 0)
+			/*if (event.key.keysym.unicode != 0)
 			{
 				if ((event.key.keysym.unicode & 0xFF80) == 0)
 				{
 					int usym = event.key.keysym.unicode & 0x7F;
 					if (modstate & KMOD_CTRL && usym < 32 && sym >= 32)
 					{
-						/* control characters */
+						// control characters
 						if (modstate & KMOD_SHIFT)
 							usym += 64;
 						else	usym += 96;
 					}
 #if defined(__APPLE__) && defined(__MACH__)
 					if (sym == SDLK_BACKSPACE)
-						usym = sym;	/* avoid change to SDLK_DELETE */
-#endif	/* Mac OS X */
+						usym = sym;	/* avoid change to SDLK_DELETE
+#endif	// Mac OS X
 #if defined(__QNX__) || defined(__QNXNTO__)
 					if (sym == SDLK_BACKSPACE || sym == SDLK_RETURN)
-						usym = sym;	/* S.A: fixes QNX weirdness */
-#endif	/* __QNX__ */
-					/* only use unicode for ` and ~ in game mode */
+						usym = sym;	/* S.A: fixes QNX weirdness
+#endif	// __QNX__
+					// only use unicode for ` and ~ in game mode
 					if (!gamekey || usym == '`' || usym == '~')
 						sym = usym;
 				}
-				/* else: it's an international character */
-			}
+				// else: it's an international character
+			}*/
 			/*printf("You pressed %s (%d) (%c)\n", SDL_GetKeyName(sym), sym, sym);*/
 
 			switch (sym)
@@ -420,7 +424,6 @@ void IN_SendKeyEvents (void)
 			case SDLK_F12:
 				sym = K_F12;
 				break;
-			case SDLK_BREAK:
 			case SDLK_PAUSE:
 				sym = K_PAUSE;
 				break;
@@ -463,61 +466,61 @@ void IN_SendKeyEvents (void)
 			case SDLK_LALT:
 				sym = K_ALT;
 				break;
-			case SDLK_RMETA:
-			case SDLK_LMETA:
+			case SDLK_RGUI:
+			case SDLK_LGUI:
 				sym = K_COMMAND;
 				break;
-			case SDLK_NUMLOCK:
+			case SDLK_NUMLOCKCLEAR:
 				if (gamekey)
 					sym = K_KP_NUMLOCK;
 				else	sym = 0;
 				break;
-			case SDLK_KP0:
+			case SDLK_KP_0:
 				if (gamekey)
 					sym = K_KP_INS;
 				else	sym = (modstate & KMOD_NUM) ? SDLK_0 : K_INS;
 				break;
-			case SDLK_KP1:
+			case SDLK_KP_1:
 				if (gamekey)
 					sym = K_KP_END;
 				else	sym = (modstate & KMOD_NUM) ? SDLK_1 : K_END;
 				break;
-			case SDLK_KP2:
+			case SDLK_KP_2:
 				if (gamekey)
 					sym = K_KP_DOWNARROW;
 				else	sym = (modstate & KMOD_NUM) ? SDLK_2 : K_DOWNARROW;
 				break;
-			case SDLK_KP3:
+			case SDLK_KP_3:
 				if (gamekey)
 					sym = K_KP_PGDN;
 				else	sym = (modstate & KMOD_NUM) ? SDLK_3 : K_PGDN;
 				break;
-			case SDLK_KP4:
+			case SDLK_KP_4:
 				if (gamekey)
 					sym = K_KP_LEFTARROW;
 				else	sym = (modstate & KMOD_NUM) ? SDLK_4 : K_LEFTARROW;
 				break;
-			case SDLK_KP5:
+			case SDLK_KP_5:
 				if (gamekey)
 					sym = K_KP_5;
 				else	sym = SDLK_5;
 				break;
-			case SDLK_KP6:
+			case SDLK_KP_6:
 				if (gamekey)
 					sym = K_KP_RIGHTARROW;
 				else	sym = (modstate & KMOD_NUM) ? SDLK_6 : K_RIGHTARROW;
 				break;
-			case SDLK_KP7:
+			case SDLK_KP_7:
 				if (gamekey)
 					sym = K_KP_HOME;
 				else	sym = (modstate & KMOD_NUM) ? SDLK_7 : K_HOME;
 				break;
-			case SDLK_KP8:
+			case SDLK_KP_8:
 				if (gamekey)
 					sym = K_KP_UPARROW;
 				else	sym = (modstate & KMOD_NUM) ? SDLK_8 : K_UPARROW;
 				break;
-			case SDLK_KP9:
+			case SDLK_KP_9:
 				if (gamekey)
 					sym = K_KP_PGUP;
 				else	sym = (modstate & KMOD_NUM) ? SDLK_9 : K_PGUP;
@@ -564,8 +567,7 @@ void IN_SendKeyEvents (void)
 			/* If we are not directly handled and still above 255,
 			 * just force it to 0. kill unsupported international
 			 * characters, too.  */
-				if ((sym >= SDLK_WORLD_0 && sym <= SDLK_WORLD_95) ||
-									sym > 255)
+				if (sym >= 160 && sym <= 255)
 					sym = 0;
 				break;
 			}

@@ -102,8 +102,8 @@
       <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>LibOVR.lib;libvorbisfile.lib;libvorbis.lib;libogg.lib;libmad.lib;WSOCK32.lib;OPENGL32.lib;winmm.lib;SDL.lib;SDLmain.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>..\..\..\OculusSDK\LibOVR\Lib\Windows\Win32\Release\VS2010;..\codecs\x86;C:\SDL\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>LibOVR.lib;libvorbisfile.lib;libvorbis.lib;libogg.lib;libmad.lib;WSOCK32.lib;OPENGL32.lib;winmm.lib;SDL2.lib;SDL2main.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\..\..\OculusSDK\LibOVR\Lib\Windows\Win32\Release\VS2010;..\codecs\x86;C:\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -125,8 +125,8 @@
       <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>LibOVR.lib;libvorbisfile.lib;libvorbis.lib;libogg.lib;libmad.lib;WSOCK32.lib;OPENGL32.lib;winmm.lib;SDL.lib;SDLmain.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>..\..\..\OculusSDK\LibOVR\Lib\Windows\Win32\Release\VS2010;..\codecs\x86;C:\SDL\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>LibOVR.lib;libvorbisfile.lib;libvorbis.lib;libogg.lib;libmad.lib;WSOCK32.lib;OPENGL32.lib;winmm.lib;SDL2.lib;SDL2main.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\..\..\OculusSDK\LibOVR\Lib\Windows\Win32\Release\VS2010;..\codecs\x86;C:\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -189,7 +189,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Quake\bgmusic.c" />
-    <ClCompile Include="..\..\Quake\cd_sdl.c" />
     <ClCompile Include="..\..\Quake\cfgfile.c" />
     <ClCompile Include="..\..\Quake\chase.c" />
     <ClCompile Include="..\..\Quake\cl_demo.c" />
@@ -270,7 +269,6 @@
     <ClInclude Include="..\..\Quake\arch_def.h" />
     <ClInclude Include="..\..\Quake\bgmusic.h" />
     <ClInclude Include="..\..\Quake\bspfile.h" />
-    <ClInclude Include="..\..\Quake\cdaudio.h" />
     <ClInclude Include="..\..\Quake\client.h" />
     <ClInclude Include="..\..\Quake\cmd.h" />
     <ClInclude Include="..\..\Quake\common.h" />
