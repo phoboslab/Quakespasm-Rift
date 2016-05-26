@@ -287,10 +287,10 @@ void R_SetFrustum (float fovx, float fovy)
 {
 	int		i;
 
-	if (r_stereo.value )
+	if (r_stereo.value)
 		fovx += 10; //silly hack so that polygons don't drop out becuase of stereo skew
 	
-	if (vr_enabled.value )
+	if (vr_enabled.value)
 		fovx += 25; // meh
 
 	TurnVector(frustum[0].normal, vpn, vright, fovx/2 - 90); //left plane

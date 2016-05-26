@@ -989,7 +989,7 @@ void SCR_TileClear (void)
 	}
 }
 
-void DrawRift2d ()
+void DrawVR2D ()
 {
 	qboolean draw_sbar = false;
 	vec3_t menu_angles, forward, right, up, target;
@@ -1018,16 +1018,12 @@ void DrawRift2d ()
 
 	AngleVectors (menu_angles, forward, right, up);
 
-	VectorMA (r_refdef.vieworg, 32, forward, target);
+	VectorMA (r_refdef.vieworg, 48, forward, target);
 
 	glTranslatef (target[0],  target[1],  target[2]);
-	
 	glRotatef(menu_angles[YAW] - 90, 0, 0, 1); // rotate around z
-
 	glRotatef(90 + menu_angles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
-
 	glTranslatef (-(320.0 * scale_hud / 2), -(200.0 * scale_hud / 2), 0); // center the status bar
-
 	glScalef(scale_hud, scale_hud, scale_hud);
 
 
@@ -1107,7 +1103,7 @@ void SCR_UpdateScreenContent (void)
 	
 	if(vr_enabled.value && !con_forcedup)
 	{
-		DrawRift2d();
+		DrawVR2D();
 	}
 	else
 	{

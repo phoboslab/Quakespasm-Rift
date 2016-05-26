@@ -47,13 +47,6 @@ extern cvar_t r_lerpmove;
 extern cvar_t r_nolerp_list;
 //johnfitz
 
-//phoboslab -- cvars for vr
-extern cvar_t vr_enabled;
-extern cvar_t vr_crosshair;
-extern cvar_t r_oculusrift_crosshair_depth;
-extern cvar_t vr_aimmode;
-extern cvar_t vr_deadzone;
-//
 
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
 

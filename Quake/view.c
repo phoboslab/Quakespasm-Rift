@@ -703,15 +703,11 @@ void V_CalcViewRoll (void)
 		v_dmg_time -= host_frametime;
 	}
 
-	if (cl.stats[STAT_HEALTH] <= 0)
+	// only roll when not in VR mode
+	if (cl.stats[STAT_HEALTH] <= 0 && !vr_enabled.value)
 	{
-		// only roll when the rift is not enabled
-		if (!vr_enabled.value)
-			r_refdef.viewangles[ROLL] = 80;	// dead view angle
-		
-		return;
+		r_refdef.viewangles[ROLL] = 80;	// dead view angle
 	}
-
 }
 
 /*
@@ -736,6 +732,7 @@ void V_CalcIntermissionRefdef (void)
 
 	if (vr_enabled.value)
 	{
+		r_refdef.viewangles[PITCH] = 0;
 		VectorCopy (r_refdef.viewangles, r_refdef.aimangles);
 		VR_AddOrientationToViewAngles(r_refdef.viewangles);
 		VR_SetAngles(r_refdef.viewangles);
