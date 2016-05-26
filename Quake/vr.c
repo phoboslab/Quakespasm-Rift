@@ -73,7 +73,11 @@ static ovrMirrorTextureDesc mirror_texture_desc;
 static GLuint mirror_fbo = 0;
 static int attempt_to_refocus_retry = 0;
 
-static const float meters_to_units = 32.0f;
+
+// Wolfenstein 3D, DOOM and QUAKE use the same coordinate/unit system:
+// 8 foot (96 inch) height wall == 64 units, 1.5 inches per pixel unit
+// 1.0 pixel unit / 1.5 inch == 0.666666 pixel units per inch
+static const float meters_to_units = 1.0f/(1.5f * 0.0254f);
 
 
 extern cvar_t gl_farclip;
@@ -313,6 +317,7 @@ qboolean VR_Enable()
 	ovr_GetAudioDeviceOutWaveId(&ovr_audio_id);
 	if (ovr_audio_id != WAVE_MAPPER)
 	{
+		// Get the name of the device and set it as snd_device. 
 		WAVEOUTCAPS caps;
 		MMRESULT mmr = waveOutGetDevCaps(ovr_audio_id, &caps, sizeof(caps));
 		if (mmr == MMSYSERR_NOERROR)
@@ -322,7 +327,7 @@ qboolean VR_Enable()
 		}
 	}
 
-	attempt_to_refocus_retry = 900; // Try to refocus our for the first 900 frames
+	attempt_to_refocus_retry = 900; // Try to refocus our for the first 900 frames :/
 	vr_initialized = true;
 	return true;
 }
