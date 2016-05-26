@@ -205,6 +205,7 @@
     <ClCompile Include="..\..\Quake\vr.c">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
     </ClCompile>
+    <ClCompile Include="..\..\Quake\vr_menu.c" />
     <ClCompile Include="dirent.c" />
     <ClCompile Include="..\..\Quake\gl_draw.c" />
     <ClCompile Include="..\..\Quake\gl_fog.c" />
@@ -278,6 +279,7 @@
     <ClInclude Include="..\..\Quake\cfgfile.h" />
     <ClInclude Include="..\..\Quake\cvar.h" />
     <ClInclude Include="..\..\Quake\vr.h" />
+    <ClInclude Include="..\..\Quake\vr_menu.h" />
     <ClInclude Include="dirent.h" />
     <ClInclude Include="..\..\Quake\draw.h" />
     <ClInclude Include="..\..\Quake\gl_model.h" />

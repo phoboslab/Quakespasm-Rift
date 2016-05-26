@@ -2,6 +2,7 @@
 
 #include "quakedef.h"
 #include "vr.h"
+#include "vr_menu.h"
 
 #define UNICODE 1
 #include <mmsystem.h>
@@ -287,6 +288,16 @@ void VR_Init()
 	Cvar_SetCallback (&vr_deadzone, VR_Deadzone_f);
 	Cvar_RegisterVariable (&vr_perfhud);
 	Cvar_SetCallback (&vr_perfhud, VR_Perfhud_f);
+
+	VR_Menu_Init();
+
+	// Set the cvar if invoked from a command line parameter
+	{
+		int i = COM_CheckParm("-vr");
+		if ( i && i < com_argc - 1 ) {
+			Cvar_SetQuick( &vr_enabled, "1" );
+		}
+	}
 }
 
 qboolean VR_Enable()
@@ -622,7 +633,14 @@ void VR_ShowCrosshair ()
 	vec3_t forward, up, right;
 	vec3_t start, end, impact;
 	float size, alpha;
+
 	if( (sv_player && (int)(sv_player->v.weapon) == IT_AXE) )
+		return;
+
+	size = CLAMP (0.0, vr_crosshair_size.value, 32.0);
+	alpha = CLAMP (0.0, vr_crosshair_alpha.value, 1.0);
+
+	if ( size <= 0 || alpha <= 0 )
 		return;
 
 	// setup gl
@@ -638,12 +656,6 @@ void VR_ShowCrosshair ()
 	VectorCopy (cl.viewent.origin, start);
 	start[2] -= cl.viewheight - 10;
 	AngleVectors (cl.aimangles, forward, right, up);
-
-	size = CLAMP (0.0, vr_crosshair_size.value, 32.0);
-	alpha = CLAMP (0.0, vr_crosshair_alpha.value, 1.0);
-
-	if ( size <= 0 || alpha <= 0 )
-		return;
 
 	switch((int) vr_crosshair.value)
 	{	
