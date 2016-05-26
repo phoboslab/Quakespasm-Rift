@@ -1,4 +1,4 @@
-// 2013 Dominic Szablewski - phoboslab.org
+// 2016 Dominic Szablewski - phoboslab.org
 
 #include "quakedef.h"
 #include "vr.h"
@@ -58,6 +58,30 @@ struct {
 	{NULL, NULL},
 };
 
+// main screen & 2D drawing
+extern void SCR_SetUpToDrawConsole (void);
+extern void SCR_UpdateScreenContent();
+extern qboolean	scr_drawdialog;
+extern void SCR_DrawNotifyString (void);
+extern qboolean	scr_drawloading;
+extern void SCR_DrawLoading (void);
+extern void SCR_CheckDrawCenterString (void);
+extern void SCR_DrawRam (void);
+extern void SCR_DrawNet (void);
+extern void SCR_DrawTurtle (void);
+extern void SCR_DrawPause (void);
+extern void SCR_DrawDevStats (void);
+extern void SCR_DrawFPS (void);
+extern void SCR_DrawClock (void);
+extern void SCR_DrawConsole (void);
+
+// rendering
+extern void R_SetupView(void);
+extern void R_RenderScene(void);
+extern int glx, gly, glwidth, glheight;
+extern refdef_t r_refdef;
+extern vec3_t vright;
+
 
 static ovrSession session;
 static ovrHmdDesc hmd;
@@ -90,6 +114,7 @@ cvar_t vr_enabled = {"vr_enabled", "0", CVAR_NONE};
 cvar_t vr_crosshair = {"vr_crosshair","1", CVAR_ARCHIVE};
 cvar_t vr_crosshair_depth = {"vr_crosshair_depth","0", CVAR_ARCHIVE};
 cvar_t vr_crosshair_size = {"vr_crosshair_size","3.0", CVAR_ARCHIVE};
+cvar_t vr_crosshair_alpha = {"vr_crosshair_alpha","0.25", CVAR_ARCHIVE};
 cvar_t vr_aimmode = {"vr_aimmode","1", CVAR_ARCHIVE};
 cvar_t vr_deadzone = {"vr_deadzone","30",CVAR_ARCHIVE};
 cvar_t vr_perfhud = {"vr_perfhud", "0", CVAR_ARCHIVE};
@@ -256,6 +281,7 @@ void VR_Init()
 	Cvar_RegisterVariable (&vr_crosshair);
 	Cvar_RegisterVariable (&vr_crosshair_depth);
 	Cvar_RegisterVariable (&vr_crosshair_size);
+	Cvar_RegisterVariable (&vr_crosshair_alpha);
 	Cvar_RegisterVariable (&vr_aimmode);
 	Cvar_RegisterVariable (&vr_deadzone);
 	Cvar_SetCallback (&vr_deadzone, VR_Deadzone_f);
@@ -460,6 +486,7 @@ void VR_UpdateScreenContent()
 			break;
 		
 		case VR_AIMMODE_BLENDED:
+		case VR_AIMMODE_BLENDED_NOPITCH:
 			{
 				float diffHMDYaw = orientation[YAW] - lastOrientation[YAW];
 				float diffHMDPitch = orientation[PITCH] - lastOrientation[PITCH];
@@ -478,7 +505,9 @@ void VR_UpdateScreenContent()
 					cl.aimangles[YAW] += diffHMDYaw;
 					cl.viewangles[YAW] += diffAimYaw;
 				}
-				cl.aimangles[PITCH] += diffHMDPitch;
+				if ( (int)vr_aimmode.value == VR_AIMMODE_BLENDED ) {
+					cl.aimangles[PITCH] += diffHMDPitch;
+				}
 				cl.viewangles[PITCH]  = orientation[PITCH];
 			}
 			break;
@@ -592,7 +621,7 @@ void VR_ShowCrosshair ()
 {
 	vec3_t forward, up, right;
 	vec3_t start, end, impact;
-	float size;
+	float size, alpha;
 	if( (sv_player && (int)(sv_player->v.weapon) == IT_AXE) )
 		return;
 
@@ -610,7 +639,11 @@ void VR_ShowCrosshair ()
 	start[2] -= cl.viewheight - 10;
 	AngleVectors (cl.aimangles, forward, right, up);
 
-	size = CLAMP (1.0, vr_crosshair_size.value, 5.0);
+	size = CLAMP (0.0, vr_crosshair_size.value, 32.0);
+	alpha = CLAMP (0.0, vr_crosshair_alpha.value, 1.0);
+
+	if ( size <= 0 || alpha <= 0 )
+		return;
 
 	switch((int) vr_crosshair.value)
 	{	
@@ -626,8 +659,8 @@ void VR_ShowCrosshair ()
 			}
 
 			glEnable(GL_POINT_SMOOTH);
-			glColor4f (1, 0, 0, 0.5);
-			glPointSize( size * glwidth / 1280.0f );
+			glColor4f (1, 0, 0, alpha);
+			glPointSize( size * glwidth / vid.width );
 
 			glBegin(GL_POINTS);
 			glVertex3f (impact[0], impact[1], impact[2]);
@@ -640,8 +673,8 @@ void VR_ShowCrosshair ()
 			VectorMA (start, 4096, forward, end);
 			TraceLineToEntity (start, end, impact, sv_player);
 
-			glColor4f (1, 0, 0, 0.4);
-			glLineWidth( size * glwidth / (1280.0f) );
+			glColor4f (1, 0, 0, alpha);
+			glLineWidth( size * glwidth / vid.width );
 			glBegin (GL_LINES);
 			glVertex3f (start[0], start[1], start[2]);
 			glVertex3f (impact[0], impact[1], impact[2]);
@@ -659,7 +692,97 @@ void VR_ShowCrosshair ()
 	glEnable (GL_DEPTH_TEST);
 }
 
-void VR_Sbar_Draw()
+void VR_Draw2D()
+{
+	qboolean draw_sbar = false;
+	vec3_t menu_angles, forward, right, up, target;
+	float scale_hud = 0.13;
+
+	int oldglwidth = glwidth, 
+		oldglheight = glheight,
+		oldconwidth = vid.conwidth,
+		oldconheight = vid.conheight;
+
+	glwidth = 320;
+	glheight = 200;
+	
+	vid.conwidth = 320;
+	vid.conheight = 200;
+
+	// draw 2d elements 1m from the users face, centered
+	glPushMatrix();
+	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another
+	glEnable (GL_BLEND);
+
+	VectorCopy(r_refdef.aimangles, menu_angles)
+
+	if (vr_aimmode.value == VR_AIMMODE_HEAD_MYAW || vr_aimmode.value == VR_AIMMODE_HEAD_MYAW_MPITCH)
+		menu_angles[PITCH] = 0;
+
+	AngleVectors (menu_angles, forward, right, up);
+
+	VectorMA (r_refdef.vieworg, 48, forward, target);
+
+	glTranslatef (target[0],  target[1],  target[2]);
+	glRotatef(menu_angles[YAW] - 90, 0, 0, 1); // rotate around z
+	glRotatef(90 + menu_angles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
+	glTranslatef (-(320.0 * scale_hud / 2), -(200.0 * scale_hud / 2), 0); // center the status bar
+	glScalef(scale_hud, scale_hud, scale_hud);
+
+
+	if (scr_drawdialog) //new game confirm
+	{
+		if (con_forcedup)
+			Draw_ConsoleBackground ();
+		else
+			draw_sbar = true; //Sbar_Draw ();
+		Draw_FadeScreen ();
+		SCR_DrawNotifyString ();
+	}
+	else if (scr_drawloading) //loading
+	{
+		SCR_DrawLoading ();
+		draw_sbar = true; //Sbar_Draw ();
+	}
+	else if (cl.intermission == 1 && key_dest == key_game) //end of level
+	{
+		Sbar_IntermissionOverlay ();
+	}
+	else if (cl.intermission == 2 && key_dest == key_game) //end of episode
+	{
+		Sbar_FinaleOverlay ();
+		SCR_CheckDrawCenterString ();
+	}
+	else
+	{
+		//SCR_DrawCrosshair (); //johnfitz
+		SCR_DrawRam ();
+		SCR_DrawNet ();
+		SCR_DrawTurtle ();
+		SCR_DrawPause ();
+		SCR_CheckDrawCenterString ();
+		draw_sbar = true; //Sbar_Draw ();
+		SCR_DrawDevStats (); //johnfitz
+		SCR_DrawFPS (); //johnfitz
+		SCR_DrawClock (); //johnfitz
+		SCR_DrawConsole ();
+		M_Draw ();
+	}
+
+	glDisable (GL_BLEND);
+	glEnable (GL_DEPTH_TEST);
+	glPopMatrix();
+
+	if(draw_sbar)
+		VR_DrawSbar();
+
+	glwidth = oldglwidth;
+	glheight = oldglheight;
+	vid.conwidth = oldconwidth;
+	vid.conheight =	oldconheight;
+}
+
+void VR_DrawSbar()
 {	
 	vec3_t sbar_angles, forward, right, up, target;
 	float scale_hud = 0.025;

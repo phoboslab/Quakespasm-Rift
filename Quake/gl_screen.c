@@ -989,96 +989,6 @@ void SCR_TileClear (void)
 	}
 }
 
-void DrawVR2D ()
-{
-	qboolean draw_sbar = false;
-	vec3_t menu_angles, forward, right, up, target;
-	float scale_hud = 0.13;
-
-	int oldglwidth = glwidth, 
-		oldglheight = glheight,
-		oldconwidth = vid.conwidth,
-		oldconheight = vid.conheight;
-
-	glwidth = 320;
-	glheight = 200;
-	
-	vid.conwidth = 320;
-	vid.conheight = 200;
-
-	// draw 2d elements 1m from the users face, centered
-	glPushMatrix();
-	glDisable (GL_DEPTH_TEST); // prevents drawing sprites on sprites from interferring with one another
-	glEnable (GL_BLEND);
-
-	VectorCopy(r_refdef.aimangles, menu_angles)
-
-	if (vr_aimmode.value == VR_AIMMODE_HEAD_MYAW || vr_aimmode.value == VR_AIMMODE_HEAD_MYAW_MPITCH)
-		menu_angles[PITCH] = 0;
-
-	AngleVectors (menu_angles, forward, right, up);
-
-	VectorMA (r_refdef.vieworg, 48, forward, target);
-
-	glTranslatef (target[0],  target[1],  target[2]);
-	glRotatef(menu_angles[YAW] - 90, 0, 0, 1); // rotate around z
-	glRotatef(90 + menu_angles[PITCH], -1, 0, 0); // keep bar at constant angled pitch towards user
-	glTranslatef (-(320.0 * scale_hud / 2), -(200.0 * scale_hud / 2), 0); // center the status bar
-	glScalef(scale_hud, scale_hud, scale_hud);
-
-
-	if (scr_drawdialog) //new game confirm
-	{
-		if (con_forcedup)
-			Draw_ConsoleBackground ();
-		else
-			draw_sbar = true; //Sbar_Draw ();
-		Draw_FadeScreen ();
-		SCR_DrawNotifyString ();
-	}
-	else if (scr_drawloading) //loading
-	{
-		SCR_DrawLoading ();
-		draw_sbar = true; //Sbar_Draw ();
-	}
-	else if (cl.intermission == 1 && key_dest == key_game) //end of level
-	{
-		Sbar_IntermissionOverlay ();
-	}
-	else if (cl.intermission == 2 && key_dest == key_game) //end of episode
-	{
-		Sbar_FinaleOverlay ();
-		SCR_CheckDrawCenterString ();
-	}
-	else
-	{
-		//SCR_DrawCrosshair (); //johnfitz
-		SCR_DrawRam ();
-		SCR_DrawNet ();
-		SCR_DrawTurtle ();
-		SCR_DrawPause ();
-		SCR_CheckDrawCenterString ();
-		draw_sbar = true; //Sbar_Draw ();
-		SCR_DrawDevStats (); //johnfitz
-		SCR_DrawFPS (); //johnfitz
-		SCR_DrawClock (); //johnfitz
-		SCR_DrawConsole ();
-		M_Draw ();
-	}
-
-	glDisable (GL_BLEND);
-	glEnable (GL_DEPTH_TEST);
-	glPopMatrix();
-
-	if(draw_sbar)
-		VR_Sbar_Draw();
-
-	glwidth = oldglwidth;
-	glheight = oldglheight;
-	vid.conwidth = oldconwidth;
-	vid.conheight =	oldconheight;
-}
-
 /*
 ==================
 SCR_UpdateScreen
@@ -1103,7 +1013,7 @@ void SCR_UpdateScreenContent (void)
 	
 	if(vr_enabled.value && !con_forcedup)
 	{
-		DrawVR2D();
+		VR_Draw2D();
 	}
 	else
 	{
