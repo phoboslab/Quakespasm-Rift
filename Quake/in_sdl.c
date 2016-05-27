@@ -862,6 +862,20 @@ void IN_SendKeyEvents (void)
 			Key_Event(buttonremap[event.button.button - 1], event.button.state == SDL_PRESSED);
 			break;
 
+		case SDL_MOUSEWHEEL:
+			if (event.wheel.y > 0) 
+			{
+				Key_Event(K_MWHEELUP, true);
+				Key_Event(K_MWHEELUP, false);
+			}
+			else if (event.wheel.y < 0)
+			{
+				Key_Event(K_MWHEELDOWN, true);
+				Key_Event(K_MWHEELDOWN, false);
+			}
+			break;
+			
+
 		case SDL_MOUSEMOTION:
 			IN_MouseMove(event.motion.xrel, event.motion.yrel);
 			break;
