@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -35,9 +36,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #  pragma warning(disable:4267)
 	/* 'var'	: conversion from 'size_t' to 'type',
 			  possible loss of data (/Wp64 warning) */
-/* MSC doesn't have fmin() / fmax(), use the min/max macros: */
-#define fmax q_max
-#define fmin q_min
 #endif	/* _MSC_VER */
 #endif	/* _WIN32 */
 
@@ -133,24 +131,21 @@ char *Q_strrchr (const char *s, char c);
 void Q_strcat (char *dest, const char *src);
 int Q_strcmp (const char *s1, const char *s2);
 int Q_strncmp (const char *s1, const char *s2, int count);
-int Q_strcasecmp (const char *s1, const char *s2);
-int Q_strncasecmp (const char *s1, const char *s2, int n);
 int	Q_atoi (const char *str);
 float Q_atof (const char *str);
 
 
 #include "strl_fn.h"
 
-/* snprintf, vsnprintf : always use our versions. */
-/* platform dependant (v)snprintf function names: */
-#if defined(_WIN32)
-#define	snprintf_func		_snprintf
-#define	vsnprintf_func		_vsnprintf
-#else
-#define	snprintf_func		snprintf
-#define	vsnprintf_func		vsnprintf
-#endif
+/* locale-insensitive strcasecmp replacement functions: */
+extern int q_strcasecmp (const char * s1, const char * s2);
+extern int q_strncasecmp (const char *s1, const char *s2, size_t n);
 
+/* locale-insensitive strlwr/upr replacement functions: */
+extern char *q_strlwr (char *str);
+extern char *q_strupr (char *str);
+
+/* snprintf, vsnprintf : always use our versions. */
 extern int q_snprintf (char *str, size_t size, const char *format, ...) __attribute__((__format__(__printf__,3,4)));
 extern int q_vsnprintf(char *str, size_t size, const char *format, va_list args)
 									__attribute__((__format__(__printf__,3,0)));
@@ -182,7 +177,10 @@ void COM_InitFilesystem (void);
 const char *COM_SkipPath (const char *pathname);
 void COM_StripExtension (const char *in, char *out, size_t outsize);
 void COM_FileBase (const char *in, char *out, size_t outsize);
+void COM_AddExtension (char *path, const char *extension, size_t len);
+#if 0 /* COM_DefaultExtension can be dangerous */
 void COM_DefaultExtension (char *path, const char *extension, size_t len);
+#endif
 const char *COM_FileGetExtension (const char *in); /* doesn't return NULL */
 void COM_ExtractExtension (const char *in, char *out, size_t outsize);
 void COM_CreatePath (char *path);
@@ -192,6 +190,34 @@ char *va (const char *format, ...) __attribute__((__format__(__printf__,1,2)));
 
 
 //============================================================================
+
+// QUAKEFS
+typedef struct
+{
+	char	name[MAX_QPATH];
+	int		filepos, filelen;
+} packfile_t;
+
+typedef struct pack_s
+{
+	char	filename[MAX_OSPATH];
+	int		handle;
+	int		numfiles;
+	packfile_t	*files;
+} pack_t;
+
+typedef struct searchpath_s
+{
+	unsigned int path_id;	// identifier assigned to the game directory
+					// Note that <install_dir>/game1 and
+					// <userdir>/game1 have the same id.
+	char	filename[MAX_OSPATH];
+	pack_t	*pack;			// only one of filename / pack will be used
+	struct searchpath_s	*next;
+} searchpath_t;
+
+extern searchpath_t *com_searchpaths;
+extern searchpath_t *com_base_searchpaths;
 
 extern int com_filesize;
 struct cache_user_s;
@@ -248,15 +274,15 @@ void FS_rewind(fshandle_t *fh);
 int FS_feof(fshandle_t *fh);
 int FS_ferror(fshandle_t *fh);
 int FS_fclose(fshandle_t *fh);
+int FS_fgetc(fshandle_t *fh);
 char *FS_fgets(char *s, int size, fshandle_t *fh);
+long FS_filelength (fshandle_t *fh);
 
 
-extern	struct cvar_s	registered;
-
+extern struct cvar_s	registered;
 extern qboolean		standard_quake, rogue, hipnotic;
-
 extern qboolean		fitzmode;
-/* if true, runs in fitzquake mode disabling custom quakespasm hacks. */
+	/* if true, run in fitzquake mode disabling custom quakespasm hacks */
 
 #endif	/* _Q_COMMON_H */
 

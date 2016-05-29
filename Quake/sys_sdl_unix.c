@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2005 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -20,18 +21,29 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 
+#include "arch_def.h"
 #include "quakedef.h"
 
 #include <sys/types.h>
 #include <errno.h>
 #include <unistd.h>
+#ifdef PLATFORM_OSX
+#include <libgen.h>	/* dirname() and basename() */
+#endif
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <fcntl.h>
 #include <time.h>
+#ifdef DO_USERDIRS
+#include <pwd.h>
+#endif
 
 #if defined(SDL_FRAMEWORK) || defined(NO_SDL_CONFIG)
+#if defined(USE_SDL2)
+#include <SDL2/SDL.h>
+#else
 #include <SDL/SDL.h>
+#endif
 #else
 #include "SDL.h"
 #endif
@@ -143,16 +155,211 @@ int Sys_FileTime (const char *path)
 	return -1;
 }
 
+
+#if defined(__linux__) || defined(__sun) || defined(sun) || defined(_AIX)
+static int Sys_NumCPUs (void)
+{
+	int numcpus = sysconf(_SC_NPROCESSORS_ONLN);
+	return (numcpus < 1) ? 1 : numcpus;
+}
+
+#elif defined(PLATFORM_OSX)
+#include <sys/sysctl.h>
+#if !defined(HW_AVAILCPU)	/* using an ancient SDK? */
+#define HW_AVAILCPU		25	/* needs >= 10.2 */
+#endif
+static int Sys_NumCPUs (void)
+{
+	int numcpus;
+	int mib[2];
+	size_t len;
+
+#if defined(_SC_NPROCESSORS_ONLN)	/* needs >= 10.5 */
+	numcpus = sysconf(_SC_NPROCESSORS_ONLN);
+	if (numcpus != -1)
+		return (numcpus < 1) ? 1 : numcpus;
+#endif
+	len = sizeof(numcpus);
+	mib[0] = CTL_HW;
+	mib[1] = HW_AVAILCPU;
+	sysctl(mib, 2, &numcpus, &len, NULL, 0);
+	if (sysctl(mib, 2, &numcpus, &len, NULL, 0) == -1)
+	{
+		mib[1] = HW_NCPU;
+		if (sysctl(mib, 2, &numcpus, &len, NULL, 0) == -1)
+			return 1;
+	}
+	return (numcpus < 1) ? 1 : numcpus;
+}
+
+#elif defined(__sgi) || defined(sgi) || defined(__sgi__) /* IRIX */
+static int Sys_NumCPUs (void)
+{
+	int numcpus = sysconf(_SC_NPROC_ONLN);
+	if (numcpus < 1)
+		numcpus = 1;
+	return numcpus;
+}
+
+#elif defined(PLATFORM_BSD)
+#include <sys/sysctl.h>
+static int Sys_NumCPUs (void)
+{
+	int numcpus;
+	int mib[2];
+	size_t len;
+
+#if defined(_SC_NPROCESSORS_ONLN)
+	numcpus = sysconf(_SC_NPROCESSORS_ONLN);
+	if (numcpus != -1)
+		return (numcpus < 1) ? 1 : numcpus;
+#endif
+	len = sizeof(numcpus);
+	mib[0] = CTL_HW;
+	mib[1] = HW_NCPU;
+	if (sysctl(mib, 2, &numcpus, &len, NULL, 0) == -1)
+		return 1;
+	return (numcpus < 1) ? 1 : numcpus;
+}
+
+#elif defined(__hpux) || defined(__hpux__) || defined(_hpux)
+#include <sys/mpctl.h>
+static int Sys_NumCPUs (void)
+{
+	int numcpus = mpctl(MPC_GETNUMSPUS, NULL, NULL);
+	return numcpus;
+}
+
+#else /* unknown OS */
+static int Sys_NumCPUs (void)
+{
+	return -2;
+}
+#endif
+
+static char	cwd[MAX_OSPATH];
+#ifdef DO_USERDIRS
+static char	userdir[MAX_OSPATH];
+#ifdef PLATFORM_OSX
+#define SYS_USERDIR	"Library/Application Support/QuakeSpasm"
+#else
+#define SYS_USERDIR	".quakespasm"
+#endif
+
+static void Sys_GetUserdir (char *dst, size_t dstsize)
+{
+	size_t		n;
+	const char	*home_dir = NULL;
+	struct passwd	*pwent;
+
+	pwent = getpwuid( getuid() );
+	if (pwent == NULL)
+		perror("getpwuid");
+	else
+		home_dir = pwent->pw_dir;
+	if (home_dir == NULL)
+		home_dir = getenv("HOME");
+	if (home_dir == NULL)
+		Sys_Error ("Couldn't determine userspace directory");
+
+/* what would be a maximum path for a file in the user's directory...
+ * $HOME/SYS_USERDIR/game_dir/dirname1/dirname2/dirname3/filename.ext
+ * still fits in the MAX_OSPATH == 256 definition, but just in case :
+ */
+	n = strlen(home_dir) + strlen(SYS_USERDIR) + 50;
+	if (n >= dstsize)
+		Sys_Error ("Insufficient array size for userspace directory");
+
+	q_snprintf (dst, dstsize, "%s/%s", home_dir, SYS_USERDIR);
+}
+#endif	/* DO_USERDIRS */
+
+#ifdef PLATFORM_OSX
+static char *OSX_StripAppBundle (char *dir)
+{ /* based on the ioquake3 project at icculus.org. */
+	static char	osx_path[MAX_OSPATH];
+
+	q_strlcpy (osx_path, dir, sizeof(osx_path));
+	if (strcmp(basename(osx_path), "MacOS"))
+		return dir;
+	q_strlcpy (osx_path, dirname(osx_path), sizeof(osx_path));
+	if (strcmp(basename(osx_path), "Contents"))
+		return dir;
+	q_strlcpy (osx_path, dirname(osx_path), sizeof(osx_path));
+	if (!strstr(basename(osx_path), ".app"))
+		return dir;
+	q_strlcpy (osx_path, dirname(osx_path), sizeof(osx_path));
+	return osx_path;
+}
+
+static void Sys_GetBasedir (char *argv0, char *dst, size_t dstsize)
+{
+	char	*tmp;
+
+	if (realpath(argv0, dst) == NULL)
+	{
+		perror("realpath");
+		if (getcwd(dst, dstsize - 1) == NULL)
+	_fail:		Sys_Error ("Couldn't determine current directory");
+	}
+	else
+	{
+		/* strip off the binary name */
+		if (! (tmp = strdup (dst))) goto _fail;
+		q_strlcpy (dst, dirname(tmp), dstsize);
+		free (tmp);
+	}
+
+	tmp = OSX_StripAppBundle(dst);
+	if (tmp != dst)
+		q_strlcpy (dst, tmp, dstsize);
+}
+#else
+static void Sys_GetBasedir (char *argv0, char *dst, size_t dstsize)
+{
+	char	*tmp;
+
+	if (getcwd(dst, dstsize - 1) == NULL)
+		Sys_Error ("Couldn't determine current directory");
+
+	tmp = dst;
+	while (*tmp != 0)
+		tmp++;
+	while (*tmp == 0 && tmp != dst)
+	{
+		--tmp;
+		if (tmp != dst && *tmp == '/')
+			*tmp = 0;
+	}
+}
+#endif
+
 void Sys_Init (void)
 {
-	host_parms->userdir = host_parms->basedir; /* TODO: implement properly! */
+	memset (cwd, 0, sizeof(cwd));
+	Sys_GetBasedir(host_parms->argv[0], cwd, sizeof(cwd));
+	host_parms->basedir = cwd;
+#ifndef DO_USERDIRS
+	host_parms->userdir = host_parms->basedir; /* code elsewhere relies on this ! */
+#else
+	memset (userdir, 0, sizeof(userdir));
+	Sys_GetUserdir(userdir, sizeof(userdir));
+	Sys_mkdir (userdir);
+	host_parms->userdir = userdir;
+#endif
+	host_parms->numcpus = Sys_NumCPUs ();
+	Sys_Printf("Detected %d CPUs.\n", host_parms->numcpus);
 }
 
 void Sys_mkdir (const char *path)
 {
 	int rc = mkdir (path, 0777);
 	if (rc != 0 && errno == EEXIST)
-		rc = 0;
+	{
+		struct stat st;
+		if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
+			rc = 0;
+	}
 	if (rc != 0)
 	{
 		rc = errno;
@@ -262,18 +469,7 @@ void Sys_Sleep (unsigned long msecs)
 
 void Sys_SendKeyEvents (void)
 {
+	IN_Commands();		//ericw -- allow joysticks to add keys so they can be used to confirm SCR_ModalMessage
 	IN_SendKeyEvents();
-}
-
-void Sys_LowFPPrecision (void)
-{
-}
-
-void Sys_HighFPPrecision (void)
-{
-}
-
-void Sys_SetFPCW (void)
-{
 }
 

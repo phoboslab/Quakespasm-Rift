@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -28,15 +29,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 cvar_t		scr_conalpha = {"scr_conalpha", "0.5", CVAR_ARCHIVE}; //johnfitz
 
-extern cvar_t vr_enabled;
-
 qpic_t		*draw_disc;
 qpic_t		*draw_backtile;
 
 gltexture_t *char_texture; //johnfitz
 qpic_t		*pic_ovr, *pic_ins; //johnfitz -- new cursor handling
 qpic_t		*pic_nul; //johnfitz -- for missing gfx, don't crash
-qpic_t		*pic_up, *pic_down; //QuakeSpasm -- menu scrolling
 
 //johnfitz -- new pics
 byte pic_ovr_data[8][8] =
@@ -100,32 +98,6 @@ byte pic_crosshair_data[8][8] =
 	{255,255,255,255,255,255,255,255},
 };
 //johnfitz
-
-//QuakeSpasm -- new pics
-byte pic_up_data[8][8] =
-{
-	{255,255,255,255,255,255,255,255},
-	{255,255,255,255,255,255,255,255},
-	{255,255,255,  7,255,255,255,255},
-	{255,255,  8,  8,  7,255,255,255},
-	{255,  8,  4,  8,  4,  7,255,255},
-	{255,255,  2,  8,  2,  2,  2,255},
-	{255,255,255,  8,  2,255,255,255},
-	{255,255,255,255,  2,255,255,255},
-};
-
-byte pic_down_data[8][8] =
-{
-	{255,255,255,255,255,255,255,255},
-	{255,255,255,255,255,255,255,255},
-	{255,255,255,  8,255,255,255,255},
-	{255,255,255,  8,  2,255,255,255},
-	{255,  8,  4,  8,  4,  7,255,255},
-	{255,255,  8,  8,  7,  2,  2,255},
-	{255,255,255,  7,  2,  2,255,255},
-	{255,255,255,255,  2,255,255,255},
-};
-//QuakeSpasm
 
 typedef struct
 {
@@ -344,66 +316,6 @@ qpic_t	*Draw_CachePic (const char *path)
 
 /*
 ================
-Draw_ConbackPic -- QuakeSpasm custom conback drawing.
-================
-*/
-#if !defined(USE_QS_CONBACK)
-static inline qpic_t *Draw_ConbackPic (void)
-{
-	return Draw_CachePic ("gfx/conback.lmp");
-}
-#else
-extern char *get_conback(void);
-static qboolean have_mod_conback;
-void Draw_CheckConback (void)
-{
-	have_mod_conback = (COM_LoadTempFile("gfx/conback.lmp", NULL) != NULL);
-}
-qpic_t *Draw_ConbackPic (void)
-{
-    if (fitzmode) {
-	return Draw_CachePic ("gfx/conback.lmp");
-    } else if (have_mod_conback) {
-	/* even if we are running in custom mode
-	   allow for mod-provided conback images */
-	return Draw_CachePic ("gfx/conback.lmp");
-    } else {
-	/* QuakeSpasm customization: */
-	cachepic_t	*pic;
-	int			i;
-	qpic_t		*dat;
-	glpic_t		gl;
-
-	for (pic=menu_cachepics, i=0 ; i<menu_numcachepics ; pic++, i++)
-	{
-		if (!strcmp ("gfx/conback.lmp", pic->name))
-			return &pic->pic;
-	}
-	if (menu_numcachepics == MAX_CACHED_PICS)
-		Sys_Error ("menu_numcachepics == MAX_CACHED_PICS");
-	menu_numcachepics++;
-	strcpy (pic->name, "gfx/conback.lmp");
-	/* load custom conback, image in memory */
-	dat = (qpic_t *)get_conback ();
-	SwapPic (dat);
-	pic->pic.width = dat->width;
-	pic->pic.height = dat->height;
-	gl.gltexture = TexMgr_LoadImage (NULL, "gfx/conback.lmp", dat->width, dat->height, SRC_INDEXED, dat->data,
-					  "", (src_offset_t)dat->data,
-					  TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP); //johnfitz -- TexMgr
-	gl.sl = 0;
-	gl.sh = (float)dat->width/(float)TexMgr_PadConditional(dat->width); //johnfitz
-	gl.tl = 0;
-	gl.th = (float)dat->height/(float)TexMgr_PadConditional(dat->height); //johnfitz
-	memcpy (pic->pic.data, &gl, sizeof(glpic_t));
-
-	return &pic->pic;
-    }	/* -- QuakeSpasm */
-}
-#endif	/* USE_QS_CONBACK */
-
-/*
-================
 Draw_MakePic -- johnfitz -- generate pics from internal data
 ================
 */
@@ -495,19 +407,12 @@ void Draw_Init (void)
 	Scrap_Upload (); //creates 2 empty textures
 
 	// create internal pics
-	pic_ins  = Draw_MakePic ("ins",  8, 9, &pic_ins_data[0][0]);
-	pic_ovr  = Draw_MakePic ("ovr",  8, 8, &pic_ovr_data[0][0]);
-	pic_nul  = Draw_MakePic ("nul",  8, 8, &pic_nul_data[0][0]);
-	pic_up   = Draw_MakePic ("up",   8, 8, &pic_up_data[0][0]);
-	pic_down = Draw_MakePic ("down", 8, 8, &pic_down_data[0][0]);
+	pic_ins = Draw_MakePic ("ins", 8, 9, &pic_ins_data[0][0]);
+	pic_ovr = Draw_MakePic ("ovr", 8, 8, &pic_ovr_data[0][0]);
+	pic_nul = Draw_MakePic ("nul", 8, 8, &pic_nul_data[0][0]);
 
 	// load game pics
 	Draw_LoadPics ();
-
-#if defined(USE_QS_CONBACK)
-	/* QuakeSpasm customization: */
-	Draw_CheckConback ();
-#endif	/* USE_QS_CONBACK */
 }
 
 //==============================================================================
@@ -648,7 +553,7 @@ void Draw_ConsoleBackground (void)
 	qpic_t *pic;
 	float alpha;
 
-	pic = Draw_ConbackPic ();
+	pic = Draw_CachePic ("gfx/conback.lmp");
 	pic->width = vid.conwidth;
 	pic->height = vid.conheight;
 
@@ -743,9 +648,6 @@ Draw_FadeScreen -- johnfitz -- revised
 */
 void Draw_FadeScreen (void)
 {
-	if (vr_enabled.value)
-		return;
-
 	GL_SetCanvas (CANVAS_DEFAULT);
 
 	glEnable (GL_BLEND);
@@ -784,9 +686,6 @@ void GL_SetCanvas (canvastype newcanvas)
 
 	currentcanvas = newcanvas;
 
-	if(vr_enabled.value && !con_forcedup)
-		return;
-
 	glMatrixMode(GL_PROJECTION);
     glLoadIdentity ();
 
@@ -802,10 +701,10 @@ void GL_SetCanvas (canvastype newcanvas)
 		glViewport (glx, gly, glwidth, glheight);
 		break;
 	case CANVAS_MENU:
-		s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
+		s = q_min((float)glwidth / 640.0, (float)glheight / 200.0); // ericw -- doubled width to 640 to accommodate long keybindings
 		s = CLAMP (1.0, scr_menuscale.value, s);
-		glOrtho (0, 320, 200, 0, -99999, 99999);
-		glViewport (glx + (glwidth - 320*s) / 2, gly + (glheight - 200*s) / 2, 320*s, 200*s);
+		glOrtho (0, 640, 200, 0, -99999, 99999);
+		glViewport (glx + (glwidth - 320*s) / 2, gly + (glheight - 200*s) / 2, 640*s, 200*s);
 		break;
 	case CANVAS_SBAR:
 		s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);

@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -284,7 +285,7 @@ void Sbar_DrawPicAlpha (int x, int y, qpic_t *pic, float alpha)
 	glEnable (GL_BLEND);
 	glColor4f(1,1,1,alpha);
 	Draw_Pic (x, y + 24, pic);
-	glColor3f(1,1,1);
+	glColor4f(1,1,1,1); // ericw -- changed from glColor3f to work around intel 855 bug with "r_oldwater 0" and "scr_sbaralpha 0"
 	glDisable (GL_BLEND);
 	glEnable (GL_ALPHA_TEST);
 }
@@ -920,7 +921,7 @@ void Sbar_DrawFace (void)
 Sbar_Draw
 ===============
 */
-void Sbar_Draw ()
+void Sbar_Draw (void)
 {
 	float w; //johnfitz
 
@@ -930,7 +931,8 @@ void Sbar_Draw ()
 	if (cl.intermission)
 		return; //johnfitz -- never draw sbar during intermission
 
-	if (sb_updates >= vid.numpages && !gl_clear.value && scr_sbaralpha.value >= 1) //johnfitz -- gl_clear, scr_sbaralpha
+	if (sb_updates >= vid.numpages && !gl_clear.value && scr_sbaralpha.value >= 1 //johnfitz -- gl_clear, scr_sbaralpha
+        && !(gl_glsl_gamma_able && vid_gamma.value != 1))                         //ericw -- must draw sbar every frame if doing glsl gamma
 		return;
 
 	sb_updates++;

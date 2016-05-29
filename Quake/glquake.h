@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -28,6 +29,8 @@ void GL_EndRendering (void);
 void GL_Set2D (void);
 
 extern	int glx, gly, glwidth, glheight;
+
+#define	GL_UNUSED_TEXTURE	(~(GLuint)0)
 
 // r_local.h -- private refresh defs
 
@@ -126,11 +129,15 @@ extern	cvar_t	r_drawentities;
 extern	cvar_t	r_drawworld;
 extern	cvar_t	r_drawviewmodel;
 extern	cvar_t	r_speeds;
+extern	cvar_t	r_pos;
 extern	cvar_t	r_waterwarp;
 extern	cvar_t	r_fullbright;
 extern	cvar_t	r_lightmap;
 extern	cvar_t	r_shadows;
 extern	cvar_t	r_wateralpha;
+extern	cvar_t	r_lavaalpha;
+extern	cvar_t	r_telealpha;
+extern	cvar_t	r_slimealpha;
 extern	cvar_t	r_dynamic;
 extern	cvar_t	r_novis;
 
@@ -147,25 +154,88 @@ extern	cvar_t	gl_playermip;
 extern	cvar_t	gl_subdivide_size;
 extern	float	load_subdivide_size; //johnfitz -- remember what subdivide_size value was when this map was loaded
 
-extern	float	r_world_matrix[16];
+extern int		gl_stencilbits;
 
 // Multitexture
 extern	qboolean	mtexenabled;
 extern	qboolean	gl_mtexable;
-#define	TEXTURE0_SGIS				0x835E
-#define	TEXTURE1_SGIS				0x835F
-//johnfitz -- modified multitexture support
 extern PFNGLMULTITEXCOORD2FARBPROC  GL_MTexCoord2fFunc;
 extern PFNGLACTIVETEXTUREARBPROC    GL_SelectTextureFunc;
-extern GLenum TEXTURE0, TEXTURE1;
-//johnfitz
+extern PFNGLCLIENTACTIVETEXTUREARBPROC	GL_ClientActiveTextureFunc;
+extern GLint		gl_max_texture_units; //ericw
 
 //johnfitz -- anisotropic filtering
 #define	GL_TEXTURE_MAX_ANISOTROPY_EXT		0x84FE
 #define	GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT	0x84FF
 extern	float		gl_max_anisotropy;
 extern	qboolean	gl_anisotropy_able;
-//johnfitz
+
+//ericw -- VBO
+extern PFNGLBINDBUFFERARBPROC  GL_BindBufferFunc;
+extern PFNGLBUFFERDATAARBPROC  GL_BufferDataFunc;
+extern PFNGLBUFFERSUBDATAARBPROC  GL_BufferSubDataFunc;
+extern PFNGLDELETEBUFFERSARBPROC  GL_DeleteBuffersFunc;
+extern PFNGLGENBUFFERSARBPROC  GL_GenBuffersFunc;
+extern	qboolean	gl_vbo_able;
+//ericw
+
+//ericw -- GLSL
+
+// SDL 1.2 has a bug where it doesn't provide these typedefs on OS X!
+typedef GLuint (APIENTRYP QS_PFNGLCREATESHADERPROC) (GLenum type);
+typedef void (APIENTRYP QS_PFNGLDELETESHADERPROC) (GLuint shader);
+typedef void (APIENTRYP QS_PFNGLDELETEPROGRAMPROC) (GLuint program);
+typedef void (APIENTRYP QS_PFNGLSHADERSOURCEPROC) (GLuint shader, GLsizei count, const GLchar *const*string, const GLint *length);
+typedef void (APIENTRYP QS_PFNGLCOMPILESHADERPROC) (GLuint shader);
+typedef void (APIENTRYP QS_PFNGLGETSHADERIVPROC) (GLuint shader, GLenum pname, GLint *params);
+typedef void (APIENTRYP QS_PFNGLGETSHADERINFOLOGPROC) (GLuint shader, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
+typedef void (APIENTRYP QS_PFNGLGETPROGRAMIVPROC) (GLuint program, GLenum pname, GLint *params);
+typedef void (APIENTRYP QS_PFNGLGETPROGRAMINFOLOGPROC) (GLuint program, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
+typedef GLuint (APIENTRYP QS_PFNGLCREATEPROGRAMPROC) (void);
+typedef void (APIENTRYP QS_PFNGLATTACHSHADERPROC) (GLuint program, GLuint shader);
+typedef void (APIENTRYP QS_PFNGLLINKPROGRAMPROC) (GLuint program);
+typedef void (APIENTRYP QS_PFNGLBINDATTRIBLOCATIONFUNC) (GLuint program, GLuint index, const GLchar *name);
+typedef void (APIENTRYP QS_PFNGLUSEPROGRAMPROC) (GLuint program);
+typedef GLint (APIENTRYP QS_PFNGLGETATTRIBLOCATIONPROC) (GLuint program, const GLchar *name);
+typedef void (APIENTRYP QS_PFNGLVERTEXATTRIBPOINTERPROC) (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
+typedef void (APIENTRYP QS_PFNGLENABLEVERTEXATTRIBARRAYPROC) (GLuint index);
+typedef void (APIENTRYP QS_PFNGLDISABLEVERTEXATTRIBARRAYPROC) (GLuint index);
+typedef GLint (APIENTRYP QS_PFNGLGETUNIFORMLOCATIONPROC) (GLuint program, const GLchar *name);
+typedef void (APIENTRYP QS_PFNGLUNIFORM1IPROC) (GLint location, GLint v0);
+typedef void (APIENTRYP QS_PFNGLUNIFORM1FPROC) (GLint location, GLfloat v0);
+typedef void (APIENTRYP QS_PFNGLUNIFORM3FPROC) (GLint location, GLfloat v0, GLfloat v1, GLfloat v2);
+typedef void (APIENTRYP QS_PFNGLUNIFORM4FPROC) (GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3);
+
+extern QS_PFNGLCREATESHADERPROC GL_CreateShaderFunc;
+extern QS_PFNGLDELETESHADERPROC GL_DeleteShaderFunc;
+extern QS_PFNGLDELETEPROGRAMPROC GL_DeleteProgramFunc;
+extern QS_PFNGLSHADERSOURCEPROC GL_ShaderSourceFunc;
+extern QS_PFNGLCOMPILESHADERPROC GL_CompileShaderFunc;
+extern QS_PFNGLGETSHADERIVPROC GL_GetShaderivFunc;
+extern QS_PFNGLGETSHADERINFOLOGPROC GL_GetShaderInfoLogFunc;
+extern QS_PFNGLGETPROGRAMIVPROC GL_GetProgramivFunc;
+extern QS_PFNGLGETPROGRAMINFOLOGPROC GL_GetProgramInfoLogFunc;
+extern QS_PFNGLCREATEPROGRAMPROC GL_CreateProgramFunc;
+extern QS_PFNGLATTACHSHADERPROC GL_AttachShaderFunc;
+extern QS_PFNGLLINKPROGRAMPROC GL_LinkProgramFunc;
+extern QS_PFNGLBINDATTRIBLOCATIONFUNC GL_BindAttribLocationFunc;
+extern QS_PFNGLUSEPROGRAMPROC GL_UseProgramFunc;
+extern QS_PFNGLGETATTRIBLOCATIONPROC GL_GetAttribLocationFunc;
+extern QS_PFNGLVERTEXATTRIBPOINTERPROC GL_VertexAttribPointerFunc;
+extern QS_PFNGLENABLEVERTEXATTRIBARRAYPROC GL_EnableVertexAttribArrayFunc;
+extern QS_PFNGLDISABLEVERTEXATTRIBARRAYPROC GL_DisableVertexAttribArrayFunc;
+extern QS_PFNGLGETUNIFORMLOCATIONPROC GL_GetUniformLocationFunc;
+extern QS_PFNGLUNIFORM1IPROC GL_Uniform1iFunc;
+extern QS_PFNGLUNIFORM1FPROC GL_Uniform1fFunc;
+extern QS_PFNGLUNIFORM3FPROC GL_Uniform3fFunc;
+extern QS_PFNGLUNIFORM4FPROC GL_Uniform4fFunc;
+extern	qboolean	gl_glsl_able;
+extern	qboolean	gl_glsl_gamma_able;
+extern	qboolean	gl_glsl_alias_able;
+// ericw --
+
+//ericw -- NPOT texture support
+extern	qboolean	gl_texture_NPOT;
 
 //johnfitz -- polygon offset
 #define OFFSET_BMODEL 1
@@ -174,30 +244,27 @@ extern	qboolean	gl_anisotropy_able;
 #define OFFSET_FOG -2
 #define OFFSET_SHOWTRIS -3
 void GL_PolygonOffset (int);
-//johnfitz
 
 //johnfitz -- GL_EXT_texture_env_combine
 //the values for GL_ARB_ are identical
-#define GL_COMBINE_EXT			0x8570
-#define GL_COMBINE_RGB_EXT		0x8571
+#define GL_COMBINE_EXT		0x8570
+#define GL_COMBINE_RGB_EXT	0x8571
 #define GL_COMBINE_ALPHA_EXT	0x8572
-#define GL_RGB_SCALE_EXT		0x8573
-#define GL_CONSTANT_EXT			0x8576
+#define GL_RGB_SCALE_EXT	0x8573
+#define GL_CONSTANT_EXT		0x8576
 #define GL_PRIMARY_COLOR_EXT	0x8577
-#define GL_PREVIOUS_EXT			0x8578
-#define GL_SOURCE0_RGB_EXT		0x8580
-#define GL_SOURCE1_RGB_EXT		0x8581
+#define GL_PREVIOUS_EXT		0x8578
+#define GL_SOURCE0_RGB_EXT	0x8580
+#define GL_SOURCE1_RGB_EXT	0x8581
 #define GL_SOURCE0_ALPHA_EXT	0x8588
 #define GL_SOURCE1_ALPHA_EXT	0x8589
 extern qboolean gl_texture_env_combine;
 extern qboolean gl_texture_env_add; // for GL_EXT_texture_env_add
-//johnfitz
 
 //johnfitz -- rendering statistics
 extern int rs_brushpolys, rs_aliaspolys, rs_skypolys, rs_particles, rs_fogpolys;
 extern int rs_dynamiclightmaps, rs_brushpasses, rs_aliaspasses, rs_skypasses;
 extern float rs_megatexels;
-//johnfitz
 
 //johnfitz -- track developer statistics that vary every frame
 extern cvar_t devstats;
@@ -211,7 +278,6 @@ typedef struct {
 	int		dlights;
 } devstats_t;
 extern devstats_t dev_stats, dev_peakstats;
-//johnfitz
 
 //ohnfitz -- reduce overflow warning spam
 typedef struct {
@@ -221,17 +287,22 @@ typedef struct {
 } overflowtimes_t;
 extern overflowtimes_t dev_overflows; //this stores the last time overflow messages were displayed, not the last time overflows occured
 #define CONSOLE_RESPAM_TIME 3 // seconds between repeated warning messages
-//johnfitz
 
 //johnfitz -- moved here from r_brush.c
 extern int gl_lightmap_format, lightmap_bytes;
 #define MAX_LIGHTMAPS 256 //johnfitz -- was 64
 extern gltexture_t *lightmap_textures[MAX_LIGHTMAPS]; //johnfitz -- changed to an array
-//johnfitz
 
 extern int gl_warpimagesize; //johnfitz -- for water warp
 
 extern qboolean r_drawflat_cheatsafe, r_fullbright_cheatsafe, r_lightmap_cheatsafe, r_drawworld_cheatsafe; //johnfitz
+
+typedef struct glsl_attrib_binding_s {
+	const char *name;
+	GLuint attrib;
+} glsl_attrib_binding_t;
+
+extern float	map_wateralpha, map_lavaalpha, map_telealpha, map_slimealpha; //ericw
 
 //johnfitz -- fog functions called from outside gl_fog.c
 void Fog_ParseServerMessage (void);
@@ -244,7 +315,7 @@ void Fog_StopAdditive (void);
 void Fog_SetupFrame (void);
 void Fog_NewMap (void);
 void Fog_Init (void);
-//johnfitz
+void Fog_SetupState (void);
 
 void R_NewGame (void);
 
@@ -271,10 +342,14 @@ void R_DrawAliasModel (entity_t *e);
 void R_DrawBrushModel (entity_t *e);
 void R_DrawSpriteModel (entity_t *e);
 
-void R_DrawTextureChains_Water (void);
+void R_DrawTextureChains_Water (qmodel_t *model, entity_t *ent, texchain_t chain);
 
 void R_RenderDlights (void);
 void GL_BuildLightmaps (void);
+void GL_DeleteBModelVertexBuffer (void);
+void GL_BuildBModelVertexBuffer (void);
+void GLMesh_LoadVertexBuffers (void);
+void GLMesh_DeleteVertexBuffers (void);
 void R_RebuildAllLightmaps (void);
 
 int R_LightPoint (vec3_t p);
@@ -282,13 +357,18 @@ int R_LightPoint (vec3_t p);
 void GL_SubdivideSurface (msurface_t *fa);
 void R_BuildLightMap (msurface_t *surf, byte *dest, int stride);
 void R_RenderDynamicLightmaps (msurface_t *fa);
-void R_UploadLightmap (int lmap);
+void R_UploadLightmaps (void);
 
-void R_DrawTextureChains_ShowTris (void);
+void R_DrawWorld_ShowTris (void);
 void R_DrawBrushModel_ShowTris (entity_t *e);
 void R_DrawAliasModel_ShowTris (entity_t *e);
 void R_DrawParticles_ShowTris (void);
 
+GLint GL_GetUniformLocation (GLuint *programPtr, const char *name);
+GLuint GL_CreateProgram (const GLchar *vertSource, const GLchar *fragSource, int numbindings, const glsl_attrib_binding_t *bindings);
+void R_DeleteShaders (void);
+
+void GLAlias_CreateShaders (void);
 void GL_DrawAliasShadow (entity_t *e);
 void DrawGLTriangleFan (glpoly_t *p);
 void DrawGLPoly (glpoly_t *p);
@@ -302,6 +382,19 @@ void Sky_LoadTexture (texture_t *mt);
 void Sky_LoadSkyBox (const char *name);
 
 void TexMgr_RecalcWarpImageSize (void);
+
+void R_ClearTextureChains (qmodel_t *mod, texchain_t chain);
+void R_ChainSurface (msurface_t *surf, texchain_t chain);
+void R_DrawTextureChains (qmodel_t *model, entity_t *ent, texchain_t chain);
+void R_DrawWorld_Water (void);
+
+void GL_BindBuffer (GLenum target, GLuint buffer);
+void GL_ClearBufferBindings ();
+
+void GLSLGamma_DeleteTexture (void);
+void GLSLGamma_GammaCorrect (void);
+
+float GL_WaterAlphaForSurface (msurface_t *fa);
 
 #endif	/* __GLQUAKE_H */
 

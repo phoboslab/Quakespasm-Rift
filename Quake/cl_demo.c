@@ -1,5 +1,6 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -53,6 +54,7 @@ void CL_StopPlayback (void)
 
 	fclose (cls.demofile);
 	cls.demoplayback = false;
+	cls.demopaused = false;
 	cls.demofile = NULL;
 	cls.state = ca_disconnected;
 
@@ -89,16 +91,12 @@ static int CL_GetDemoMessage (void)
 	int	r, i;
 	float	f;
 
+	if (cls.demopaused)
+		return 0;
+
 	// decide if it is time to grab the next message
 	if (cls.signon == SIGNONS)	// always grab until fully connected
 	{
-		// Wait for full frame update on stufftext messages:
-		// If the server stuffs a "reconnect", failing to wait
-		// for the client to re-initialize before accepting
-		// further messages freezes demo playback.  -- Pa3PyX
-		if (host_framecount == cls.stufftext_frame)
-			return 0;
-
 		if (cls.timedemo)
 		{
 			if (host_framecount == cls.td_lastframe)
@@ -208,6 +206,9 @@ void CL_Stop_f (void)
 	cls.demofile = NULL;
 	cls.demorecording = false;
 	Con_Printf ("Completed demo\n");
+	
+// ericw -- update demo tab-completion list
+	DemoList_Rebuild ();
 }
 
 /*
@@ -283,7 +284,7 @@ void CL_Record_f (void)
 	}
 
 // open the demo file
-	COM_DefaultExtension (name, ".dem", sizeof(name));
+	COM_AddExtension (name, ".dem", sizeof(name));
 
 	Con_Printf ("recording to %s.\n", name);
 	cls.demofile = fopen (name, "wb");
@@ -398,7 +399,7 @@ void CL_PlayDemo_f (void)
 
 // open the demo file
 	q_strlcpy (name, Cmd_Argv(1), sizeof(name));
-	COM_DefaultExtension (name, ".dem", sizeof(name));
+	COM_AddExtension (name, ".dem", sizeof(name));
 
 	Con_Printf ("Playing demo from %s.\n", name);
 
@@ -442,14 +443,11 @@ void CL_PlayDemo_f (void)
 		cls.forcetrack = -cls.forcetrack;
 
 	cls.demoplayback = true;
+	cls.demopaused = false;
 	cls.state = ca_connected;
 
 // get rid of the menu and/or console
 	key_dest = key_game;
-
-// Get a new message on playback start.
-// Moved from CL_TimeDemo_f to here, Pa3PyX.
-	cls.td_lastframe = -1;
 }
 
 /*
@@ -500,7 +498,6 @@ void CL_TimeDemo_f (void)
 
 	cls.timedemo = true;
 	cls.td_startframe = host_framecount;
-//	cls.td_lastframe = -1;	// get a new message this frame
-				// Moved to CL_PlayDemo_f(), Pa3PyX.
+	cls.td_lastframe = -1;	// get a new message this frame
 }
 

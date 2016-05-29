@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -23,7 +24,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "bgmusic.h"
-#include "vr.h"
 
 const char *svc_strings[] =
 {
@@ -262,6 +262,12 @@ void CL_ParseServerInfo (void)
 	char	sound_precache[MAX_SOUNDS][MAX_QPATH];
 
 	Con_DPrintf ("Serverinfo packet received.\n");
+
+// ericw -- bring up loading plaque for map changes within a demo.
+//          it will be hidden in CL_SignonReply.
+	if (cls.demoplayback)
+		SCR_BeginLoadingPlaque();
+
 //
 // wipe the client_state_t struct
 //
@@ -271,8 +277,8 @@ void CL_ParseServerInfo (void)
 	i = MSG_ReadLong ();
 	//johnfitz -- support multiple protocols
 	if (i != PROTOCOL_NETQUAKE && i != PROTOCOL_FITZQUAKE) {
-		Con_Printf ("\n"); //becuase there's no newline after serverinfo print
-		Host_Error ("Server returned version %i, not %i or %i\n", i, PROTOCOL_NETQUAKE, PROTOCOL_FITZQUAKE);
+		Con_Printf ("\n"); //because there's no newline after serverinfo print
+		Host_Error ("Server returned version %i, not %i or %i", i, PROTOCOL_NETQUAKE, PROTOCOL_FITZQUAKE);
 	}
 	cl.protocol = i;
 	//johnfitz
@@ -281,8 +287,7 @@ void CL_ParseServerInfo (void)
 	cl.maxclients = MSG_ReadByte ();
 	if (cl.maxclients < 1 || cl.maxclients > MAX_SCOREBOARD)
 	{
-		Con_Printf("Bad maxclients (%u) from server\n", cl.maxclients);
-		return;
+		Host_Error ("Bad maxclients (%u) from server", cl.maxclients);
 	}
 	cl.scores = (scoreboard_t *) Hunk_AllocName (cl.maxclients*sizeof(*cl.scores), "scores");
 
@@ -313,8 +318,7 @@ void CL_ParseServerInfo (void)
 			break;
 		if (nummodels==MAX_MODELS)
 		{
-			Con_Printf ("Server sent too many model precaches\n");
-			return;
+			Host_Error ("Server sent too many model precaches");
 		}
 		q_strlcpy (model_precache[nummodels], str, MAX_QPATH);
 		Mod_TouchModel (str);
@@ -322,7 +326,7 @@ void CL_ParseServerInfo (void)
 
 	//johnfitz -- check for excessive models
 	if (nummodels >= 256)
-		Con_Warning ("%i models exceeds standard limit of 256.\n", nummodels);
+		Con_DWarning ("%i models exceeds standard limit of 256.\n", nummodels);
 	//johnfitz
 
 // precache sounds
@@ -334,8 +338,7 @@ void CL_ParseServerInfo (void)
 			break;
 		if (numsounds==MAX_SOUNDS)
 		{
-			Con_Printf ("Server sent too many sound precaches\n");
-			return;
+			Host_Error ("Server sent too many sound precaches");
 		}
 		q_strlcpy (sound_precache[numsounds], str, MAX_QPATH);
 		S_TouchSound (str);
@@ -343,7 +346,7 @@ void CL_ParseServerInfo (void)
 
 	//johnfitz -- check for excessive sounds
 	if (numsounds >= 256)
-		Con_Warning ("%i sounds exceeds standard limit of 256.\n", numsounds);
+		Con_DWarning ("%i sounds exceeds standard limit of 256.\n", numsounds);
 	//johnfitz
 
 //
@@ -358,8 +361,7 @@ void CL_ParseServerInfo (void)
 		cl.model_precache[i] = Mod_ForName (model_precache[i], false);
 		if (cl.model_precache[i] == NULL)
 		{
-			Con_Printf("Model %s not found\n", model_precache[i]);
-			return;
+			Host_Error ("Model %s not found", model_precache[i]);
 		}
 		CL_KeepaliveMessage ();
 	}
@@ -731,11 +733,6 @@ void CL_ParseClientdata (void)
 	{
 		cl.stats[STAT_WEAPON] = i;
 		Sbar_Changed ();
-
-		//johnfitz -- lerping
-		if (cl.viewent.model != cl.model_precache[cl.stats[STAT_WEAPON]])
-			cl.viewent.lerpflags |= LERP_RESETANIM; //don't lerp animation across model changes
-		//johnfitz
 	}
 
 	i = MSG_ReadShort ();
@@ -802,6 +799,14 @@ void CL_ParseClientdata (void)
 		cl.viewent.alpha = MSG_ReadByte();
 	else
 		cl.viewent.alpha = ENTALPHA_DEFAULT;
+	//johnfitz
+    
+	//johnfitz -- lerping
+	//ericw -- this was done before the upper 8 bits of cl.stats[STAT_WEAPON] were filled in, breaking on large maps like zendar.bsp
+	if (cl.viewent.model != cl.model_precache[cl.stats[STAT_WEAPON]])
+	{
+		cl.viewent.lerpflags |= LERP_RESETANIM; //don't lerp animation across model changes
+	}
 	//johnfitz
 }
 
@@ -963,7 +968,7 @@ void CL_ParseServerMessage (void)
 		switch (cmd)
 		{
 		default:
-			Host_Error ("Illegible server message, previous was %s\n", svc_strings[lastcmd]); //johnfitz -- added svc_strings[lastcmd]
+			Host_Error ("Illegible server message, previous was %s", svc_strings[lastcmd]); //johnfitz -- added svc_strings[lastcmd]
 			break;
 
 		case svc_nop:
@@ -983,7 +988,7 @@ void CL_ParseServerMessage (void)
 			i = MSG_ReadLong ();
 			//johnfitz -- support multiple protocols
 			if (i != PROTOCOL_NETQUAKE && i != PROTOCOL_FITZQUAKE)
-				Host_Error ("Server returned version %i, not %i or %i\n", i, PROTOCOL_NETQUAKE, PROTOCOL_FITZQUAKE);
+				Host_Error ("Server returned version %i, not %i or %i", i, PROTOCOL_NETQUAKE, PROTOCOL_FITZQUAKE);
 			cl.protocol = i;
 			//johnfitz
 			break;
@@ -1004,8 +1009,6 @@ void CL_ParseServerMessage (void)
 			break;
 
 		case svc_stufftext:
-			cls.stufftext_frame = host_framecount;	// allow full frame update
-								// in demo playback -- Pa3PyX
 			Cbuf_AddText (MSG_ReadString ());
 			break;
 
@@ -1021,8 +1024,8 @@ void CL_ParseServerMessage (void)
 		case svc_setangle:
 			for (i=0 ; i<3 ; i++)
 				cl.viewangles[i] = MSG_ReadAngle ();
-			VR_SetAngles(cl.viewangles);
 			break;
+
 		case svc_setview:
 			cl.viewentity = MSG_ReadShort ();
 			break;
@@ -1106,10 +1109,12 @@ void CL_ParseServerMessage (void)
 			cl.paused = MSG_ReadByte ();
 			if (cl.paused)
 			{
+				CDAudio_Pause ();
 				BGM_Pause ();
 			}
 			else
 			{
+				CDAudio_Resume ();
 				BGM_Resume ();
 			}
 			break;
@@ -1123,7 +1128,7 @@ void CL_ParseServerMessage (void)
 			if (i == 2)
 			{
 				if (cl.num_statics > 128)
-					Con_Warning ("%i static entities exceeds standard limit of 128.\n", cl.num_statics);
+					Con_DWarning ("%i static entities exceeds standard limit of 128.\n", cl.num_statics);
 				R_CheckEfrags ();
 			}
 			//johnfitz

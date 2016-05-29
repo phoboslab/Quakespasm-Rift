@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -120,8 +121,6 @@ void SND_Spatialize (channel_t *ch);
 void S_RawSamples(int samples, int rate, int width, int channels, byte * data, float volume);
 				/* Expects data in signed 16 bit, or unsigned 8 bit format. */
 
-qboolean SNDDMA_UsesDefaultDevice();
-
 /* initializes cycling through a DMA buffer and returns information on it */
 qboolean SNDDMA_Init(dma_t *dma);
 
@@ -148,7 +147,7 @@ void SNDDMA_UnblockSound(void);
  * ====================================================================
  */
 
-#define	MAX_CHANNELS		512 /* johnfitz -- was 128 */
+#define	MAX_CHANNELS		1024 // ericw -- was 512 /* johnfitz -- was 128 */
 #define	MAX_DYNAMIC_CHANNELS	128 /* johnfitz -- was 8   */
 
 extern	channel_t	snd_channels[MAX_CHANNELS];
@@ -170,6 +169,8 @@ extern	vec3_t		listener_right;
 extern	vec3_t		listener_up;
 
 extern	cvar_t		sndspeed;
+extern	cvar_t		snd_mixspeed;
+extern	cvar_t		snd_filterquality;
 extern	cvar_t		sfxvolume;
 extern	cvar_t		loadas8bit;
 

@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -23,7 +24,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "bgmusic.h"
-#include "vr.h"
 #include <setjmp.h>
 
 /*
@@ -61,7 +61,7 @@ cvar_t	host_framerate = {"host_framerate","0",CVAR_NONE};	// set for slow motion
 cvar_t	host_speeds = {"host_speeds","0",CVAR_NONE};			// set for running times
 cvar_t	host_maxfps = {"host_maxfps", "72", CVAR_ARCHIVE}; //johnfitz
 cvar_t	host_timescale = {"host_timescale", "0", CVAR_NONE}; //johnfitz
-cvar_t	max_edicts = {"max_edicts", "2048", CVAR_ARCHIVE}; //johnfitz
+cvar_t	max_edicts = {"max_edicts", "8192", CVAR_NONE}; //johnfitz //ericw -- changed from 2048 to 8192, removed CVAR_ARCHIVE
 
 cvar_t	sys_ticrate = {"sys_ticrate","0.05",CVAR_NONE}; // dedicated server
 cvar_t	serverprofile = {"serverprofile","0",CVAR_NONE};
@@ -85,8 +85,6 @@ cvar_t devstats = {"devstats","0",CVAR_NONE}; //johnfitz -- track developer stat
 
 devstats_t dev_stats, dev_peakstats;
 overflowtimes_t dev_overflows; //this stores the last time overflow messages were displayed, not the last time overflows occured
-
-extern cvar_t vr_enabled;
 
 /*
 ================
@@ -222,8 +220,8 @@ void	Host_FindMaxClients (void)
 void Host_Version_f (void)
 {
 	Con_Printf ("Quake Version %1.2f\n", VERSION);
-	Con_Printf ("QuakeSpasm Version %1.2f.%d\n", FITZQUAKE_VERSION, QUAKESPASM_VER_PATCH);
-	Con_Printf ("Exe: "__TIME__" "__DATE__"\n");
+	Con_Printf ("QuakeSpasm Version %1.2f.%d\n", QUAKESPASM_VERSION, QUAKESPASM_VER_PATCH);
+	Con_Printf ("Exe: " __TIME__ " " __DATE__ "\n");
 }
 
 /* cvar callback functions : */
@@ -551,6 +549,7 @@ void Host_ClearMemory (void)
 /* host_hunklevel MUST be set at this point */
 	Hunk_FreeToLowMark (host_hunklevel);
 	cls.signon = 0;
+	if (sv.edicts) free(sv.edicts);	// ericw -- sv.edicts switched to use malloc()
 	memset (&sv, 0, sizeof(sv));
 	memset (&cl, 0, sizeof(cl));
 }
@@ -577,9 +576,7 @@ qboolean Host_FilterTime (float time)
 
 	//johnfitz -- max fps cvar
 	maxfps = CLAMP (10.0, host_maxfps.value, 1000.0);
-
-	// don't limit framerate for VR; libOVR will cap itself
-	if (!cls.timedemo && !vr_enabled.value && realtime - oldrealtime < 1.0/maxfps)
+	if (!cls.timedemo && realtime - oldrealtime < 1.0/maxfps)
 		return false; // framerate is too high
 	//johnfitz
 
@@ -658,7 +655,7 @@ void Host_ServerFrame (void)
 				active++;
 		}
 		if (active > 600 && dev_peakstats.edicts <= 600)
-			Con_Warning ("%i edicts exceeds standard limit of 600.\n", active);
+			Con_DWarning ("%i edicts exceeds standard limit of 600.\n", active);
 		dev_stats.edicts = active;
 		dev_peakstats.edicts = q_max(active, dev_peakstats.edicts);
 	}
@@ -694,6 +691,7 @@ void _Host_Frame (float time)
 
 // get new key events
 	Key_UpdateForDest ();
+	IN_UpdateInputMode ();
 	Sys_SendKeyEvents ();
 
 // allow mice or other external controllers to add commands
@@ -755,6 +753,8 @@ void _Host_Frame (float time)
 	}
 	else
 		S_Update (vec3_origin, vec3_origin, vec3_origin, vec3_origin);
+
+	CDAudio_Update();
 
 	if (host_speeds.value)
 	{
@@ -845,7 +845,7 @@ void Host_Init (void)
 	NET_Init ();
 	SV_Init ();
 
-	Con_Printf ("Exe: "__TIME__" "__DATE__"\n");
+	Con_Printf ("Exe: " __TIME__ " " __DATE__ "\n");
 	Con_Printf ("%4.1f megabyte heap\n", host_parms->memsize/ (1024*1024.0));
 
 	if (cls.state != ca_dedicated)
@@ -859,6 +859,7 @@ void Host_Init (void)
 		M_Init ();
 		ExtraMaps_Init (); //johnfitz
 		Modlist_Init (); //johnfitz
+		DemoList_Init (); //ericw
 		VID_Init ();
 		IN_Init ();
 		TexMgr_Init (); //johnfitz
@@ -866,6 +867,7 @@ void Host_Init (void)
 		SCR_Init ();
 		R_Init ();
 		S_Init ();
+		CDAudio_Init ();
 		BGM_Init();
 		Sbar_Init ();
 		CL_Init ();
@@ -927,9 +929,9 @@ void Host_Shutdown(void)
 		if (con_initialized)
 			History_Shutdown ();
 		BGM_Shutdown();
+		CDAudio_Shutdown ();
 		S_Shutdown ();
 		IN_Shutdown ();
-		VR_Shutdown();
 		VID_Shutdown();
 	}
 

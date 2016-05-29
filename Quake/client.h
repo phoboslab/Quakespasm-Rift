@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -84,7 +85,7 @@ typedef struct
 	vec3_t	start, end;
 } beam_t;
 
-#define	MAX_EFRAGS		2048 //johnfitz -- was 640
+#define	MAX_EFRAGS		4096 //ericw -- was 2048 //johnfitz -- was 640
 
 #define	MAX_MAPSTRING	2048
 #define	MAX_DEMOS		8
@@ -115,12 +116,16 @@ typedef struct
 // entering a map (and clearing client_state_t)
 	qboolean	demorecording;
 	qboolean	demoplayback;
+
+// did the user pause demo playback? (separate from cl.paused because we don't
+// want a svc_setpause inside the demo to actually pause demo playback).
+	qboolean	demopaused;
+
 	qboolean	timedemo;
 	int		forcetrack;		// -1 = use normal cd track
 	FILE		*demofile;
 	int		td_lastframe;		// to meter out one message a frame
 	int		td_startframe;		// host_framecount at start
-	int		stufftext_frame;	// host_framecount when svc_stufftext is received
 	float		td_starttime;		// realtime at second frame of timedemo
 
 // connection information
@@ -160,7 +165,6 @@ typedef struct
 	vec3_t		mviewangles[2];	// during demo playback viewangles is lerped
 								// between these
 	vec3_t		viewangles;
-	vec3_t		aimangles;
 
 	vec3_t		mvelocity[2];	// update by server, used for lean+bob
 								// (0 is newest)
@@ -261,7 +265,7 @@ extern	cvar_t	m_side;
 
 #define	MAX_TEMP_ENTITIES	256		//johnfitz -- was 64
 #define	MAX_STATIC_ENTITIES	512		//johnfitz -- was 128
-#define	MAX_VISEDICTS		1024	//johnfitz -- was 256
+#define	MAX_VISEDICTS		4096	// larger, now we support BSP2
 
 extern	client_state_t	cl;
 
@@ -364,7 +368,6 @@ extern	cvar_t	chase_active;
 
 void Chase_Init (void);
 void TraceLine (vec3_t start, vec3_t end, vec3_t impact);
-void TraceLineToEntity (vec3_t start, vec3_t end, vec3_t impact, edict_t *ent);
 void Chase_UpdateForClient (void);	//johnfitz
 void Chase_UpdateForDrawing (void);	//johnfitz
 

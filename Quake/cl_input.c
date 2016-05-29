@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -122,9 +123,9 @@ void IN_KLookDown (void) {KeyDown(&in_klook);}
 void IN_KLookUp (void) {KeyUp(&in_klook);}
 void IN_MLookDown (void) {KeyDown(&in_mlook);}
 void IN_MLookUp (void) {
-KeyUp(&in_mlook);
-if ( !(in_mlook.state&1) &&  lookspring.value)
-	V_StartPitchDrift();
+	KeyUp(&in_mlook);
+	if ( !(in_mlook.state&1) &&  lookspring.value)
+		V_StartPitchDrift();
 }
 void IN_UpDown(void) {KeyDown(&in_up);}
 void IN_UpUp(void) {KeyUp(&in_up);}
@@ -217,8 +218,6 @@ float CL_KeyState (kbutton_t *key)
 }
 
 
-
-
 //==========================================================================
 
 cvar_t	cl_upspeed = {"cl_upspeed","200",CVAR_NONE};
@@ -253,38 +252,37 @@ void CL_AdjustAngles (void)
 
 	if (!(in_strafe.state & 1))
 	{
-		cl.aimangles[YAW] -= speed*cl_yawspeed.value*CL_KeyState (&in_right);
-		cl.aimangles[YAW] += speed*cl_yawspeed.value*CL_KeyState (&in_left);
-		cl.aimangles[YAW] = anglemod(cl.aimangles[YAW]);
+		cl.viewangles[YAW] -= speed*cl_yawspeed.value*CL_KeyState (&in_right);
+		cl.viewangles[YAW] += speed*cl_yawspeed.value*CL_KeyState (&in_left);
+		cl.viewangles[YAW] = anglemod(cl.viewangles[YAW]);
 	}
 	if (in_klook.state & 1)
 	{
 		V_StopPitchDrift ();
-		cl.aimangles[PITCH] -= speed*cl_pitchspeed.value * CL_KeyState (&in_forward);
-		cl.aimangles[PITCH] += speed*cl_pitchspeed.value * CL_KeyState (&in_back);
+		cl.viewangles[PITCH] -= speed*cl_pitchspeed.value * CL_KeyState (&in_forward);
+		cl.viewangles[PITCH] += speed*cl_pitchspeed.value * CL_KeyState (&in_back);
 	}
 
 	up = CL_KeyState (&in_lookup);
 	down = CL_KeyState(&in_lookdown);
 
-	cl.aimangles[PITCH] -= speed*cl_pitchspeed.value * up;
-	cl.aimangles[PITCH] += speed*cl_pitchspeed.value * down;
+	cl.viewangles[PITCH] -= speed*cl_pitchspeed.value * up;
+	cl.viewangles[PITCH] += speed*cl_pitchspeed.value * down;
 
 	if (up || down)
 		V_StopPitchDrift ();
 
 	//johnfitz -- variable pitch clamping
-	if (cl.aimangles[PITCH] > cl_maxpitch.value)
-		cl.aimangles[PITCH] = cl_maxpitch.value;
-	if (cl.aimangles[PITCH] < cl_minpitch.value)
-		cl.aimangles[PITCH] = cl_minpitch.value;
+	if (cl.viewangles[PITCH] > cl_maxpitch.value)
+		cl.viewangles[PITCH] = cl_maxpitch.value;
+	if (cl.viewangles[PITCH] < cl_minpitch.value)
+		cl.viewangles[PITCH] = cl_minpitch.value;
 	//johnfitz
 
-	if (cl.aimangles[ROLL] > 50)
-		cl.aimangles[ROLL] = 50;
-	if (cl.aimangles[ROLL] < -50)
-		cl.aimangles[ROLL] = -50;
-
+	if (cl.viewangles[ROLL] > 50)
+		cl.viewangles[ROLL] = 50;
+	if (cl.viewangles[ROLL] < -50)
+		cl.viewangles[ROLL] = -50;
 }
 
 /*
@@ -335,7 +333,6 @@ void CL_BaseMove (usercmd_t *cmd)
 }
 
 
-
 /*
 ==============
 CL_SendMove
@@ -357,21 +354,21 @@ void CL_SendMove (const usercmd_t *cmd)
 //
 // send the movement message
 //
-    MSG_WriteByte (&buf, clc_move);
+	MSG_WriteByte (&buf, clc_move);
 
 	MSG_WriteFloat (&buf, cl.mtime[0]);	// so server can get ping times
 
 	for (i=0 ; i<3 ; i++)
 		//johnfitz -- 16-bit angles for PROTOCOL_FITZQUAKE
 		if (cl.protocol == PROTOCOL_NETQUAKE)
-			MSG_WriteAngle (&buf, cl.aimangles[i]);
+			MSG_WriteAngle (&buf, cl.viewangles[i]);
 		else
-			MSG_WriteAngle16 (&buf, cl.aimangles[i]);
+			MSG_WriteAngle16 (&buf, cl.viewangles[i]);
 		//johnfitz
 
-    MSG_WriteShort (&buf, cmd->forwardmove);
-    MSG_WriteShort (&buf, cmd->sidemove);
-    MSG_WriteShort (&buf, cmd->upmove);
+	MSG_WriteShort (&buf, cmd->forwardmove);
+	MSG_WriteShort (&buf, cmd->sidemove);
+	MSG_WriteShort (&buf, cmd->upmove);
 
 //
 // send button bits
@@ -386,9 +383,9 @@ void CL_SendMove (const usercmd_t *cmd)
 		bits |= 2;
 	in_jump.state &= ~2;
 
-    MSG_WriteByte (&buf, bits);
+	MSG_WriteByte (&buf, bits);
 
-    MSG_WriteByte (&buf, in_impulse);
+	MSG_WriteByte (&buf, in_impulse);
 	in_impulse = 0;
 
 //

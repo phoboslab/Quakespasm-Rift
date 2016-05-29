@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -398,7 +399,6 @@ void SV_CheckForNewClients (void)
 }
 
 
-
 /*
 ===============================================================================
 
@@ -526,7 +526,7 @@ void SV_WriteEntitiesToClient (edict_t	*clent, sizebuf_t *msg)
 // find the client's PVS
 	VectorAdd (clent->v.origin, clent->v.view_ofs, org);
 	pvs = SV_FatPVS (org, sv.worldmodel);
-
+	
 // send over all entities (excpet the client) that touch the pvs
 	ent = NEXT_EDICT(sv.edicts);
 	for (e=1 ; e<sv.num_edicts ; e++, ent = NEXT_EDICT(ent))
@@ -546,7 +546,14 @@ void SV_WriteEntitiesToClient (edict_t	*clent, sizebuf_t *msg)
 			for (i=0 ; i < ent->num_leafs ; i++)
 				if (pvs[ent->leafnums[i] >> 3] & (1 << (ent->leafnums[i]&7) ))
 					break;
-			if (i == ent->num_leafs)
+			
+			// ericw -- added ent->num_leafs < MAX_ENT_LEAFS condition.
+			//
+			// if ent->num_leafs == MAX_ENT_LEAFS, the ent is visible from too many leafs
+			// for us to say whether it's in the PVS, so don't try to vis cull it.
+			// this commonly happens with rotators, because they often have huge bboxes
+			// spanning the entire map, or really tall lifts, etc.
+			if (i == ent->num_leafs && ent->num_leafs < MAX_ENT_LEAFS)
 				continue;		// not visible
 		}
 
@@ -693,7 +700,7 @@ void SV_WriteEntitiesToClient (edict_t	*clent, sizebuf_t *msg)
 	//johnfitz -- devstats
 stats:
 	if (msg->cursize > 1024 && dev_peakstats.packetsize <= 1024)
-		Con_Warning ("%i byte packet exceeds standard limit of 1024.\n", msg->cursize);
+		Con_DWarning ("%i byte packet exceeds standard limit of 1024.\n", msg->cursize);
 	dev_stats.packetsize = msg->cursize;
 	dev_peakstats.packetsize = q_max(msg->cursize, dev_peakstats.packetsize);
 	//johnfitz
@@ -715,7 +722,6 @@ void SV_CleanupEnts (void)
 	{
 		ent->v.effects = (int)ent->v.effects & ~EF_MUZZLEFLASH;
 	}
-
 }
 
 /*
@@ -1326,7 +1332,7 @@ void SV_SpawnServer (const char *server)
 // allocate server memory
 	/* Host_ClearMemory() called above already cleared the whole sv structure */
 	sv.max_edicts = CLAMP (MIN_EDICTS,(int)max_edicts.value,MAX_EDICTS); //johnfitz -- max_edicts cvar
-	sv.edicts = (edict_t *) Hunk_AllocName (sv.max_edicts*pr_edict_size, "edicts");
+	sv.edicts = (edict_t *) malloc (sv.max_edicts*pr_edict_size); // ericw -- sv.edicts switched to use malloc()
 
 	sv.datagram.maxsize = sizeof(sv.datagram_buf);
 	sv.datagram.cursize = 0;
@@ -1342,6 +1348,7 @@ void SV_SpawnServer (const char *server)
 
 // leave slots at start for clients only
 	sv.num_edicts = svs.maxclients+1;
+	memset(sv.edicts, 0, sv.num_edicts*pr_edict_size); // ericw -- sv.edicts switched to use malloc()
 	for (i=0 ; i<svs.maxclients ; i++)
 	{
 		ent = EDICT_NUM(i+1);
@@ -1416,7 +1423,7 @@ void SV_SpawnServer (const char *server)
 
 	//johnfitz -- warn if signon buffer larger than standard server can handle
 	if (sv.signon.cursize > 8000-2) //max size that will fit into 8000-sized client->message buffer with 2 extra bytes on the end
-		Con_Warning ("%i byte signon buffer exceeds standard limit of 7998.\n", sv.signon.cursize);
+		Con_DWarning ("%i byte signon buffer exceeds standard limit of 7998.\n", sv.signon.cursize);
 	//johnfitz
 
 // send serverinfo to all connected clients

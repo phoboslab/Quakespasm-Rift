@@ -8,7 +8,7 @@
  * functions were adapted from the GPL-licensed libid3tag library, see at
  * http://www.underbit.com/products/mad/.  Adapted to Quake and Hexen II
  * game engines by O.Sezer :
- * Copyright (C) 2010-2012 O.Sezer <sezero@users.sourceforge.net>
+ * Copyright (C) 2010-2015 O.Sezer <sezero@users.sourceforge.net>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ static mad_timer_t const mad_timer_zero_stub = {0, 0};
    not certain that all of them are meaningful. Default to 16 bits to
    align with most users expectation of output file should be 16 bits. */
 #define MP3_MAD_SAMPLEBITS	16
-#define MP3_MAD_SAMPLEWIDTH	(MP3_MAD_SAMPLEBITS / 8)
+#define MP3_MAD_SAMPLEWIDTH	2
 #define MP3_BUFFER_SIZE		(5 * 8192)
 
 /* Private data */
@@ -67,7 +67,7 @@ typedef struct _mp3_priv_t
 /* This function merges the functions tagtype() and id3_tag_query()
  * from MAD's libid3tag, so we don't have to link to it
  * Returns 0 if the frame is not an ID3 tag, tag length if it is */
-static qboolean tag_is_id3v1(const unsigned char *data, size_t length)
+static inline qboolean tag_is_id3v1(const unsigned char *data, size_t length)
 {
 	if (length >= 3 &&
 	     data[0] == 'T' && data[1] == 'A' && data[2] == 'G')
@@ -77,7 +77,7 @@ static qboolean tag_is_id3v1(const unsigned char *data, size_t length)
 	return false;
 }
 
-static qboolean tag_is_id3v2(const unsigned char *data, size_t length)
+static inline qboolean tag_is_id3v2(const unsigned char *data, size_t length)
 {
 	if (length >= 10 &&
 	    (data[0] == 'I' && data[1] == 'D' && data[2] == '3') &&
@@ -89,21 +89,48 @@ static qboolean tag_is_id3v2(const unsigned char *data, size_t length)
 	return false;
 }
 
-static int mp3_tagsize(const unsigned char *data, size_t length)
+/* http://wiki.hydrogenaud.io/index.php?title=APEv1_specification
+ * http://wiki.hydrogenaud.io/index.php?title=APEv2_specification
+ * Detect an APEv2 tag. (APEv1 has no header, so no luck.)
+ */
+static inline qboolean tag_is_apetag(const unsigned char *data, size_t length)
 {
+	unsigned int v;
+
+	if (length < 32) return false;
+	if (memcmp(data,"APETAGEX",8) != 0)
+		return false;
+	v = (data[11]<<24) | (data[10]<<16) | (data[9]<<8) | data[8];
+	if (v != 2000U/* && v != 1000U*/)
+		return false;
+	v = 0;
+	if (memcmp(&data[24],&v,4) != 0 || memcmp(&data[28],&v,4) != 0)
+		return false;
+	return true;
+}
+
+static size_t mp3_tagsize(const unsigned char *data, size_t length)
+{
+	size_t size;
+
 	if (tag_is_id3v1(data, length))
 		return 128;
 
 	if (tag_is_id3v2(data, length))
 	{
-		unsigned char flags;
-		unsigned int size;
-		flags = data[5];
+		unsigned char flags = data[5];
 		size = 10 + (data[6]<<21) + (data[7]<<14) + (data[8]<<7) + data[9];
 		if (flags & ID3_TAG_FLAG_FOOTERPRESENT)
 			size += 10;
 		for ( ; size < length && !data[size]; ++size)
 			;  /* Consume padding */
+		return size;
+	}
+
+	if (tag_is_apetag(data, length))
+	{
+		size = (data[15]<<24) | (data[14]<<16) | (data[13]<<8) | data[12];
+		size += 32;
 		return size;
 	}
 
@@ -174,9 +201,7 @@ static int mp3_inputdata(snd_stream_t *stream)
 	bytes_read = FS_fread(p->mp3_buffer + remaining, 1,
 				MP3_BUFFER_SIZE - remaining, &stream->fh);
 	if (bytes_read == 0)
-	{
 		return -1;
-	}
 
 	mad_stream_buffer(&p->Stream, p->mp3_buffer, bytes_read+remaining);
 	p->Stream.error = MAD_ERROR_NONE;
@@ -199,11 +224,8 @@ static int mp3_startread(snd_stream_t *stream)
 	 * can be processed later.
 	 */
 	ReadSize = FS_fread(p->mp3_buffer, 1, MP3_BUFFER_SIZE, &stream->fh);
-	if (ReadSize != MP3_BUFFER_SIZE)
-	{
-		if (FS_feof(&stream->fh) || FS_ferror(&stream->fh))
-			return -1;
-	}
+	if (!ReadSize || FS_ferror(&stream->fh))
+		return -1;
 
 	mad_stream_buffer(&p->Stream, p->mp3_buffer, ReadSize);
 
@@ -218,7 +240,7 @@ static int mp3_startread(snd_stream_t *stream)
 		if (p->Stream.error == MAD_ERROR_BUFLEN)
 		{
 			if (mp3_inputdata(stream) == -1)
-				return -1;
+				return -1;/* EOF with no valid data */
 
 			continue;
 		}
@@ -257,8 +279,9 @@ static int mp3_startread(snd_stream_t *stream)
 
 	mad_timer_add(&p->Timer,p->Frame.header.duration);
 	mad_synth_frame(&p->Synth,&p->Frame);
-	stream->info.width = MP3_MAD_SAMPLEWIDTH;
 	stream->info.rate = p->Synth.pcm.samplerate;
+	stream->info.bits = MP3_MAD_SAMPLEBITS;
+	stream->info.width = MP3_MAD_SAMPLEWIDTH;
 
 	p->cursamp = 0;
 
@@ -495,49 +518,32 @@ static void S_MP3_CodecShutdown (void)
 {
 }
 
-static snd_stream_t *S_MP3_CodecOpenStream (const char *filename)
+static qboolean S_MP3_CodecOpenStream (snd_stream_t *stream)
 {
-	snd_stream_t *stream;
 	int err;
 
-	stream = S_CodecUtilOpen(filename, &mp3_codec);
-	if (!stream)
-		return NULL;
-
-#if 0 /*defined(CODECS_USE_ZONE)*/
-	stream->priv = Z_Malloc(sizeof(mp3_priv_t));
-#else
 	stream->priv = calloc(1, sizeof(mp3_priv_t));
 	if (!stream->priv)
 	{
-		S_CodecUtilClose(&stream);
 		Con_Printf("Insufficient memory for MP3 audio\n");
-		return NULL;
+		return false;
 	}
-#endif
-
 	err = mp3_startread(stream);
 	if (err != 0)
 	{
-		Con_Printf("%s is not a valid mp3 file\n", filename);
+		Con_Printf("%s is not a valid mp3 file\n", stream->name);
 	}
 	else if (stream->info.channels != 1 && stream->info.channels != 2)
 	{
 		Con_Printf("Unsupported number of channels %d in %s\n",
-					stream->info.channels, filename);
+					stream->info.channels, stream->name);
 	}
 	else
 	{
-		return stream;
+		return true;
 	}
-
-#if 0 /*defined(CODECS_USE_ZONE)*/
-	Z_Free(stream->priv);
-#else
 	free(stream->priv);
-#endif
-	S_CodecUtilClose(&stream);
-	return NULL;
+	return false;
 }
 
 static int S_MP3_CodecReadStream (snd_stream_t *stream, int bytes, void *buffer)
@@ -549,11 +555,7 @@ static int S_MP3_CodecReadStream (snd_stream_t *stream, int bytes, void *buffer)
 static void S_MP3_CodecCloseStream (snd_stream_t *stream)
 {
 	mp3_stopread(stream);
-#if 0 /*defined(CODECS_USE_ZONE)*/
-	Z_Free(stream->priv);
-#else
 	free(stream->priv);
-#endif
 	S_CodecUtilClose(&stream);
 }
 

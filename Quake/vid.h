@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -27,6 +28,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define VID_CBITS	6
 #define VID_GRADES	(1 << VID_CBITS)
+
+#define GAMMA_MAX	3.0
 
 // moved here for global use -- kristian
 typedef enum { MS_UNINIT, MS_WINDOWED, MS_FULLSCREEN } modestate_t;
@@ -80,6 +83,10 @@ void	VID_Update (vrect_t *rects);
 void VID_SyncCvars (void);
 
 void VID_Toggle (void);
+
+void *VID_GetWindow (void);
+qboolean VID_HasMouseOrInputFocus (void);
+qboolean VID_IsMinimized (void);
 
 #endif	/* __VID_DEFS_H */
 

@@ -3,6 +3,7 @@ Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
 Copyright (C) 2010-2011 O. Sezer <sezero@users.sourceforge.net>
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -61,7 +62,7 @@ int		s_rawend;
 portable_samplepair_t	s_rawsamples[MAX_RAW_SAMPLES];
 
 
-#define	MAX_SFX		512
+#define	MAX_SFX		1024
 static sfx_t	*known_sfx = NULL;	// hunk allocated [MAX_SFX]
 static int	num_sfx;
 
@@ -76,6 +77,16 @@ cvar_t		precache = {"precache", "1", CVAR_NONE};
 cvar_t		loadas8bit = {"loadas8bit", "0", CVAR_NONE};
 
 cvar_t		sndspeed = {"sndspeed", "11025", CVAR_NONE};
+cvar_t		snd_mixspeed = {"snd_mixspeed", "44100", CVAR_NONE};
+
+#if defined(_WIN32)
+#define SND_FILTERQUALITY_DEFAULT "5"
+#else
+#define SND_FILTERQUALITY_DEFAULT "1"
+#endif
+
+cvar_t		snd_filterquality = {"snd_filterquality", SND_FILTERQUALITY_DEFAULT,
+								 CVAR_NONE};
 
 static	cvar_t	nosound = {"nosound", "0", CVAR_NONE};
 static	cvar_t	ambient_level = {"ambient_level", "0.3", CVAR_NONE};
@@ -83,7 +94,6 @@ static	cvar_t	ambient_fade = {"ambient_fade", "100", CVAR_NONE};
 static	cvar_t	snd_noextraupdate = {"snd_noextraupdate", "0", CVAR_NONE};
 static	cvar_t	snd_show = {"snd_show", "0", CVAR_NONE};
 static	cvar_t	_snd_mixahead = {"_snd_mixahead", "0.1", CVAR_ARCHIVE};
-cvar_t	snd_device = {"snd_device", "default", CVAR_ARCHIVE};
 
 
 static void S_SoundInfo_f (void)
@@ -103,23 +113,20 @@ static void S_SoundInfo_f (void)
 	Con_Printf("%p dma buffer\n", shm->buffer);
 }
 
-static void S_Device_f (cvar_t *var)
-{
-	if (!sound_started || !shm)
-		return;
-
-	if (!SNDDMA_UsesDefaultDevice() || !(strlen(var->string) == 0 || strcmp("default", var->string) == 0)) {
-		SNDDMA_Shutdown();
-		S_Startup();
-	}
-}
-
 
 static void SND_Callback_sfxvolume (cvar_t *var)
 {
 	SND_InitScaletable ();
 }
 
+static void SND_Callback_snd_filterquality (cvar_t *var)
+{
+	if (snd_filterquality.value < 1 || snd_filterquality.value > 5)
+	{
+		Con_Printf ("snd_filterquality must be between 1 and 5\n");
+		Cvar_SetQuick (&snd_filterquality, SND_FILTERQUALITY_DEFAULT);
+	}
+}
 
 /*
 ================
@@ -173,10 +180,9 @@ void S_Init (void)
 	Cvar_RegisterVariable(&snd_show);
 	Cvar_RegisterVariable(&_snd_mixahead);
 	Cvar_RegisterVariable(&sndspeed);
-
-	Cvar_RegisterVariable(&snd_device);
-	Cvar_SetCallback (&snd_device, S_Device_f);
-
+	Cvar_RegisterVariable(&snd_mixspeed);
+	Cvar_RegisterVariable(&snd_filterquality);
+	
 	if (safemode || COM_CheckParm("-nosound"))
 		return;
 
@@ -193,6 +199,12 @@ void S_Init (void)
 	{
 		Cvar_SetQuick (&sndspeed, com_argv[i+1]);
 	}
+	
+	i = COM_CheckParm("-mixspeed");
+	if (i && i < com_argc-1)
+	{
+		Cvar_SetQuick (&snd_mixspeed, com_argv[i+1]);
+	}
 
 	if (host_parms->memsize < 0x800000)
 	{
@@ -201,6 +213,7 @@ void S_Init (void)
 	}
 
 	Cvar_SetCallback(&sfxvolume, SND_Callback_sfxvolume);
+	Cvar_SetCallback(&snd_filterquality, &SND_Callback_snd_filterquality);
 
 	SND_InitScaletable ();
 

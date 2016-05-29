@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -177,7 +178,7 @@ void R_CheckEfrags (void)
 		;
 
 	if (count > 640 && dev_peakstats.efrags <= 640)
-		Con_Warning ("%i efrags exceeds standard limit of 640.\n", count);
+		Con_DWarning ("%i efrags exceeds standard limit of 640.\n", count);
 
 	dev_stats.efrags = count;
 	dev_peakstats.efrags = q_max(count, dev_peakstats.efrags);
@@ -240,5 +241,4 @@ void R_StoreEfrags (efrag_t **ppefrag)
 		ppefrag = &pefrag->leafnext;
 	}
 }
-
 

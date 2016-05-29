@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -27,6 +28,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //  GLOBAL FOG
 //
 //==============================================================================
+
+#define DEFAULT_DENSITY 0.0
+#define DEFAULT_GRAY 0.3
 
 float fog_density;
 float fog_red;
@@ -146,14 +150,14 @@ void Fog_FogCommand_f (void)
 				   0.0);
 		break;
 	case 5:
-		Fog_Update(fmax(0.0, atof(Cmd_Argv(1))),
+		Fog_Update(q_max(0.0, atof(Cmd_Argv(1))),
 				   CLAMP(0.0, atof(Cmd_Argv(2)), 1.0),
 				   CLAMP(0.0, atof(Cmd_Argv(3)), 1.0),
 				   CLAMP(0.0, atof(Cmd_Argv(4)), 1.0),
 				   0.0);
 		break;
 	case 6: //TEST
-		Fog_Update(fmax(0.0, atof(Cmd_Argv(1))),
+		Fog_Update(q_max(0.0, atof(Cmd_Argv(1))),
 				   CLAMP(0.0, atof(Cmd_Argv(2)), 1.0),
 				   CLAMP(0.0, atof(Cmd_Argv(3)), 1.0),
 				   CLAMP(0.0, atof(Cmd_Argv(4)), 1.0),
@@ -175,8 +179,16 @@ void Fog_ParseWorldspawn (void)
 	const char *data;
 
 	//initially no fog
-	fog_density = 0.0;
-	old_density = 0.0;
+	fog_density = DEFAULT_DENSITY;
+	fog_red = DEFAULT_GRAY;
+	fog_green = DEFAULT_GRAY;
+	fog_blue = DEFAULT_GRAY;
+
+	old_density = DEFAULT_DENSITY;
+	old_red = DEFAULT_GRAY;
+	old_green = DEFAULT_GRAY;
+	old_blue = DEFAULT_GRAY;
+
 	fade_time = 0.0;
 	fade_done = 0.0;
 
@@ -377,10 +389,22 @@ void Fog_Init (void)
 	//Cvar_RegisterVariable (&r_vfog);
 
 	//set up global fog
-	fog_density = 0.0;
-	fog_red = 0.3;
-	fog_green = 0.3;
-	fog_blue = 0.3;
+	fog_density = DEFAULT_DENSITY;
+	fog_red = DEFAULT_GRAY;
+	fog_green = DEFAULT_GRAY;
+	fog_blue = DEFAULT_GRAY;
 
+	Fog_SetupState ();
+}
+
+/*
+=============
+Fog_SetupState
+ 
+ericw -- moved from Fog_Init, state that needs to be setup when a new context is created
+=============
+*/
+void Fog_SetupState (void)
+{
 	glFogi(GL_FOG_MODE, GL_EXP2);
 }

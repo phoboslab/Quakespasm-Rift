@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -75,6 +76,8 @@ int	vec_to_st[6][3] =
 	{-2,-1,3},
 	{-2,1,-3}
 };
+
+float	skyfog; // ericw
 
 //==============================================================================
 //
@@ -222,6 +225,7 @@ void Sky_NewMap (void)
 	skybox_name[0] = 0;
 	for (i=0; i<6; i++)
 		skybox_textures[i] = NULL;
+	skyfog = r_skyfog.value;
 
 	//
 	// read worldspawn (this is so ugly, and shouldn't it be done on the server?)
@@ -257,6 +261,9 @@ void Sky_NewMap (void)
 		if (!strcmp("sky", key))
 			Sky_LoadSkyBox(value);
 
+		if (!strcmp("skyfog", key))
+			skyfog = atof(value);
+
 #if 1 //also accept non-standard keys
 		else if (!strcmp("skyname", key)) //half-life
 			Sky_LoadSkyBox(value);
@@ -287,6 +294,17 @@ void Sky_SkyCommand_f (void)
 }
 
 /*
+====================
+R_SetSkyfog_f -- ericw
+====================
+*/
+static void R_SetSkyfog_f (cvar_t *var)
+{
+// clear any skyfog setting from worldspawn
+	skyfog = var->value;
+}
+
+/*
 =============
 Sky_Init
 =============
@@ -299,6 +317,7 @@ void Sky_Init (void)
 	Cvar_RegisterVariable (&r_sky_quality);
 	Cvar_RegisterVariable (&r_skyalpha);
 	Cvar_RegisterVariable (&r_skyfog);
+	Cvar_SetCallback (&r_skyfog, R_SetSkyfog_f);
 
 	Cmd_AddCommand ("sky",Sky_SkyCommand_f);
 
@@ -526,10 +545,10 @@ void Sky_ProcessTextureChains (void)
 	{
 		t = cl.worldmodel->textures[i];
 
-		if (!t || !t->texturechain || !(t->texturechain->flags & SURF_DRAWSKY))
+		if (!t || !t->texturechains[chain_world] || !(t->texturechains[chain_world]->flags & SURF_DRAWSKY))
 			continue;
 
-		for (s = t->texturechain; s; s = s->texturechain)
+		for (s = t->texturechains[chain_world]; s; s = s->texturechain)
 			if (!s->culled)
 				Sky_ProcessPoly (s->polys);
 	}
@@ -698,14 +717,14 @@ void Sky_DrawSkyBox (void)
 		rs_skypolys++;
 		rs_skypasses++;
 
-		if (Fog_GetDensity() > 0 && r_skyfog.value > 0)
+		if (Fog_GetDensity() > 0 && skyfog > 0)
 		{
 			float *c;
 
 			c = Fog_GetColor();
 			glEnable (GL_BLEND);
 			glDisable (GL_TEXTURE_2D);
-			glColor4f (c[0],c[1],c[2], CLAMP(0.0,r_skyfog.value,1.0));
+			glColor4f (c[0],c[1],c[2], CLAMP(0.0,skyfog,1.0));
 
 			glBegin (GL_QUADS);
 			Sky_EmitSkyBoxVertex (skymins[0][i], skymins[1][i], i);
@@ -800,9 +819,9 @@ void Sky_DrawFaceQuad (glpoly_t *p)
 		for (i=0, v=p->verts[0] ; i<4 ; i++, v+=VERTEXSIZE)
 		{
 			Sky_GetTexCoord (v, 8, &s, &t);
-			GL_MTexCoord2fFunc (TEXTURE0, s, t);
+			GL_MTexCoord2fFunc (GL_TEXTURE0_ARB, s, t);
 			Sky_GetTexCoord (v, 16, &s, &t);
-			GL_MTexCoord2fFunc (TEXTURE1, s, t);
+			GL_MTexCoord2fFunc (GL_TEXTURE1_ARB, s, t);
 			glVertex3fv (v);
 		}
 		glEnd ();
@@ -849,14 +868,14 @@ void Sky_DrawFaceQuad (glpoly_t *p)
 		rs_skypasses += 2;
 	}
 
-	if (Fog_GetDensity() > 0 && r_skyfog.value > 0)
+	if (Fog_GetDensity() > 0 && skyfog > 0)
 	{
 		float *c;
 
 		c = Fog_GetColor();
 		glEnable (GL_BLEND);
 		glDisable (GL_TEXTURE_2D);
-		glColor4f (c[0],c[1],c[2], CLAMP(0.0,r_skyfog.value,1.0));
+		glColor4f (c[0],c[1],c[2], CLAMP(0.0,skyfog,1.0));
 
 		glBegin (GL_QUADS);
 		for (i=0, v=p->verts[0] ; i<4 ; i++, v+=VERTEXSIZE)
@@ -992,7 +1011,7 @@ void Sky_DrawSky (void)
 	//
 	// render slow sky: cloud layers or skybox
 	//
-	if (!r_fastsky.value && !(Fog_GetDensity() > 0 && r_skyfog.value >= 1))
+	if (!r_fastsky.value && !(Fog_GetDensity() > 0 && skyfog >= 1))
 	{
 		glDepthFunc(GL_GEQUAL);
 		glDepthMask(0);

@@ -1,7 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
-Copyright (C) 2011 O.Sezer
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -193,6 +193,23 @@ void Mod_ClearAll (void)
 			mod->needload = true;
 			TexMgr_FreeTexturesForOwner (mod); //johnfitz
 		}
+}
+
+void Mod_ResetAll (void)
+{
+	int		i;
+	qmodel_t	*mod;
+
+	//ericw -- free alias model VBOs
+	GLMesh_DeleteVertexBuffers ();
+	
+	for (i=0 , mod=mod_known ; i<mod_numknown ; i++, mod++)
+	{
+		if (!mod->needload) //otherwise Mod_ClearAll() did it already
+			TexMgr_FreeTexturesForOwner (mod);
+		memset(mod, 0, sizeof(qmodel_t));
+	}
+	mod_numknown = 0;
 }
 
 /*
@@ -428,6 +445,16 @@ void Mod_LoadTextures (lump_t *l)
 		for (j=0 ; j<MIPLEVELS ; j++)
 			tx->offsets[j] = mt->offsets[j] + sizeof(texture_t) - sizeof(miptex_t);
 		// the pixels immediately follow the structures
+
+		// ericw -- check for pixels extending past the end of the lump.
+		// appears in the wild; e.g. jam2_tronyn.bsp (func_mapjam2),
+		// kellbase1.bsp (quoth), and can lead to a segfault if we read past
+		// the end of the .bsp file buffer
+		if (((byte*)(mt+1) + pixels) > (mod_base + l->fileofs + l->filelen))
+		{
+			Con_DPrintf("Texture %s extends past end of lump\n", mt->name);
+			pixels = q_max(0, (mod_base + l->fileofs + l->filelen) - (byte*)(mt+1));
+		}
 		memcpy ( tx+1, mt+1, pixels);
 
 		tx->update_warp = false; //johnfitz
@@ -437,7 +464,7 @@ void Mod_LoadTextures (lump_t *l)
 		//johnfitz -- lots of changes
 		if (!isDedicated) //no texture uploading for dedicated server
 		{
-			if (!Q_strncasecmp(tx->name,"sky",3)) //sky texture //also note -- was Q_strncmp, changed to match qbsp
+			if (!q_strncasecmp(tx->name,"sky",3)) //sky texture //also note -- was Q_strncmp, changed to match qbsp
 				Sky_LoadTexture (tx);
 			else if (tx->name[0] == '*') //warping texture
 			{
@@ -477,6 +504,14 @@ void Mod_LoadTextures (lump_t *l)
 			}
 			else //regular texture
 			{
+				// ericw -- fence textures
+				int	extraflags;
+
+				extraflags = 0;
+				if (tx->name[0] == '{')
+					extraflags |= TEXPREF_ALPHA;
+				// ericw
+
 				//external textures -- first look in "textures/mapname/" then look in "textures/"
 				mark = Hunk_LowMark ();
 				COM_StripExtension (loadmodel->name + 5, mapname, sizeof(mapname));
@@ -492,19 +527,21 @@ void Mod_LoadTextures (lump_t *l)
 				if (data) //load external image
 				{
 					tx->gltexture = TexMgr_LoadImage (loadmodel, filename, fwidth, fheight,
-						SRC_RGBA, data, filename, 0, TEXPREF_MIPMAP);
+						SRC_RGBA, data, filename, 0, TEXPREF_MIPMAP | extraflags );
 
 					//now try to load glow/luma image from the same place
 					Hunk_FreeToLowMark (mark);
 					q_snprintf (filename2, sizeof(filename2), "%s_glow", filename);
 					data = Image_LoadImage (filename2, &fwidth, &fheight);
 					if (!data)
+					{
 						q_snprintf (filename2, sizeof(filename2), "%s_luma", filename);
 						data = Image_LoadImage (filename2, &fwidth, &fheight);
+					}
 
 					if (data)
 						tx->fullbright = TexMgr_LoadImage (loadmodel, filename2, fwidth, fheight,
-							SRC_RGBA, data, filename, 0, TEXPREF_MIPMAP );
+							SRC_RGBA, data, filename, 0, TEXPREF_MIPMAP | extraflags );
 				}
 				else //use the texture from the bsp file
 				{
@@ -513,15 +550,15 @@ void Mod_LoadTextures (lump_t *l)
 					if (Mod_CheckFullbrights ((byte *)(tx+1), pixels))
 					{
 						tx->gltexture = TexMgr_LoadImage (loadmodel, texturename, tx->width, tx->height,
-							SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | TEXPREF_NOBRIGHT);
+							SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | TEXPREF_NOBRIGHT | extraflags);
 						q_snprintf (texturename, sizeof(texturename), "%s:%s_glow", loadmodel->name, tx->name);
 						tx->fullbright = TexMgr_LoadImage (loadmodel, texturename, tx->width, tx->height,
-							SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | TEXPREF_FULLBRIGHT);
+							SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | TEXPREF_FULLBRIGHT | extraflags);
 					}
 					else
 					{
 						tx->gltexture = TexMgr_LoadImage (loadmodel, texturename, tx->width, tx->height,
-							SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP);
+							SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | extraflags);
 					}
 				}
 				Hunk_FreeToLowMark (mark);
@@ -663,7 +700,7 @@ void Mod_LoadLighting (lump_t *l)
 			i = LittleLong(((int *)data)[1]);
 			if (i == 1)
 			{
-				Con_DPrintf("%s loaded", litfilename);
+				Con_DPrintf("%s loaded\n", litfilename);
 				loadmodel->lightdata = data + 8;
 				return;
 			}
@@ -731,7 +768,7 @@ void Mod_LoadEntities (lump_t *l)
 	q_strlcpy(entfilename, loadmodel->name, sizeof(entfilename));
 	COM_StripExtension(entfilename, entfilename, sizeof(entfilename));
 	q_strlcat(entfilename, ".ent", sizeof(entfilename));
-	Con_DPrintf("trying to load %s\n", entfilename);
+	Con_DPrintf2("trying to load %s\n", entfilename);
 	mark = Hunk_LowMark();
 	ents = (char *) COM_LoadHunkFile (entfilename, &path_id);
 	if (ents)
@@ -782,7 +819,7 @@ void Mod_LoadVertexes (lump_t *l)
 	loadmodel->vertexes = out;
 	loadmodel->numvertexes = count;
 
-	for ( i=0 ; i<count ; i++, in++, out++)
+	for (i=0 ; i<count ; i++, in++, out++)
 	{
 		out->position[0] = LittleFloat (in->point[0]);
 		out->position[1] = LittleFloat (in->point[1]);
@@ -795,25 +832,48 @@ void Mod_LoadVertexes (lump_t *l)
 Mod_LoadEdges
 =================
 */
-void Mod_LoadEdges (lump_t *l)
+void Mod_LoadEdges (lump_t *l, int bsp2)
 {
-	dedge_t *in;
 	medge_t *out;
-	int	i, count;
+	int 	i, count;
 
-	in = (dedge_t *)(mod_base + l->fileofs);
-	if (l->filelen % sizeof(*in))
-		Sys_Error ("MOD_LoadBmodel: funny lump size in %s",loadmodel->name);
-	count = l->filelen / sizeof(*in);
-	out = (medge_t *) Hunk_AllocName ( (count + 1) * sizeof(*out), loadname);
-
-	loadmodel->edges = out;
-	loadmodel->numedges = count;
-
-	for ( i=0 ; i<count ; i++, in++, out++)
+	if (bsp2)
 	{
-		out->v[0] = (unsigned short)LittleShort(in->v[0]);
-		out->v[1] = (unsigned short)LittleShort(in->v[1]);
+		dledge_t *in = (dledge_t *)(mod_base + l->fileofs);
+
+		if (l->filelen % sizeof(*in))
+			Sys_Error ("MOD_LoadBmodel: funny lump size in %s",loadmodel->name);
+
+		count = l->filelen / sizeof(*in);
+		out = (medge_t *) Hunk_AllocName ( (count + 1) * sizeof(*out), loadname);
+
+		loadmodel->edges = out;
+		loadmodel->numedges = count;
+
+		for (i=0 ; i<count ; i++, in++, out++)
+		{
+			out->v[0] = LittleLong(in->v[0]);
+			out->v[1] = LittleLong(in->v[1]);
+		}
+	}
+	else
+	{
+		dsedge_t *in = (dsedge_t *)(mod_base + l->fileofs);
+
+		if (l->filelen % sizeof(*in))
+			Sys_Error ("MOD_LoadBmodel: funny lump size in %s",loadmodel->name);
+
+		count = l->filelen / sizeof(*in);
+		out = (medge_t *) Hunk_AllocName ( (count + 1) * sizeof(*out), loadname);
+
+		loadmodel->edges = out;
+		loadmodel->numedges = count;
+
+		for (i=0 ; i<count ; i++, in++, out++)
+		{
+			out->v[0] = (unsigned short)LittleShort(in->v[0]);
+			out->v[1] = (unsigned short)LittleShort(in->v[1]);
+		}
 	}
 }
 
@@ -839,7 +899,7 @@ void Mod_LoadTexinfo (lump_t *l)
 	loadmodel->texinfo = out;
 	loadmodel->numtexinfo = count;
 
-	for ( i=0 ; i<count ; i++, in++, out++)
+	for (i=0 ; i<count ; i++, in++, out++)
 	{
 		for (j=0 ; j<4 ; j++)
 		{
@@ -861,7 +921,7 @@ void Mod_LoadTexinfo (lump_t *l)
 		if (len1 + len2 < 0.001)
 			out->mipadjust = 1;		// don't crash
 		else
-			out->mipadjust = 1 / floor( (len1+len2)/2 + 0.1 );
+			out->mipadjust = 1 / floor((len1+len2)/2 + 0.1);
 #endif
 
 		miptex = LittleLong (in->miptex);
@@ -920,10 +980,26 @@ void CalcSurfaceExtents (msurface_t *s)
 
 		for (j=0 ; j<2 ; j++)
 		{
-			val = v->position[0] * tex->vecs[j][0] +
-				v->position[1] * tex->vecs[j][1] +
-				v->position[2] * tex->vecs[j][2] +
-				tex->vecs[j][3];
+			/* The following calculation is sensitive to floating-point
+			 * precision.  It needs to produce the same result that the
+			 * light compiler does, because R_BuildLightMap uses surf->
+			 * extents to know the width/height of a surface's lightmap,
+			 * and incorrect rounding here manifests itself as patches
+			 * of "corrupted" looking lightmaps.
+			 * Most light compilers are win32 executables, so they use
+			 * x87 floating point.  This means the multiplies and adds
+			 * are done at 80-bit precision, and the result is rounded
+			 * down to 32-bits and stored in val.
+			 * Adding the casts to double seems to be good enough to fix
+			 * lighting glitches when Quakespasm is compiled as x86_64
+			 * and using SSE2 floating-point.  A potential trouble spot
+			 * is the hallway at the beginning of mfxsp17.  -- ericw
+			 */
+			val =	((double)v->position[0] * (double)tex->vecs[j][0]) +
+				((double)v->position[1] * (double)tex->vecs[j][1]) +
+				((double)v->position[2] * (double)tex->vecs[j][2]) +
+				(double)tex->vecs[j][3];
+
 			if (val < mins[j])
 				mins[j] = val;
 			if (val > maxs[j])
@@ -1033,57 +1109,88 @@ void Mod_CalcSurfaceBounds (msurface_t *s)
 Mod_LoadFaces
 =================
 */
-void Mod_LoadFaces (lump_t *l)
+void Mod_LoadFaces (lump_t *l, qboolean bsp2)
 {
-	dface_t		*in;
+	dsface_t	*ins;
+	dlface_t	*inl;
 	msurface_t 	*out;
-	int			i, count, surfnum;
-	int			planenum, side;
+	int			i, count, surfnum, lofs;
+	int			planenum, side, texinfon;
 
-	in = (dface_t *)(mod_base + l->fileofs);
-	if (l->filelen % sizeof(*in))
-		Sys_Error ("MOD_LoadBmodel: funny lump size in %s",loadmodel->name);
-	count = l->filelen / sizeof(*in);
-	out = (msurface_t *) Hunk_AllocName ( count*sizeof(*out), loadname);
+	if (bsp2)
+	{
+		ins = NULL;
+		inl = (dlface_t *)(mod_base + l->fileofs);
+		if (l->filelen % sizeof(*inl))
+			Sys_Error ("MOD_LoadBmodel: funny lump size in %s",loadmodel->name);
+		count = l->filelen / sizeof(*inl);
+	}
+	else
+	{
+		ins = (dsface_t *)(mod_base + l->fileofs);
+		inl = NULL;
+		if (l->filelen % sizeof(*ins))
+			Sys_Error ("MOD_LoadBmodel: funny lump size in %s",loadmodel->name);
+		count = l->filelen / sizeof(*ins);
+	}
+	out = (msurface_t *)Hunk_AllocName ( count*sizeof(*out), loadname);
 
 	//johnfitz -- warn mappers about exceeding old limits
-	if (count > 32767)
-		Con_Warning ("%i faces exceeds standard limit of 32767.\n", count);
+	if (count > 32767 && !bsp2)
+		Con_DWarning ("%i faces exceeds standard limit of 32767.\n", count);
 	//johnfitz
 
 	loadmodel->surfaces = out;
 	loadmodel->numsurfaces = count;
 
-	for ( surfnum=0 ; surfnum<count ; surfnum++, in++, out++)
+	for (surfnum=0 ; surfnum<count ; surfnum++, out++)
 	{
-		out->firstedge = LittleLong(in->firstedge);
-		out->numedges = LittleShort(in->numedges);
+		if (bsp2)
+		{
+			out->firstedge = LittleLong(inl->firstedge);
+			out->numedges = LittleLong(inl->numedges);
+			planenum = LittleLong(inl->planenum);
+			side = LittleLong(inl->side);
+			texinfon = LittleLong (inl->texinfo);
+			for (i=0 ; i<MAXLIGHTMAPS ; i++)
+				out->styles[i] = inl->styles[i];
+			lofs = LittleLong(inl->lightofs);
+			inl++;
+		}
+		else
+		{
+			out->firstedge = LittleLong(ins->firstedge);
+			out->numedges = LittleShort(ins->numedges);
+			planenum = LittleShort(ins->planenum);
+			side = LittleShort(ins->side);
+			texinfon = LittleShort (ins->texinfo);
+			for (i=0 ; i<MAXLIGHTMAPS ; i++)
+				out->styles[i] = ins->styles[i];
+			lofs = LittleLong(ins->lightofs);
+			ins++;
+		}
+
 		out->flags = 0;
 
-		planenum = LittleShort(in->planenum);
-		side = LittleShort(in->side);
 		if (side)
 			out->flags |= SURF_PLANEBACK;
 
 		out->plane = loadmodel->planes + planenum;
 
-		out->texinfo = loadmodel->texinfo + LittleShort (in->texinfo);
+		out->texinfo = loadmodel->texinfo + texinfon;
 
 		CalcSurfaceExtents (out);
 
 		Mod_CalcSurfaceBounds (out); //johnfitz -- for per-surface frustum culling
 
 	// lighting info
-		for (i=0 ; i<MAXLIGHTMAPS ; i++)
-			out->styles[i] = in->styles[i];
-		i = LittleLong(in->lightofs);
-		if (i == -1)
+		if (lofs == -1)
 			out->samples = NULL;
 		else
-			out->samples = loadmodel->lightdata + (i * 3); //johnfitz -- lit support via lordhavoc (was "+ i")
+			out->samples = loadmodel->lightdata + (lofs * 3); //johnfitz -- lit support via lordhavoc (was "+ i")
 
 		//johnfitz -- this section rewritten
-		if (!Q_strncasecmp(out->texinfo->texture->name,"sky",3)) // sky surface //also note -- was Q_strncmp, changed to match qbsp
+		if (!q_strncasecmp(out->texinfo->texture->name,"sky",3)) // sky surface //also note -- was Q_strncmp, changed to match qbsp
 		{
 			out->flags |= (SURF_DRAWSKY | SURF_DRAWTILED);
 			Mod_PolyForUnlitSurface (out); //no more subdivision
@@ -1091,8 +1198,22 @@ void Mod_LoadFaces (lump_t *l)
 		else if (out->texinfo->texture->name[0] == '*') // warp surface
 		{
 			out->flags |= (SURF_DRAWTURB | SURF_DRAWTILED);
+
+		// detect special liquid types
+			if (!strncmp (out->texinfo->texture->name, "*lava", 5))
+				out->flags |= SURF_DRAWLAVA;
+			else if (!strncmp (out->texinfo->texture->name, "*slime", 6))
+				out->flags |= SURF_DRAWSLIME;
+			else if (!strncmp (out->texinfo->texture->name, "*tele", 5))
+				out->flags |= SURF_DRAWTELE;
+			else out->flags |= SURF_DRAWWATER;
+
 			Mod_PolyForUnlitSurface (out);
 			GL_SubdivideSurface (out);
+		}
+		else if (out->texinfo->texture->name[0] == '{') // ericw -- fence textures
+		{
+			out->flags |= SURF_DRAWFENCE;
 		}
 		else if (out->texinfo->flags & TEX_MISSING) // texture is missing from bsp
 		{
@@ -1130,13 +1251,13 @@ void Mod_SetParent (mnode_t *node, mnode_t *parent)
 Mod_LoadNodes
 =================
 */
-void Mod_LoadNodes (lump_t *l)
+void Mod_LoadNodes_S (lump_t *l)
 {
 	int			i, j, count, p;
-	dnode_t		*in;
+	dsnode_t	*in;
 	mnode_t		*out;
 
-	in = (dnode_t *)(mod_base + l->fileofs);
+	in = (dsnode_t *)(mod_base + l->fileofs);
 	if (l->filelen % sizeof(*in))
 		Sys_Error ("MOD_LoadBmodel: funny lump size in %s",loadmodel->name);
 	count = l->filelen / sizeof(*in);
@@ -1144,13 +1265,13 @@ void Mod_LoadNodes (lump_t *l)
 
 	//johnfitz -- warn mappers about exceeding old limits
 	if (count > 32767)
-		Con_Warning ("%i nodes exceeds standard limit of 32767.\n", count);
+		Con_DWarning ("%i nodes exceeds standard limit of 32767.\n", count);
 	//johnfitz
 
 	loadmodel->nodes = out;
 	loadmodel->numnodes = count;
 
-	for ( i=0 ; i<count ; i++, in++, out++)
+	for (i=0 ; i<count ; i++, in++, out++)
 	{
 		for (j=0 ; j<3 ; j++)
 		{
@@ -1184,25 +1305,132 @@ void Mod_LoadNodes (lump_t *l)
 			//johnfitz
 		}
 	}
+}
+
+void Mod_LoadNodes_L1 (lump_t *l)
+{
+	int			i, j, count, p;
+	dl1node_t	*in;
+	mnode_t		*out;
+
+	in = (dl1node_t *)(mod_base + l->fileofs);
+	if (l->filelen % sizeof(*in))
+		Sys_Error ("Mod_LoadNodes: funny lump size in %s",loadmodel->name);
+
+	count = l->filelen / sizeof(*in);
+	out = (mnode_t *)Hunk_AllocName ( count*sizeof(*out), loadname);
+
+	loadmodel->nodes = out;
+	loadmodel->numnodes = count;
+
+	for (i=0 ; i<count ; i++, in++, out++)
+	{
+		for (j=0 ; j<3 ; j++)
+		{
+			out->minmaxs[j] = LittleShort (in->mins[j]);
+			out->minmaxs[3+j] = LittleShort (in->maxs[j]);
+		}
+
+		p = LittleLong(in->planenum);
+		out->plane = loadmodel->planes + p;
+
+		out->firstsurface = LittleLong (in->firstface); //johnfitz -- explicit cast as unsigned short
+		out->numsurfaces = LittleLong (in->numfaces); //johnfitz -- explicit cast as unsigned short
+
+		for (j=0 ; j<2 ; j++)
+		{
+			//johnfitz -- hack to handle nodes > 32k, adapted from darkplaces
+			p = LittleLong(in->children[j]);
+			if (p >= 0 && p < count)
+				out->children[j] = loadmodel->nodes + p;
+			else
+			{
+				p = 0xffffffff - p; //note this uses 65535 intentionally, -1 is leaf 0
+				if (p >= 0 && p < loadmodel->numleafs)
+					out->children[j] = (mnode_t *)(loadmodel->leafs + p);
+				else
+				{
+					Con_Printf("Mod_LoadNodes: invalid leaf index %i (file has only %i leafs)\n", p, loadmodel->numleafs);
+					out->children[j] = (mnode_t *)(loadmodel->leafs); //map it to the solid leaf
+				}
+			}
+			//johnfitz
+		}
+	}
+}
+
+void Mod_LoadNodes_L2 (lump_t *l)
+{
+	int			i, j, count, p;
+	dl2node_t	*in;
+	mnode_t		*out;
+
+	in = (dl2node_t *)(mod_base + l->fileofs);
+	if (l->filelen % sizeof(*in))
+		Sys_Error ("Mod_LoadNodes: funny lump size in %s",loadmodel->name);
+
+	count = l->filelen / sizeof(*in);
+	out = (mnode_t *)Hunk_AllocName ( count*sizeof(*out), loadname);
+
+	loadmodel->nodes = out;
+	loadmodel->numnodes = count;
+
+	for (i=0 ; i<count ; i++, in++, out++)
+	{
+		for (j=0 ; j<3 ; j++)
+		{
+			out->minmaxs[j] = LittleFloat (in->mins[j]);
+			out->minmaxs[3+j] = LittleFloat (in->maxs[j]);
+		}
+
+		p = LittleLong(in->planenum);
+		out->plane = loadmodel->planes + p;
+
+		out->firstsurface = LittleLong (in->firstface); //johnfitz -- explicit cast as unsigned short
+		out->numsurfaces = LittleLong (in->numfaces); //johnfitz -- explicit cast as unsigned short
+
+		for (j=0 ; j<2 ; j++)
+		{
+			//johnfitz -- hack to handle nodes > 32k, adapted from darkplaces
+			p = LittleLong(in->children[j]);
+			if (p > 0 && p < count)
+				out->children[j] = loadmodel->nodes + p;
+			else
+			{
+				p = 0xffffffff - p; //note this uses 65535 intentionally, -1 is leaf 0
+				if (p >= 0 && p < loadmodel->numleafs)
+					out->children[j] = (mnode_t *)(loadmodel->leafs + p);
+				else
+				{
+					Con_Printf("Mod_LoadNodes: invalid leaf index %i (file has only %i leafs)\n", p, loadmodel->numleafs);
+					out->children[j] = (mnode_t *)(loadmodel->leafs); //map it to the solid leaf
+				}
+			}
+			//johnfitz
+		}
+	}
+}
+
+void Mod_LoadNodes (lump_t *l, int bsp2)
+{
+	if (bsp2 == 2)
+		Mod_LoadNodes_L2(l);
+	else if (bsp2)
+		Mod_LoadNodes_L1(l);
+	else
+		Mod_LoadNodes_S(l);
 
 	Mod_SetParent (loadmodel->nodes, NULL);	// sets nodes and leafs
 }
 
-/*
-=================
-Mod_LoadLeafs
-=================
-*/
-void Mod_LoadLeafs (lump_t *l)
+void Mod_ProcessLeafs_S (dsleaf_t *in, int filelen)
 {
-	dleaf_t		*in;
 	mleaf_t		*out;
 	int			i, j, count, p;
 
-	in = (dleaf_t *)(mod_base + l->fileofs);
-	if (l->filelen % sizeof(*in))
-		Sys_Error ("MOD_LoadBmodel: funny lump size in %s",loadmodel->name);
-	count = l->filelen / sizeof(*in);
+	if (filelen % sizeof(*in))
+		Sys_Error ("Mod_ProcessLeafs: funny lump size in %s", loadmodel->name);
+	count = filelen / sizeof(*in);
 	out = (mleaf_t *) Hunk_AllocName ( count*sizeof(*out), loadname);
 
 	//johnfitz
@@ -1213,7 +1441,7 @@ void Mod_LoadLeafs (lump_t *l)
 	loadmodel->leafs = out;
 	loadmodel->numleafs = count;
 
-	for ( i=0 ; i<count ; i++, in++, out++)
+	for (i=0 ; i<count ; i++, in++, out++)
 	{
 		for (j=0 ; j<3 ; j++)
 		{
@@ -1241,27 +1469,154 @@ void Mod_LoadLeafs (lump_t *l)
 	}
 }
 
+void Mod_ProcessLeafs_L1 (dl1leaf_t *in, int filelen)
+{
+	mleaf_t		*out;
+	int			i, j, count, p;
+
+	if (filelen % sizeof(*in))
+		Sys_Error ("Mod_ProcessLeafs: funny lump size in %s", loadmodel->name);
+
+	count = filelen / sizeof(*in);
+
+	out = (mleaf_t *) Hunk_AllocName (count * sizeof(*out), loadname);
+
+
+	if (count > MAX_MAP_LEAFS)
+		Host_Error ("Mod_LoadLeafs: %i leafs exceeds limit of %i.\n", count, MAX_MAP_LEAFS);
+
+	loadmodel->leafs = out;
+	loadmodel->numleafs = count;
+
+	for (i=0 ; i<count ; i++, in++, out++)
+	{
+		for (j=0 ; j<3 ; j++)
+		{
+			out->minmaxs[j] = LittleShort (in->mins[j]);
+			out->minmaxs[3+j] = LittleShort (in->maxs[j]);
+		}
+
+		p = LittleLong(in->contents);
+		out->contents = p;
+
+		out->firstmarksurface = loadmodel->marksurfaces + LittleLong(in->firstmarksurface); //johnfitz -- unsigned short
+		out->nummarksurfaces = LittleLong(in->nummarksurfaces); //johnfitz -- unsigned short
+
+		p = LittleLong(in->visofs);
+		if (p == -1)
+			out->compressed_vis = NULL;
+		else
+			out->compressed_vis = loadmodel->visdata + p;
+		out->efrags = NULL;
+
+		for (j=0 ; j<4 ; j++)
+			out->ambient_sound_level[j] = in->ambient_level[j];
+
+		//johnfitz -- removed code to mark surfaces as SURF_UNDERWATER
+	}
+}
+
+void Mod_ProcessLeafs_L2 (dl2leaf_t *in, int filelen)
+{
+	mleaf_t		*out;
+	int			i, j, count, p;
+
+	if (filelen % sizeof(*in))
+		Sys_Error ("Mod_ProcessLeafs: funny lump size in %s", loadmodel->name);
+
+	count = filelen / sizeof(*in);
+
+	out = (mleaf_t *) Hunk_AllocName (count * sizeof(*out), loadname);
+
+
+	if (count > MAX_MAP_LEAFS)
+		Host_Error ("Mod_LoadLeafs: %i leafs exceeds limit of %i.\n", count, MAX_MAP_LEAFS);
+
+	loadmodel->leafs = out;
+	loadmodel->numleafs = count;
+
+	for (i=0 ; i<count ; i++, in++, out++)
+	{
+		for (j=0 ; j<3 ; j++)
+		{
+			out->minmaxs[j] = LittleFloat (in->mins[j]);
+			out->minmaxs[3+j] = LittleFloat (in->maxs[j]);
+		}
+
+		p = LittleLong(in->contents);
+		out->contents = p;
+
+		out->firstmarksurface = loadmodel->marksurfaces + LittleLong(in->firstmarksurface); //johnfitz -- unsigned short
+		out->nummarksurfaces = LittleLong(in->nummarksurfaces); //johnfitz -- unsigned short
+
+		p = LittleLong(in->visofs);
+		if (p == -1)
+			out->compressed_vis = NULL;
+		else
+			out->compressed_vis = loadmodel->visdata + p;
+		out->efrags = NULL;
+
+		for (j=0 ; j<4 ; j++)
+			out->ambient_sound_level[j] = in->ambient_level[j];
+
+		//johnfitz -- removed code to mark surfaces as SURF_UNDERWATER
+	}
+}
+
+/*
+=================
+Mod_LoadLeafs
+=================
+*/
+void Mod_LoadLeafs (lump_t *l, int bsp2)
+{
+	void *in = (void *)(mod_base + l->fileofs);
+
+	if (bsp2 == 2)
+		Mod_ProcessLeafs_L2 ((dl2leaf_t *)in, l->filelen);
+	else if (bsp2)
+		Mod_ProcessLeafs_L1 ((dl1leaf_t *)in, l->filelen);
+	else
+		Mod_ProcessLeafs_S  ((dsleaf_t *) in, l->filelen);
+}
+
 /*
 =================
 Mod_LoadClipnodes
 =================
 */
-void Mod_LoadClipnodes (lump_t *l)
+void Mod_LoadClipnodes (lump_t *l, qboolean bsp2)
 {
-	dclipnode_t *in;
+	dsclipnode_t *ins;
+	dlclipnode_t *inl;
+
 	mclipnode_t *out; //johnfitz -- was dclipnode_t
 	int			i, count;
 	hull_t		*hull;
 
-	in = (dclipnode_t *)(mod_base + l->fileofs);
-	if (l->filelen % sizeof(*in))
-		Sys_Error ("MOD_LoadBmodel: funny lump size in %s",loadmodel->name);
-	count = l->filelen / sizeof(*in);
+	if (bsp2)
+	{
+		ins = NULL;
+		inl = (dlclipnode_t *)(mod_base + l->fileofs);
+		if (l->filelen % sizeof(*inl))
+			Sys_Error ("Mod_LoadClipnodes: funny lump size in %s",loadmodel->name);
+
+		count = l->filelen / sizeof(*inl);
+	}
+	else
+	{
+		ins = (dsclipnode_t *)(mod_base + l->fileofs);
+		inl = NULL;
+		if (l->filelen % sizeof(*ins))
+			Sys_Error ("Mod_LoadClipnodes: funny lump size in %s",loadmodel->name);
+
+		count = l->filelen / sizeof(*ins);
+	}
 	out = (mclipnode_t *) Hunk_AllocName ( count*sizeof(*out), loadname);
 
 	//johnfitz -- warn about exceeding old limits
-	if (count > 32767)
-		Con_Warning ("%i clipnodes exceeds standard limit of 32767.\n", count);
+	if (count > 32767 && !bsp2)
+		Con_DWarning ("%i clipnodes exceeds standard limit of 32767.\n", count);
 	//johnfitz
 
 	loadmodel->clipnodes = out;
@@ -1291,23 +1646,43 @@ void Mod_LoadClipnodes (lump_t *l)
 	hull->clip_maxs[1] = 32;
 	hull->clip_maxs[2] = 64;
 
-	for (i=0 ; i<count ; i++, out++, in++)
+	if (bsp2)
 	{
-		out->planenum = LittleLong(in->planenum);
+		for (i=0 ; i<count ; i++, out++, inl++)
+		{
+			out->planenum = LittleLong(inl->planenum);
+
+			//johnfitz -- bounds check
+			if (out->planenum < 0 || out->planenum >= loadmodel->numplanes)
+				Host_Error ("Mod_LoadClipnodes: planenum out of bounds");
+			//johnfitz
+
+			out->children[0] = LittleLong(inl->children[0]);
+			out->children[1] = LittleLong(inl->children[1]);
+			//Spike: FIXME: bounds check
+		}
+	}
+	else
+	{
+		for (i=0 ; i<count ; i++, out++, ins++)
+		{
+			out->planenum = LittleLong(ins->planenum);
 
 		//johnfitz -- bounds check
 		if (out->planenum < 0 || out->planenum >= loadmodel->numplanes)
 			Host_Error ("Mod_LoadClipnodes: planenum out of bounds");
 		//johnfitz
 
-		//johnfitz -- support clipnodes > 32k
-		out->children[0] = (unsigned short)LittleShort(in->children[0]);
-		out->children[1] = (unsigned short)LittleShort(in->children[1]);
-		if (out->children[0] >= count)
-			out->children[0] -= 65536;
-		if (out->children[1] >= count)
-			out->children[1] -= 65536;
-		//johnfitz
+			//johnfitz -- support clipnodes > 32k
+			out->children[0] = (unsigned short)LittleShort(ins->children[0]);
+			out->children[1] = (unsigned short)LittleShort(ins->children[1]);
+
+			if (out->children[0] >= count)
+				out->children[0] -= 65536;
+			if (out->children[1] >= count)
+				out->children[1] -= 65536;
+			//johnfitz
+		}
 	}
 }
 
@@ -1355,32 +1730,56 @@ void Mod_MakeHull0 (void)
 Mod_LoadMarksurfaces
 =================
 */
-void Mod_LoadMarksurfaces (lump_t *l)
+void Mod_LoadMarksurfaces (lump_t *l, int bsp2)
 {
 	int		i, j, count;
-	short		*in;
 	msurface_t **out;
-
-	in = (short *)(mod_base + l->fileofs);
-	if (l->filelen % sizeof(*in))
-		Sys_Error ("MOD_LoadBmodel: funny lump size in %s",loadmodel->name);
-	count = l->filelen / sizeof(*in);
-	out = (msurface_t **) Hunk_AllocName ( count*sizeof(*out), loadname);
-
-	loadmodel->marksurfaces = out;
-	loadmodel->nummarksurfaces = count;
-
-	//johnfitz -- warn mappers about exceeding old limits
-	if (count > 32767)
-		Con_Warning ("%i marksurfaces exceeds standard limit of 32767.\n", count);
-	//johnfitz
-
-	for ( i=0 ; i<count ; i++)
+	if (bsp2)
 	{
-		j = (unsigned short)LittleShort(in[i]); //johnfitz -- explicit cast as unsigned short
-		if (j >= loadmodel->numsurfaces)
-			Sys_Error ("Mod_ParseMarksurfaces: bad surface number");
-		out[i] = loadmodel->surfaces + j;
+		unsigned int *in = (unsigned int *)(mod_base + l->fileofs);
+
+		if (l->filelen % sizeof(*in))
+			Host_Error ("Mod_LoadMarksurfaces: funny lump size in %s",loadmodel->name);
+
+		count = l->filelen / sizeof(*in);
+		out = (msurface_t **)Hunk_AllocName ( count*sizeof(*out), loadname);
+
+		loadmodel->marksurfaces = out;
+		loadmodel->nummarksurfaces = count;
+
+		for (i=0 ; i<count ; i++)
+		{
+			j = LittleLong(in[i]);
+			if (j >= loadmodel->numsurfaces)
+				Host_Error ("Mod_LoadMarksurfaces: bad surface number");
+			out[i] = loadmodel->surfaces + j;
+		}
+	}
+	else
+	{
+		short *in = (short *)(mod_base + l->fileofs);
+
+		if (l->filelen % sizeof(*in))
+			Host_Error ("Mod_LoadMarksurfaces: funny lump size in %s",loadmodel->name);
+
+		count = l->filelen / sizeof(*in);
+		out = (msurface_t **)Hunk_AllocName ( count*sizeof(*out), loadname);
+
+		loadmodel->marksurfaces = out;
+		loadmodel->nummarksurfaces = count;
+
+		//johnfitz -- warn mappers about exceeding old limits
+		if (count > 32767)
+			Con_DWarning ("%i marksurfaces exceeds standard limit of 32767.\n", count);
+		//johnfitz
+
+		for (i=0 ; i<count ; i++)
+		{
+			j = (unsigned short)LittleShort(in[i]); //johnfitz -- explicit cast as unsigned short
+			if (j >= loadmodel->numsurfaces)
+				Sys_Error ("Mod_LoadMarksurfaces: bad surface number");
+			out[i] = loadmodel->surfaces + j;
+		}
 	}
 }
 
@@ -1403,7 +1802,7 @@ void Mod_LoadSurfedges (lump_t *l)
 	loadmodel->surfedges = out;
 	loadmodel->numsurfedges = count;
 
-	for ( i=0 ; i<count ; i++)
+	for (i=0 ; i<count ; i++)
 		out[i] = LittleLong (in[i]);
 }
 
@@ -1430,7 +1829,7 @@ void Mod_LoadPlanes (lump_t *l)
 	loadmodel->planes = out;
 	loadmodel->numplanes = count;
 
-	for ( i=0 ; i<count ; i++, in++, out++)
+	for (i=0 ; i<count ; i++, in++, out++)
 	{
 		bits = 0;
 		for (j=0 ; j<3 ; j++)
@@ -1484,7 +1883,7 @@ void Mod_LoadSubmodels (lump_t *l)
 	loadmodel->submodels = out;
 	loadmodel->numsubmodels = count;
 
-	for ( i=0 ; i<count ; i++, in++, out++)
+	for (i=0 ; i<count ; i++, in++, out++)
 	{
 		for (j=0 ; j<3 ; j++)
 		{	// spread the mins / maxs by a pixel
@@ -1506,7 +1905,7 @@ void Mod_LoadSubmodels (lump_t *l)
 		Sys_Error ("Mod_LoadSubmodels: too many visleafs (%d, max = %d) in %s", out->visleafs, MAX_MAP_LEAFS, loadmodel->name);
 
 	if (out->visleafs > 8192)
-		Con_Warning ("%i visleafs exceeds standard limit of 8192.\n", out->visleafs);
+		Con_DWarning ("%i visleafs exceeds standard limit of 8192.\n", out->visleafs);
 	//johnfitz
 }
 
@@ -1570,6 +1969,7 @@ Mod_LoadBrushModel
 void Mod_LoadBrushModel (qmodel_t *mod, void *buffer)
 {
 	int			i, j;
+	int			bsp2;
 	dheader_t	*header;
 	dmodel_t 	*bm;
 	float		radius; //johnfitz
@@ -1578,9 +1978,23 @@ void Mod_LoadBrushModel (qmodel_t *mod, void *buffer)
 
 	header = (dheader_t *)buffer;
 
-	i = LittleLong (header->version);
-	if (i != BSPVERSION)
-		Sys_Error ("Mod_LoadBrushModel: %s has wrong version number (%i should be %i)", mod->name, i, BSPVERSION);
+	mod->bspversion = LittleLong (header->version);
+
+	switch(mod->bspversion)
+	{
+	case BSPVERSION:
+		bsp2 = false;
+		break;
+	case BSP2VERSION_2PSB:
+		bsp2 = 1;	//first iteration
+		break;
+	case BSP2VERSION_BSP2:
+		bsp2 = 2;	//sanitised revision
+		break;
+	default:
+		Sys_Error ("Mod_LoadBrushModel: %s has wrong version number (%i should be %i)", mod->name, mod->bspversion, BSPVERSION);
+		break;
+	}
 
 // swap all the lumps
 	mod_base = (byte *)header;
@@ -1591,18 +2005,18 @@ void Mod_LoadBrushModel (qmodel_t *mod, void *buffer)
 // load into heap
 
 	Mod_LoadVertexes (&header->lumps[LUMP_VERTEXES]);
-	Mod_LoadEdges (&header->lumps[LUMP_EDGES]);
+	Mod_LoadEdges (&header->lumps[LUMP_EDGES], bsp2);
 	Mod_LoadSurfedges (&header->lumps[LUMP_SURFEDGES]);
 	Mod_LoadTextures (&header->lumps[LUMP_TEXTURES]);
 	Mod_LoadLighting (&header->lumps[LUMP_LIGHTING]);
 	Mod_LoadPlanes (&header->lumps[LUMP_PLANES]);
 	Mod_LoadTexinfo (&header->lumps[LUMP_TEXINFO]);
-	Mod_LoadFaces (&header->lumps[LUMP_FACES]);
-	Mod_LoadMarksurfaces (&header->lumps[LUMP_MARKSURFACES]);
+	Mod_LoadFaces (&header->lumps[LUMP_FACES], bsp2);
+	Mod_LoadMarksurfaces (&header->lumps[LUMP_MARKSURFACES], bsp2);
 	Mod_LoadVisibility (&header->lumps[LUMP_VISIBILITY]);
-	Mod_LoadLeafs (&header->lumps[LUMP_LEAFS]);
-	Mod_LoadNodes (&header->lumps[LUMP_NODES]);
-	Mod_LoadClipnodes (&header->lumps[LUMP_CLIPNODES]);
+	Mod_LoadLeafs (&header->lumps[LUMP_LEAFS], bsp2);
+	Mod_LoadNodes (&header->lumps[LUMP_NODES], bsp2);
+	Mod_LoadClipnodes (&header->lumps[LUMP_CLIPNODES], bsp2);
 	Mod_LoadEntities (&header->lumps[LUMP_ENTITIES]);
 	Mod_LoadSubmodels (&header->lumps[LUMP_MODELS]);
 
@@ -1858,11 +2272,11 @@ Mod_LoadAllSkins
 void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype)
 {
 	int			i, j, k, size, groupskins;
-	char			name[32];
+	char			name[MAX_QPATH];
 	byte			*skin, *texels;
 	daliasskingroup_t	*pinskingroup;
 	daliasskininterval_t	*pinskinintervals;
-	char			fbr_mask_name[64]; //johnfitz -- added for fullbright support
+	char			fbr_mask_name[MAX_QPATH]; //johnfitz -- added for fullbright support
 	src_offset_t		offset; //johnfitz
 
 	skin = (byte *)(pskintype + 1);
@@ -1948,9 +2362,8 @@ void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype)
 				pskintype = (daliasskintype_t *)((byte *)(pskintype) + size);
 			}
 			k = j;
-			for (/* */; j < 4; j++)
-				pheader->gltextures[i][j&3] =
-				pheader->gltextures[i][j - k];
+			for (/**/; j < 4; j++)
+				pheader->gltextures[i][j&3] = pheader->gltextures[i][j - k];
 		}
 	}
 
@@ -2011,25 +2424,15 @@ void Mod_CalcAliasBounds (aliashdr_t *a)
 	loadmodel->ymaxs[2] = loadmodel->maxs[2];
 }
 
-/*
-=================
-Mod_SetExtraFlags -- johnfitz -- set up extra flags that aren't in the mdl
-=================
-*/
-void Mod_SetExtraFlags (qmodel_t *mod)
+static qboolean
+nameInList(const char *list, const char *name)
 {
-	extern cvar_t r_nolerp_list;
 	const char *s;
 	char tmp[MAX_QPATH];
 	int i;
 
-	if (!mod || !mod->name || mod->type != mod_alias)
-		return;
+	s = list;
 
-	mod->flags &= 0xFF; //only preserve first byte
-
-	// nolerp flag
-	s = r_nolerp_list.string;
 	while (*s)
 	{
 		// make a copy until the next comma or end of string
@@ -2042,23 +2445,37 @@ void Mod_SetExtraFlags (qmodel_t *mod)
 		}
 		tmp[i] = '\0';
 		//compare it to the model name
-		if (!strcmp(mod->name, tmp))
+		if (!strcmp(name, tmp))
 		{
-			mod->flags |= MOD_NOLERP;
-			break;
+			return true;
 		}
 		//search forwards to the next comma or end of string
 		while (*s && *s == ',')
 			s++;
 	}
+	return false;
+}
 
-	// noshadow flag (TODO: make this a cvar list)
-	if (!strcmp (mod->name, "progs/flame2.mdl") ||
-		!strcmp (mod->name, "progs/flame.mdl") ||
-		!strcmp (mod->name, "progs/bolt1.mdl") ||
-		!strcmp (mod->name, "progs/bolt2.mdl") ||
-		!strcmp (mod->name, "progs/bolt3.mdl") ||
-		!strcmp (mod->name, "progs/laser.mdl"))
+/*
+=================
+Mod_SetExtraFlags -- johnfitz -- set up extra flags that aren't in the mdl
+=================
+*/
+void Mod_SetExtraFlags (qmodel_t *mod)
+{
+	extern cvar_t r_nolerp_list, r_noshadow_list;
+
+	if (!mod || !mod->name || mod->type != mod_alias)
+		return;
+
+	mod->flags &= 0xFF; //only preserve first byte
+
+	// nolerp flag
+	if (nameInList(r_nolerp_list.string, mod->name))
+		mod->flags |= MOD_NOLERP;
+
+	// noshadow flag
+	if (nameInList(r_noshadow_list.string, mod->name))
 		mod->flags |= MOD_NOSHADOW;
 
 	// fullbright hack (TODO: make this a cvar list)

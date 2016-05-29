@@ -1,7 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
-Copyright (C) 2013 Dominic Szablewski
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -22,7 +22,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_main.c
 
 #include "quakedef.h"
-#include "vr.h"
 
 qboolean	r_cache_thrash;		// compatability
 
@@ -47,9 +46,6 @@ vec3_t	vpn;
 vec3_t	vright;
 vec3_t	r_origin;
 
-float	r_world_matrix[16];
-float	r_base_world_matrix[16];
-
 float r_fovx, r_fovy; //johnfitz -- rendering fov may be different becuase of r_waterwarp and r_stereo
 
 //
@@ -66,6 +62,7 @@ cvar_t	r_norefresh = {"r_norefresh","0",CVAR_NONE};
 cvar_t	r_drawentities = {"r_drawentities","1",CVAR_NONE};
 cvar_t	r_drawviewmodel = {"r_drawviewmodel","1",CVAR_NONE};
 cvar_t	r_speeds = {"r_speeds","0",CVAR_NONE};
+cvar_t	r_pos = {"r_pos","0",CVAR_NONE};
 cvar_t	r_fullbright = {"r_fullbright","0",CVAR_NONE};
 cvar_t	r_lightmap = {"r_lightmap","0",CVAR_NONE};
 cvar_t	r_shadows = {"r_shadows","0",CVAR_ARCHIVE};
@@ -74,7 +71,7 @@ cvar_t	r_dynamic = {"r_dynamic","1",CVAR_ARCHIVE};
 cvar_t	r_novis = {"r_novis","0",CVAR_ARCHIVE};
 
 cvar_t	gl_finish = {"gl_finish","0",CVAR_NONE};
-cvar_t	gl_clear = {"gl_clear","0",CVAR_NONE};
+cvar_t	gl_clear = {"gl_clear","1",CVAR_NONE};
 cvar_t	gl_cull = {"gl_cull","1",CVAR_NONE};
 cvar_t	gl_smoothmodels = {"gl_smoothmodels","1",CVAR_NONE};
 cvar_t	gl_affinemodels = {"gl_affinemodels","0",CVAR_NONE};
@@ -100,17 +97,167 @@ cvar_t	r_showbboxes = {"r_showbboxes", "0", CVAR_NONE};
 cvar_t	r_lerpmodels = {"r_lerpmodels", "1", CVAR_NONE};
 cvar_t	r_lerpmove = {"r_lerpmove", "1", CVAR_NONE};
 cvar_t	r_nolerp_list = {"r_nolerp_list", "progs/flame.mdl,progs/flame2.mdl,progs/braztall.mdl,progs/brazshrt.mdl,progs/longtrch.mdl,progs/flame_pyre.mdl,progs/v_saw.mdl,progs/v_xfist.mdl,progs/h2stuff/newfire.mdl", CVAR_NONE};
+cvar_t	r_noshadow_list = {"r_noshadow_list", "progs/flame2.mdl,progs/flame.mdl,progs/bolt1.mdl,progs/bolt2.mdl,progs/bolt3.mdl,progs/laser.mdl", CVAR_NONE};
+
 extern cvar_t	r_vfog;
 //johnfitz
 
-//phoboslab -- cvars for vr
-extern cvar_t vr_enabled;
-extern cvar_t vr_crosshair;
-//phoboslab
+cvar_t	gl_zfix = {"gl_zfix", "0", CVAR_NONE}; // QuakeSpasm z-fighting fix
 
-cvar_t	gl_zfix = {"gl_zfix", "1", CVAR_ARCHIVE}; // QuakeSpasm z-fighting fix
+cvar_t	r_lavaalpha = {"r_lavaalpha","0",CVAR_NONE};
+cvar_t	r_telealpha = {"r_telealpha","0",CVAR_NONE};
+cvar_t	r_slimealpha = {"r_slimealpha","0",CVAR_NONE};
+
+float	map_wateralpha, map_lavaalpha, map_telealpha, map_slimealpha;
 
 qboolean r_drawflat_cheatsafe, r_fullbright_cheatsafe, r_lightmap_cheatsafe, r_drawworld_cheatsafe; //johnfitz
+
+//==============================================================================
+//
+// GLSL GAMMA CORRECTION
+//
+//==============================================================================
+
+static GLuint r_gamma_texture;
+static GLuint r_gamma_program;
+static int r_gamma_texture_width, r_gamma_texture_height;
+
+// uniforms used in gamma shader
+static GLuint gammaLoc;
+static GLuint contrastLoc;
+static GLuint textureLoc;
+
+/*
+=============
+GLSLGamma_DeleteTexture
+=============
+*/
+void GLSLGamma_DeleteTexture (void)
+{
+	glDeleteTextures (1, &r_gamma_texture);
+	r_gamma_texture = 0;
+	r_gamma_program = 0; // deleted in R_DeleteShaders
+}
+
+/*
+=============
+GLSLGamma_CreateShaders
+=============
+*/
+static void GLSLGamma_CreateShaders (void)
+{
+	const GLchar *vertSource = \
+		"#version 110\n"
+		"\n"
+		"void main(void) {\n"
+		"	gl_Position = vec4(gl_Vertex.xy, 0.0, 1.0);\n"
+		"	gl_TexCoord[0] = gl_MultiTexCoord0;\n"
+		"}\n";
+
+	const GLchar *fragSource = \
+		"#version 110\n"
+		"\n"
+		"uniform sampler2D GammaTexture;\n"
+		"uniform float GammaValue;\n"
+		"uniform float ContrastValue;\n"
+		"\n"
+		"void main(void) {\n"
+		"	  vec4 frag = texture2D(GammaTexture, gl_TexCoord[0].xy);\n"
+		"	  frag.rgb = frag.rgb * ContrastValue;\n"
+		"	  gl_FragColor = vec4(pow(frag.rgb, vec3(GammaValue)), 1.0);\n"
+		"}\n";
+
+	if (!gl_glsl_gamma_able)
+		return;
+
+	r_gamma_program = GL_CreateProgram (vertSource, fragSource, 0, NULL);
+
+// get uniform locations
+	gammaLoc = GL_GetUniformLocation (&r_gamma_program, "GammaValue");
+	contrastLoc = GL_GetUniformLocation (&r_gamma_program, "ContrastValue");
+	textureLoc = GL_GetUniformLocation (&r_gamma_program, "GammaTexture");
+}
+
+/*
+=============
+GLSLGamma_GammaCorrect
+=============
+*/
+void GLSLGamma_GammaCorrect (void)
+{
+	float smax, tmax;
+
+	if (!gl_glsl_gamma_able)
+		return;
+
+	if (vid_gamma.value == 1 && vid_contrast.value == 1)
+		return;
+
+// create render-to-texture texture if needed
+	if (!r_gamma_texture)
+	{
+		glGenTextures (1, &r_gamma_texture);
+		glBindTexture (GL_TEXTURE_2D, r_gamma_texture);
+
+		r_gamma_texture_width = glwidth;
+		r_gamma_texture_height = glheight;
+
+		if (!gl_texture_NPOT)
+		{
+			r_gamma_texture_width = TexMgr_Pad(r_gamma_texture_width);
+			r_gamma_texture_height = TexMgr_Pad(r_gamma_texture_height);
+		}
+	
+		glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA8, r_gamma_texture_width, r_gamma_texture_height, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, NULL);
+		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	}
+
+// create shader if needed
+	if (!r_gamma_program)
+	{
+		GLSLGamma_CreateShaders ();
+		if (!r_gamma_program)
+		{
+			Sys_Error("GLSLGamma_CreateShaders failed");
+		}
+	}
+	
+// copy the framebuffer to the texture
+	GL_DisableMultitexture();
+	glBindTexture (GL_TEXTURE_2D, r_gamma_texture);
+	glCopyTexSubImage2D (GL_TEXTURE_2D, 0, 0, 0, glx, gly, glwidth, glheight);
+
+// draw the texture back to the framebuffer with a fragment shader
+	GL_UseProgramFunc (r_gamma_program);
+	GL_Uniform1fFunc (gammaLoc, vid_gamma.value);
+	GL_Uniform1fFunc (contrastLoc, q_min(2.0, q_max(1.0, vid_contrast.value)));
+	GL_Uniform1iFunc (textureLoc, 0); // use texture unit 0
+
+	glDisable (GL_ALPHA_TEST);
+	glDisable (GL_DEPTH_TEST);
+
+	glViewport (glx, gly, glwidth, glheight);
+
+	smax = glwidth/(float)r_gamma_texture_width;
+	tmax = glheight/(float)r_gamma_texture_height;
+
+	glBegin (GL_QUADS);
+	glTexCoord2f (0, 0);
+	glVertex2f (-1, -1);
+	glTexCoord2f (smax, 0);
+	glVertex2f (1, -1);
+	glTexCoord2f (smax, tmax);
+	glVertex2f (1, 1);
+	glTexCoord2f (0, tmax);
+	glVertex2f (-1, 1);
+	glEnd ();
+	
+	GL_UseProgramFunc (0);
+	
+// clear cached binding
+	GL_ClearBindings ();
+}
 
 /*
 =================
@@ -289,9 +436,6 @@ void R_SetFrustum (float fovx, float fovy)
 
 	if (r_stereo.value)
 		fovx += 10; //silly hack so that polygons don't drop out becuase of stereo skew
-	
-	if (vr_enabled.value)
-		fovx += 25; // meh
 
 	TurnVector(frustum[0].normal, vpn, vright, fovx/2 - 90); //left plane
 	TurnVector(frustum[1].normal, vpn, vright, 90 - fovx/2); //right plane
@@ -309,63 +453,47 @@ void R_SetFrustum (float fovx, float fovy)
 /*
 =============
 GL_SetFrustum -- johnfitz -- written to replace MYgluPerspective
-phoboslab -- fixed for oculus renderer
 =============
 */
 #define NEARCLIP 4
 float frustum_skew = 0.0; //used by r_stereo
 void GL_SetFrustum(float fovx, float fovy)
 {
-	GLfloat xmax, ymax;
-	GLfloat aspect = fovx/fovy;
-
-	ymax = NEARCLIP * tan(fovy * M_PI / 360.0);
-	xmax = ymax * aspect;
-
+	float xmax, ymax;
+	xmax = NEARCLIP * tan( fovx * M_PI / 360.0 );
+	ymax = NEARCLIP * tan( fovy * M_PI / 360.0 );
 	glFrustum(-xmax + frustum_skew, xmax + frustum_skew, -ymax, ymax, NEARCLIP, gl_farclip.value);
 }
-
 
 /*
 =============
 R_SetupGL
 =============
 */
-
 void R_SetupGL (void)
 {
 	//johnfitz -- rewrote this section
-
-	if (vr_enabled.value) {
-		VR_SetMatrices ();
-	}
-	else 
-	{
-		//johnfitz
-		glMatrixMode(GL_PROJECTION);
-		glLoadIdentity ();
-
-		glViewport (glx + r_refdef.vrect.x,
+	glMatrixMode(GL_PROJECTION);
+    glLoadIdentity ();
+	glViewport (glx + r_refdef.vrect.x,
 				gly + glheight - r_refdef.vrect.y - r_refdef.vrect.height,
 				r_refdef.vrect.width,
 				r_refdef.vrect.height);
-		GL_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
+	//johnfitz
 
-		glMatrixMode(GL_MODELVIEW);
-		glLoadIdentity ();
+    GL_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
 
-		glRotatef (-90,  1, 0, 0);	    // put Z going up
-		glRotatef (90,  0, 0, 1);	    // put Z going up
+//	glCullFace(GL_BACK); //johnfitz -- glquake used CCW with backwards culling -- let's do it right
 
-		glRotatef (-r_refdef.viewangles[2],  1, 0, 0);
-		glRotatef (-r_refdef.viewangles[0],  0, 1, 0);
-		glRotatef (-r_refdef.viewangles[1],  0, 0, 1);
-	
-		glTranslatef (-r_refdef.vieworg[0],  -r_refdef.vieworg[1],  -r_refdef.vieworg[2]);
-	}	
+	glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity ();
 
-
-	glGetFloatv (GL_MODELVIEW_MATRIX, r_world_matrix);
+    glRotatef (-90,  1, 0, 0);	    // put Z going up
+    glRotatef (90,  0, 0, 1);	    // put Z going up
+    glRotatef (-r_refdef.viewangles[2],  1, 0, 0);
+    glRotatef (-r_refdef.viewangles[0],  0, 1, 0);
+    glRotatef (-r_refdef.viewangles[1],  0, 0, 1);
+    glTranslatef (-r_refdef.vieworg[0],  -r_refdef.vieworg[1],  -r_refdef.vieworg[2]);
 
 	//
 	// set drawing parms
@@ -390,6 +518,9 @@ void R_Clear (void)
 	unsigned int clearbits;
 
 	clearbits = GL_DEPTH_BUFFER_BIT;
+	// from mh -- if we get a stencil buffer, we should clear it, even though we don't use it
+	if (gl_stencilbits)
+		clearbits |= GL_STENCIL_BUFFER_BIT;
 	if (gl_clear.value)
 		clearbits |= GL_COLOR_BUFFER_BIT;
 	glClear (clearbits);
@@ -435,7 +566,7 @@ void R_SetupView (void)
 	r_fovy = r_refdef.fov_y;
 	if (r_waterwarp.value)
 	{
-		int contents = r_viewleaf->contents;
+		int contents = Mod_PointInLeaf (r_origin, cl.worldmodel)->contents;
 		if (contents == CONTENTS_WATER || contents == CONTENTS_SLIME || contents == CONTENTS_LAVA)
 		{
 			//variance is a percentage of width, where width = 2 * tan(fov / 2) otherwise the effect is too dramatic at high FOV and too subtle at low FOV.  what a mess!
@@ -525,21 +656,10 @@ R_DrawViewModel -- johnfitz -- gutted
 */
 void R_DrawViewModel (void)
 {
-	if (chase_active.value)
+	if (!r_drawviewmodel.value || !r_drawentities.value || chase_active.value)
 		return;
 
-
-	if (!r_drawviewmodel.value || !r_drawentities.value )
-		return;
-	
-	if (cl.stats[STAT_HEALTH] <= 0)
-		return;
-
-	// only draw crosshair if the player model is being drawn
-	if(vr_enabled.value && vr_crosshair.value)
-		VR_ShowCrosshair();
-
-	if (cl.items & IT_INVISIBILITY)
+	if (cl.items & IT_INVISIBILITY || cl.stats[STAT_HEALTH] <= 0)
 		return;
 
 	currententity = &cl.viewent;
@@ -551,15 +671,10 @@ void R_DrawViewModel (void)
 		return;
 	//johnfitz
 
-
 	// hack the depth range to prevent view model from poking into walls
-	
-	// JM - turned off this hack because it doesn't look right in 3d
-	// also the axe going right into enemies is awesome
-
-	//glDepthRange (0, 0.3);
+	glDepthRange (0, 0.3);
 	R_DrawAliasModel (currententity);
-	//glDepthRange (0, 1);
+	glDepthRange (0, 1);
 }
 
 /*
@@ -683,7 +798,7 @@ void R_ShowTris (void)
 
 	if (r_drawworld.value)
 	{
-		R_DrawTextureChains_ShowTris ();
+		R_DrawWorld_ShowTris ();
 	}
 
 	if (r_drawentities.value)
@@ -755,6 +870,15 @@ void R_DrawShadows (void)
 	if (!r_shadows.value || !r_drawentities.value || r_drawflat_cheatsafe || r_lightmap_cheatsafe)
 		return;
 
+	// Use stencil buffer to prevent self-intersecting shadows, from Baker (MarkV)
+	if (gl_stencilbits)
+	{
+		glClear(GL_STENCIL_BUFFER_BIT);
+		glStencilFunc(GL_EQUAL, 0, ~0);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+		glEnable(GL_STENCIL_TEST);
+	}
+
 	for (i=0 ; i<cl_numvisedicts ; i++)
 	{
 		currententity = cl_visedicts[i];
@@ -766,6 +890,11 @@ void R_DrawShadows (void)
 			return;
 
 		GL_DrawAliasShadow (currententity);
+	}
+
+	if (gl_stencilbits)
+	{
+		glDisable(GL_STENCIL_TEST);
 	}
 }
 
@@ -790,7 +919,7 @@ void R_RenderScene (void)
 
 	R_DrawEntitiesOnList (false); //johnfitz -- false means this is the pass for nonalpha entities
 
-	R_DrawTextureChains_Water (); //johnfitz -- drawn here since they might have transparency
+	R_DrawWorld_Water (); //johnfitz -- drawn here since they might have transparency
 
 	R_DrawEntitiesOnList (true); //johnfitz -- true means this is the pass for alpha entities
 
@@ -812,7 +941,6 @@ void R_RenderScene (void)
 R_RenderView
 ================
 */
-
 void R_RenderView (void)
 {
 	double	time1, time2;
@@ -876,7 +1004,15 @@ void R_RenderView (void)
 
 	//johnfitz -- modified r_speeds output
 	time2 = Sys_DoubleTime ();
-	if (r_speeds.value == 2)
+	if (r_pos.value)
+		Con_Printf ("x %i y %i z %i (pitch %i yaw %i roll %i)\n",
+			(int)cl_entities[cl.viewentity].origin[0],
+			(int)cl_entities[cl.viewentity].origin[1],
+			(int)cl_entities[cl.viewentity].origin[2],
+			(int)cl.viewangles[PITCH],
+			(int)cl.viewangles[YAW],
+			(int)cl.viewangles[ROLL]);
+	else if (r_speeds.value == 2)
 		Con_Printf ("%3i ms  %4i/%4i wpoly %4i/%4i epoly %3i lmap %4i/%4i sky %1.1f mtex\n",
 					(int)((time2-time1)*1000),
 					rs_brushpolys,
@@ -895,5 +1031,4 @@ void R_RenderView (void)
 					rs_dynamiclightmaps);
 	//johnfitz
 }
-
 

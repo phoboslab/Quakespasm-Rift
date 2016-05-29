@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -74,6 +75,13 @@ typedef struct mplane_s
 	byte	pad[2];
 } mplane_t;
 
+// ericw -- each texture has two chains, so we can clear the model chains
+//          without affecting the world
+typedef enum {
+	chain_world = 0,
+	chain_model = 1
+} texchain_t;
+
 typedef struct texture_s
 {
 	char				name[16];
@@ -82,7 +90,7 @@ typedef struct texture_s
 	struct gltexture_s	*fullbright; //johnfitz -- fullbright mask texture
 	struct gltexture_s	*warpimage; //johnfitz -- for water animation
 	qboolean			update_warp; //johnfitz -- update warp this frame
-	struct msurface_s	*texturechain;	// for texture chains
+	struct msurface_s	*texturechains[2];	// for texture chains
 	int					anim_total;				// total tenths in sequence ( 0 = no)
 	int					anim_min, anim_max;		// time for this frame min <=time< max
 	struct texture_s	*anim_next;		// in the animation sequence
@@ -99,11 +107,16 @@ typedef struct texture_s
 #define SURF_DRAWBACKGROUND	0x40
 #define SURF_UNDERWATER		0x80
 #define SURF_NOTEXTURE		0x100 //johnfitz
+#define SURF_DRAWFENCE		0x200
+#define SURF_DRAWLAVA		0x400
+#define SURF_DRAWSLIME		0x800
+#define SURF_DRAWTELE		0x1000
+#define SURF_DRAWWATER		0x2000
 
 // !!! if this is changed, it must be changed in asm_draw.h too !!!
 typedef struct
 {
-	unsigned short	v[2];
+	unsigned int	v[2];
 	unsigned int	cachededgeoffset;
 } medge_t;
 
@@ -148,6 +161,8 @@ typedef struct msurface_s
 
 	mtexinfo_t	*texinfo;
 
+	int		vbo_firstvert;		// index of this surface's first vert in the VBO
+
 // lighting info
 	int			dlightframe;
 	unsigned int		dlightbits[(MAX_DLIGHTS + 31) >> 5];
@@ -174,8 +189,8 @@ typedef struct mnode_s
 	mplane_t	*plane;
 	struct mnode_s	*children[2];
 
-	unsigned short		firstsurface;
-	unsigned short		numsurfaces;
+	unsigned int		firstsurface;
+	unsigned int		numsurfaces;
 } mnode_t;
 
 
@@ -271,6 +286,26 @@ Alias models are position independent, so the cache manager can move them.
 ==============================================================================
 */
 
+//-- from RMQEngine
+// split out to keep vertex sizes down
+typedef struct aliasmesh_s
+{
+	float st[2];
+	unsigned short vertindex;
+} aliasmesh_t;
+
+typedef struct meshxyz_s
+{
+	byte xyz[4];
+	signed char normal[4];
+} meshxyz_t;
+
+typedef struct meshst_s
+{
+	float st[2];
+} meshst_t;
+//--
+
 typedef struct
 {
 	int					firstpose;
@@ -320,6 +355,14 @@ typedef struct {
 	synctype_t	synctype;
 	int			flags;
 	float		size;
+
+	//ericw -- used to populate vbo
+	int			numverts_vbo;   // number of verts with unique x,y,z,s,t
+	intptr_t		meshdesc;       // offset into extradata: numverts_vbo aliasmesh_t
+	int			numindexes;
+	intptr_t		indexes;        // offset into extradata: numindexes unsigned shorts
+	intptr_t		vertexes;       // offset into extradata: numposes*vertsperframe trivertx_t
+	//ericw --
 
 	int					numposes;
 	int					poseverts;
@@ -436,6 +479,18 @@ typedef struct qmodel_s
 	byte		*lightdata;
 	char		*entities;
 
+	int			bspversion;
+
+//
+// alias model
+//
+
+	GLuint		meshvbo;
+	GLuint		meshindexesvbo;
+	int			vboindexofs;    // offset in vbo of the hdr->numindexes unsigned shorts
+	int			vboxyzofs;      // offset in vbo of hdr->numposes*hdr->numverts_vbo meshxyz_t
+	int			vbostofs;       // offset in vbo of hdr->numverts_vbo meshst_t
+
 //
 // additional model data
 //
@@ -447,6 +502,7 @@ typedef struct qmodel_s
 
 void	Mod_Init (void);
 void	Mod_ClearAll (void);
+void	Mod_ResetAll (void); // for gamedir changes (Host_Game_f)
 qmodel_t *Mod_ForName (const char *name, qboolean crash);
 void	*Mod_Extradata (qmodel_t *mod);	// handles caching
 void	Mod_TouchModel (const char *name);

@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -55,15 +56,6 @@ void TraceLine (vec3_t start, vec3_t end, vec3_t impact)
 	SV_RecursiveHullCheck (cl.worldmodel->hulls, 0, 0, 1, start, end, &trace);
 
 	VectorCopy (trace.endpos, impact);
-}
-
-
-void TraceLineToEntity (vec3_t start, vec3_t end, vec3_t impact, edict_t *ent)
-{
-	trace_t	trace;
-	memset (&trace, 0, sizeof(trace));
-	trace = SV_Move (start, vec3_origin, vec3_origin, end, MOVE_NORMAL, ent);
-	VectorCopy (trace.endpos,impact);
 }
 
 /*

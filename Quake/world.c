@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -494,7 +495,7 @@ int SV_HullPointContents (hull_t *hull, int num, vec3_t p)
 		if (plane->type < 3)
 			d = p[plane->type] - plane->dist;
 		else
-			d = DotProduct (plane->normal, p) - plane->dist;
+			d = DoublePrecisionDotProduct (plane->normal, p) - plane->dist;
 		if (d < 0)
 			num = node->children[1];
 		else
@@ -605,8 +606,8 @@ qboolean SV_RecursiveHullCheck (hull_t *hull, int num, float p1f, float p2f, vec
 	}
 	else
 	{
-		t1 = DotProduct (plane->normal, p1) - plane->dist;
-		t2 = DotProduct (plane->normal, p2) - plane->dist;
+		t1 = DoublePrecisionDotProduct (plane->normal, p1) - plane->dist;
+		t2 = DoublePrecisionDotProduct (plane->normal, p2) - plane->dist;
 	}
 
 #if 1

@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2005 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -24,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#include <mmsystem.h>
 
 #include "quakedef.h"
 
@@ -33,7 +35,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <direct.h>
 
 #if defined(SDL_FRAMEWORK) || defined(NO_SDL_CONFIG)
+#if defined(USE_SDL2)
+#include <SDL2/SDL.h>
+#else
 #include <SDL/SDL.h>
+#endif
 #else
 #include "SDL.h"
 #endif
@@ -148,13 +154,81 @@ int Sys_FileTime (const char *path)
 	return -1;
 }
 
+static char	cwd[1024];
+
+static void Sys_GetBasedir (char *argv0, char *dst, size_t dstsize)
+{
+	char		*tmp;
+
+	if (GetCurrentDirectory(dstsize, dst) == 0)
+		Sys_Error ("Couldn't determine current directory");
+
+	tmp = dst;
+	while (*tmp != 0)
+		tmp++;
+	while (*tmp == 0 && tmp != dst)
+	{
+		--tmp;
+		if (tmp != dst && (*tmp == '/' || *tmp == '\\'))
+			*tmp = 0;
+	}
+}
+
+typedef enum { dpi_unaware = 0, dpi_system_aware = 1, dpi_monitor_aware = 2 } dpi_awareness;
+typedef BOOL (WINAPI *SetProcessDPIAwareFunc)();
+typedef HRESULT (WINAPI *SetProcessDPIAwarenessFunc)(dpi_awareness value);
+
+static void Sys_SetDPIAware (void)
+{
+	HMODULE hUser32, hShcore;
+	SetProcessDPIAwarenessFunc setDPIAwareness;
+	SetProcessDPIAwareFunc setDPIAware;
+
+	/* Neither SDL 1.2 nor SDL 2.0.3 can handle the OS scaling our window.
+	  (e.g. https://bugzilla.libsdl.org/show_bug.cgi?id=2713)
+	  Call SetProcessDpiAwareness/SetProcessDPIAware to opt out of scaling.
+	*/
+
+	hShcore = LoadLibraryA ("Shcore.dll");
+	hUser32 = LoadLibraryA ("user32.dll");
+	setDPIAwareness = (SetProcessDPIAwarenessFunc) (hShcore ? GetProcAddress (hShcore, "SetProcessDpiAwareness") : NULL);
+	setDPIAware = (SetProcessDPIAwareFunc) (hUser32 ? GetProcAddress (hUser32, "SetProcessDPIAware") : NULL);
+
+	if (setDPIAwareness) /* Windows 8.1+ */
+		setDPIAwareness (dpi_monitor_aware);
+	else if (setDPIAware) /* Windows Vista-8.0 */
+		setDPIAware ();
+
+	if (hShcore)
+		FreeLibrary (hShcore);
+	if (hUser32)
+		FreeLibrary (hUser32);
+}
+
+static void Sys_SetTimerResolution(void)
+{
+	/* Set OS timer resolution to 1ms.
+	   Works around buffer underruns with directsound and SDL2, but also
+	   will make Sleep()/SDL_Dleay() accurate to 1ms which should help framerate
+	   stability.
+	*/
+	timeBeginPeriod (1);
+}
+
 void Sys_Init (void)
 {
 	OSVERSIONINFO	vinfo;
 
-	host_parms->userdir = host_parms->basedir;
-		/* user directories not really necessary for windows guys.
-		 * can be done if necessary, though... */
+	Sys_SetTimerResolution ();
+	Sys_SetDPIAware ();
+
+	memset (cwd, 0, sizeof(cwd));
+	Sys_GetBasedir(NULL, cwd, sizeof(cwd));
+	host_parms->basedir = cwd;
+
+	/* userdirs not really necessary for windows guys.
+	 * can be done if necessary, though... */
+	host_parms->userdir = host_parms->basedir; /* code elsewhere relies on this ! */
 
 	vinfo.dwOSVersionInfoSize = sizeof(vinfo);
 
@@ -169,13 +243,19 @@ void Sys_Init (void)
 
 	if (vinfo.dwPlatformId == VER_PLATFORM_WIN32_NT)
 	{
+		SYSTEM_INFO info;
 		WinNT = true;
 		if (vinfo.dwMajorVersion >= 6)
 			WinVista = true;
+		GetSystemInfo(&info);
+		host_parms->numcpus = info.dwNumberOfProcessors;
+		if (host_parms->numcpus < 1)
+			host_parms->numcpus = 1;
 	}
 	else
 	{
 		WinNT = false; /* Win9x or WinME */
+		host_parms->numcpus = 1;
 		if ((vinfo.dwMajorVersion == 4) && (vinfo.dwMinorVersion == 0))
 		{
 			Win95 = true;
@@ -184,6 +264,7 @@ void Sys_Init (void)
 				Win95old = true;
 		}
 	}
+	Sys_Printf("Detected %d CPUs.\n", host_parms->numcpus);
 
 	if (isDedicated)
 	{
@@ -355,18 +436,7 @@ void Sys_Sleep (unsigned long msecs)
 
 void Sys_SendKeyEvents (void)
 {
+	IN_Commands();		//ericw -- allow joysticks to add keys so they can be used to confirm SCR_ModalMessage
 	IN_SendKeyEvents();
-}
-
-void Sys_LowFPPrecision (void)
-{
-}
-
-void Sys_HighFPPrecision (void)
-{
-}
-
-void Sys_SetFPCW (void)
-{
 }
 

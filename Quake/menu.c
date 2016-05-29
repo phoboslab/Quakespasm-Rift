@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -21,15 +22,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "bgmusic.h"
-#include "vr_menu.h"
 
 void (*vid_menucmdfn)(void); //johnfitz
 void (*vid_menudrawfn)(void);
 void (*vid_menukeyfn)(int key);
-
-void (*vr_menucmdfn)(void);
-void (*vr_menudrawfn)(void);
-void (*vr_menukeyfn)(int key);
 
 enum m_state_e m_state;
 
@@ -47,7 +43,6 @@ void M_Menu_Main_f (void);
 	void M_Menu_Options_f (void);
 		void M_Menu_Keys_f (void);
 		void M_Menu_Video_f (void);
-		void M_Menu_VR_f (void);
 	void M_Menu_Help_f (void);
 	void M_Menu_Quit_f (void);
 
@@ -65,7 +60,6 @@ void M_Main_Draw (void);
 	void M_Options_Draw (void);
 		void M_Keys_Draw (void);
 		void M_Video_Draw (void);
-		void M_VR_Draw (void);
 	void M_Help_Draw (void);
 	void M_Quit_Draw (void);
 
@@ -83,7 +77,6 @@ void M_Main_Key (int key);
 	void M_Options_Key (int key);
 		void M_Keys_Key (int key);
 		void M_Video_Key (int key);
-		void M_VR_Key (int key);
 	void M_Help_Key (int key);
 	void M_Quit_Key (int key);
 
@@ -283,6 +276,7 @@ void M_Main_Key (int key)
 	switch (key)
 	{
 	case K_ESCAPE:
+	case K_BBUTTON:
 		IN_Activate();
 		key_dest = key_game;
 		m_state = m_none;
@@ -306,6 +300,8 @@ void M_Main_Key (int key)
 		break;
 
 	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
 		m_entersound = true;
 
 		switch (m_main_cursor)
@@ -370,6 +366,7 @@ void M_SinglePlayer_Key (int key)
 	switch (key)
 	{
 	case K_ESCAPE:
+	case K_BBUTTON:
 		M_Menu_Main_f ();
 		break;
 
@@ -386,6 +383,8 @@ void M_SinglePlayer_Key (int key)
 		break;
 
 	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
 		m_entersound = true;
 
 		switch (m_singleplayer_cursor)
@@ -519,10 +518,13 @@ void M_Load_Key (int k)
 	switch (k)
 	{
 	case K_ESCAPE:
+	case K_BBUTTON:
 		M_Menu_SinglePlayer_f ();
 		break;
 
 	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
 		S_LocalSound ("misc/menu2.wav");
 		if (!loadable[load_cursor])
 			return;
@@ -562,10 +564,13 @@ void M_Save_Key (int k)
 	switch (k)
 	{
 	case K_ESCAPE:
+	case K_BBUTTON:
 		M_Menu_SinglePlayer_f ();
 		break;
 
 	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
 		m_state = m_none;
 		IN_Activate();
 		key_dest = key_game;
@@ -631,6 +636,7 @@ void M_MultiPlayer_Key (int key)
 	switch (key)
 	{
 	case K_ESCAPE:
+	case K_BBUTTON:
 		M_Menu_Main_f ();
 		break;
 
@@ -647,6 +653,8 @@ void M_MultiPlayer_Key (int key)
 		break;
 
 	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
 		m_entersound = true;
 		switch (m_multiplayer_cursor)
 		{
@@ -734,11 +742,10 @@ void M_Setup_Draw (void)
 
 void M_Setup_Key (int k)
 {
-	int			l;
-
 	switch (k)
 	{
 	case K_ESCAPE:
+	case K_BBUTTON:
 		M_Menu_MultiPlayer_f ();
 		break;
 
@@ -777,6 +784,8 @@ forward:
 		break;
 
 	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
 		if (setup_cursor == 0 || setup_cursor == 1)
 			return;
 
@@ -807,28 +816,6 @@ forward:
 				setup_myname[strlen(setup_myname)-1] = 0;
 		}
 		break;
-
-	default:
-		if (k < 32 || k > 127)
-			break;
-		if (setup_cursor == 0)
-		{
-			l = strlen(setup_hostname);
-			if (l < 15)
-			{
-				setup_hostname[l+1] = 0;
-				setup_hostname[l] = k;
-			}
-		}
-		if (setup_cursor == 1)
-		{
-			l = strlen(setup_myname);
-			if (l < 15)
-			{
-				setup_myname[l+1] = 0;
-				setup_myname[l] = k;
-			}
-		}
 	}
 
 	if (setup_top > 13)
@@ -839,6 +826,38 @@ forward:
 		setup_bottom = 0;
 	if (setup_bottom < 0)
 		setup_bottom = 13;
+}
+
+
+void M_Setup_Char (int k)
+{
+	int l;
+
+	switch (setup_cursor)
+	{
+	case 0:
+		l = strlen(setup_hostname);
+		if (l < 15)
+		{
+			setup_hostname[l+1] = 0;
+			setup_hostname[l] = k;
+		}
+		break;
+	case 1:
+		l = strlen(setup_myname);
+		if (l < 15)
+		{
+			setup_myname[l+1] = 0;
+			setup_myname[l] = k;
+		}
+		break;
+	}
+}
+
+
+qboolean M_Setup_TextEntry (void)
+{
+	return (setup_cursor == 0 || setup_cursor == 1);
 }
 
 //=============================================================================
@@ -919,6 +938,7 @@ again:
 	switch (k)
 	{
 	case K_ESCAPE:
+	case K_BBUTTON:
 		M_Menu_MultiPlayer_f ();
 		break;
 
@@ -935,6 +955,8 @@ again:
 		break;
 
 	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
 		m_entersound = true;
 		M_Menu_LanConfig_f ();
 		break;
@@ -957,10 +979,12 @@ enum
 	OPT_SCALE,
 	OPT_SCRSIZE,
 	OPT_GAMMA,
+	OPT_CONTRAST,
 	OPT_MOUSESPEED,
 	OPT_SBALPHA,
 	OPT_SNDVOL,
 	OPT_MUSICVOL,
+	OPT_MUSICEXT,
 	OPT_ALWAYRUN,
 	OPT_INVMOUSE,
 	OPT_ALWAYSMLOOK,
@@ -969,8 +993,7 @@ enum
 //#ifdef _WIN32
 //	OPT_USEMOUSE,
 //#endif
-	OPT_VIDEO,	
-	OPT_VR, // This is the last before OPTIONS_ITEMS
+	OPT_VIDEO,	// This is the last before OPTIONS_ITEMS
 	OPTIONS_ITEMS
 };
 
@@ -1016,6 +1039,12 @@ void M_AdjustSliders (int dir)
 		else if (f > 1)	f = 1;
 		Cvar_SetValue ("gamma", f);
 		break;
+	case OPT_CONTRAST:	// contrast
+		f = vid_contrast.value + dir * 0.1;
+		if (f < 1)	f = 1;
+		else if (f > 2)	f = 2;
+		Cvar_SetValue ("contrast", f);
+		break;
 	case OPT_MOUSESPEED:	// mouse speed
 		f = sensitivity.value + dir * 0.5;
 		if (f > 11)	f = 11;
@@ -1033,6 +1062,9 @@ void M_AdjustSliders (int dir)
 		if (f < 0)	f = 0;
 		else if (f > 1)	f = 1;
 		Cvar_SetValue ("bgmvolume", f);
+		break;
+	case OPT_MUSICEXT:	// enable external music vs cdaudio
+		Cvar_Set ("bgm_extmusic", bgm_extmusic.value ? "0" : "1");
 		break;
 	case OPT_SNDVOL:	// sfx volume
 		f = sfxvolume.value + dir * 0.1;
@@ -1140,6 +1172,11 @@ void M_Options_Draw (void)
 	r = (1.0 - vid_gamma.value) / 0.5;
 	M_DrawSlider (220, 32 + 8*OPT_GAMMA, r);
 
+	// OPT_CONTRAST:
+	M_Print (16, 32 + 8*OPT_CONTRAST,	"              Contrast");
+	r = vid_contrast.value - 1.0;
+	M_DrawSlider (220, 32 + 8*OPT_CONTRAST, r);
+	
 	// OPT_MOUSESPEED:
 	M_Print (16, 32 + 8*OPT_MOUSESPEED,	"           Mouse Speed");
 	r = (sensitivity.value - 1)/10;
@@ -1159,6 +1196,10 @@ void M_Options_Draw (void)
 	M_Print (16, 32 + 8*OPT_MUSICVOL,	"          Music Volume");
 	r = bgmvolume.value;
 	M_DrawSlider (220, 32 + 8*OPT_MUSICVOL, r);
+
+	// OPT_MUSICEXT:
+	M_Print (16, 32 + 8*OPT_MUSICEXT,	"        External Music");
+	M_DrawCheckbox (220, 32 + 8*OPT_MUSICEXT, bgm_extmusic.value);
 
 	// OPT_ALWAYRUN:
 	M_Print (16, 32 + 8*OPT_ALWAYRUN,	"            Always Run");
@@ -1184,10 +1225,6 @@ void M_Options_Draw (void)
 	if (vid_menudrawfn)
 		M_Print (16, 32 + 8*OPT_VIDEO,	"         Video Options");
 
-	// OPT_VR:
-	if (vr_menudrawfn)
-		M_PrintWhite (16, 32 + 8*OPT_VR,	"        VR/HMD Options");
-
 // cursor
 	M_DrawCharacter (200, 32 + options_cursor*8, 12+((int)(realtime*4)&1));
 }
@@ -1198,10 +1235,13 @@ void M_Options_Key (int k)
 	switch (k)
 	{
 	case K_ESCAPE:
+	case K_BBUTTON:
 		M_Menu_Main_f ();
 		break;
 
 	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
 		m_entersound = true;
 		switch (options_cursor)
 		{
@@ -1222,9 +1262,6 @@ void M_Options_Key (int k)
 			break;
 		case OPT_VIDEO:
 			M_Menu_Video_f ();
-			break;
-		case OPT_VR:
-			M_Menu_VR_f ();
 			break;
 		default:
 			M_AdjustSliders (1);
@@ -1292,11 +1329,8 @@ const char *bindnames[][2] =
 
 #define	NUMCOMMANDS	(sizeof(bindnames)/sizeof(bindnames[0]))
 
-#define KEYS_SIZE 18
-
 static int	keys_cursor;
-qboolean	m_keys_bind_grab;
-static int	keys_top;
+static qboolean	bind_grab;
 
 void M_Menu_Keys_f (void)
 {
@@ -1307,27 +1341,27 @@ void M_Menu_Keys_f (void)
 }
 
 
-void M_FindKeysForCommand (const char *command, int *twokeys)
+void M_FindKeysForCommand (const char *command, int *threekeys)
 {
 	int		count;
 	int		j;
 	int		l;
 	char	*b;
 
-	twokeys[0] = twokeys[1] = -1;
+	threekeys[0] = threekeys[1] = threekeys[2] = -1;
 	l = strlen(command);
 	count = 0;
 
-	for (j = 0; j < 256; j++)
+	for (j = 0; j < MAX_KEYS; j++)
 	{
 		b = keybindings[j];
 		if (!b)
 			continue;
 		if (!strncmp (b, command, l) )
 		{
-			twokeys[count] = j;
+			threekeys[count] = j;
 			count++;
-			if (count == 2)
+			if (count == 3)
 				break;
 		}
 	}
@@ -1341,13 +1375,13 @@ void M_UnbindCommand (const char *command)
 
 	l = strlen(command);
 
-	for (j = 0; j < 256; j++)
+	for (j = 0; j < MAX_KEYS; j++)
 	{
 		b = keybindings[j];
 		if (!b)
 			continue;
 		if (!strncmp (b, command, l) )
-			Key_SetBinding (j, "");
+			Key_SetBinding (j, NULL);
 	}
 }
 
@@ -1356,34 +1390,26 @@ extern qpic_t	*pic_up, *pic_down;
 void M_Keys_Draw (void)
 {
 	int		i, x, y;
-	int		keys[2];
+	int		keys[3];
 	const char	*name;
 	qpic_t	*p;
 
 	p = Draw_CachePic ("gfx/ttl_cstm.lmp");
 	M_DrawPic ( (320-p->width)/2, 4, p);
 
-	if (m_keys_bind_grab)
+	if (bind_grab)
 		M_Print (12, 32, "Press a key or button for this action");
 	else
 		M_Print (18, 32, "Enter to change, backspace to clear");
 
-	if (keys_top)
-		M_DrawTransPic (6, 48, pic_up);
-	if (keys_top + KEYS_SIZE < (int)NUMCOMMANDS)
-		M_DrawTransPic (6, 48 + ((KEYS_SIZE-1)*8), pic_down);
-
 // search for known bindings
-	for (i = 0; i < KEYS_SIZE; i++)
+	for (i = 0; i < (int)NUMCOMMANDS; i++)
 	{
-		if (i+keys_top >= (int)NUMCOMMANDS)
-			break;
-
 		y = 48 + 8*i;
 
-		M_Print (16, y, bindnames[i+keys_top][1]);
+		M_Print (16, y, bindnames[i][1]);
 
-		M_FindKeysForCommand (bindnames[i+keys_top][0], keys);
+		M_FindKeysForCommand (bindnames[i][0], keys);
 
 		if (keys[0] == -1)
 		{
@@ -1396,25 +1422,32 @@ void M_Keys_Draw (void)
 			x = strlen(name) * 8;
 			if (keys[1] != -1)
 			{
+				name = Key_KeynumToString (keys[1]);
 				M_Print (140 + x + 8, y, "or");
-				M_Print (140 + x + 32, y, Key_KeynumToString (keys[1]));
+				M_Print (140 + x + 32, y, name);
+				x = x + 32 + strlen(name) * 8;
+				if (keys[2] != -1)
+				{
+					M_Print (140 + x + 8, y, "or");
+					M_Print (140 + x + 32, y, Key_KeynumToString (keys[2]));
+				}
 			}
 		}
 	}
 
-	if (m_keys_bind_grab)
-		M_DrawCharacter (130, 48 + (keys_cursor-keys_top)*8, '=');
+	if (bind_grab)
+		M_DrawCharacter (130, 48 + keys_cursor*8, '=');
 	else
-		M_DrawCharacter (130, 48 + (keys_cursor-keys_top)*8, 12+((int)(realtime*4)&1));
+		M_DrawCharacter (130, 48 + keys_cursor*8, 12+((int)(realtime*4)&1));
 }
 
 
 void M_Keys_Key (int k)
 {
 	char	cmd[80];
-	int		keys[2];
+	int		keys[3];
 
-	if (m_keys_bind_grab)
+	if (bind_grab)
 	{	// defining a key
 		S_LocalSound ("misc/menu1.wav");
 		if ((k != K_ESCAPE) && (k != '`'))
@@ -1423,7 +1456,7 @@ void M_Keys_Key (int k)
 			Cbuf_InsertText (cmd);
 		}
 
-		m_keys_bind_grab = false;
+		bind_grab = false;
 		IN_Deactivate(modestate == MS_WINDOWED); // deactivate because we're returning to the menu
 		return;
 	}
@@ -1431,6 +1464,7 @@ void M_Keys_Key (int k)
 	switch (k)
 	{
 	case K_ESCAPE:
+	case K_BBUTTON:
 		M_Menu_Options_f ();
 		break;
 
@@ -1451,25 +1485,22 @@ void M_Keys_Key (int k)
 		break;
 
 	case K_ENTER:		// go into bind mode
+	case K_KP_ENTER:
+	case K_ABUTTON:
 		M_FindKeysForCommand (bindnames[keys_cursor][0], keys);
 		S_LocalSound ("misc/menu2.wav");
-		if (keys[1] != -1)
+		if (keys[2] != -1)
 			M_UnbindCommand (bindnames[keys_cursor][0]);
-		m_keys_bind_grab = true;
+		bind_grab = true;
 		IN_Activate(); // activate to allow mouse key binding
 		break;
 
-	case K_BACKSPACE:		// delete bindings
-	case K_DEL:				// delete bindings
+	case K_BACKSPACE:	// delete bindings
+	case K_DEL:
 		S_LocalSound ("misc/menu2.wav");
 		M_UnbindCommand (bindnames[keys_cursor][0]);
 		break;
 	}
-
-	if (keys_cursor < keys_top)
-		keys_top = keys_cursor;
-	else if (keys_cursor >= keys_top+KEYS_SIZE)
-		keys_top = keys_cursor - KEYS_SIZE + 1;
 }
 
 //=============================================================================
@@ -1490,35 +1521,6 @@ void M_Video_Draw (void)
 void M_Video_Key (int key)
 {
 	(*vid_menukeyfn) (key);
-}
-
-//=============================================================================
-/* VR MENU */
-
-void M_Menu_VR_f (void)
-{
-	if (vr_menucmdfn)
-	{
-		(*vr_menucmdfn) ();
-	}
-}
-
-
-void M_VR_Draw (void)
-{
-	if (vr_menudrawfn)
-	{
-		(*vr_menudrawfn) ();
-	}
-}
-
-
-void M_VR_Key (int key)
-{
-	if (vr_menukeyfn)
-	{
-		(*vr_menukeyfn) (key);
-	}
 }
 
 //=============================================================================
@@ -1550,6 +1552,7 @@ void M_Help_Key (int key)
 	switch (key)
 	{
 	case K_ESCAPE:
+	case K_BBUTTON:
 		M_Menu_Main_f ();
 		break;
 
@@ -1593,9 +1596,27 @@ void M_Menu_Quit_f (void)
 
 void M_Quit_Key (int key)
 {
+	if (key == K_ESCAPE)
+	{
+		if (wasInMenus)
+		{
+			m_state = m_quit_prevstate;
+			m_entersound = true;
+		}
+		else
+		{
+			IN_Activate();
+			key_dest = key_game;
+			m_state = m_none;
+		}
+	}
+}
+
+
+void M_Quit_Char (int key)
+{
 	switch (key)
 	{
-	case K_ESCAPE:
 	case 'n':
 	case 'N':
 		if (wasInMenus)
@@ -1611,8 +1632,8 @@ void M_Quit_Key (int key)
 		}
 		break;
 
-	case 'Y':
 	case 'y':
+	case 'Y':
 		IN_Deactivate(modestate == MS_WINDOWED);
 		key_dest = key_console;
 		Host_Quit_f ();
@@ -1624,10 +1645,17 @@ void M_Quit_Key (int key)
 
 }
 
+
+qboolean M_Quit_TextEntry (void)
+{
+	return true;
+}
+
+
 void M_Quit_Draw (void) //johnfitz -- modified for new quit message
 {
 	char	msg1[40];
-	char	msg2[] = "by Ozkan Sezer & Stevenaaus"; /* msg2/msg3 are mostly [40] */
+	char	msg2[] = "by Ozkan, Ericw & Stevenaaus"; /* msg2/msg3 are mostly [40] */
 	char	msg3[] = "Press y to quit";
 	int		boxlen;
 
@@ -1639,7 +1667,7 @@ void M_Quit_Draw (void) //johnfitz -- modified for new quit message
 		m_state = m_quit;
 	}
 
-	sprintf(msg1, "QuakeSpasm %1.2f.%d", (float)FITZQUAKE_VERSION, QUAKESPASM_VER_PATCH);
+	sprintf(msg1, "QuakeSpasm %1.2f.%d", (float)QUAKESPASM_VERSION, QUAKESPASM_VER_PATCH);
 
 	//okay, this is kind of fucked up.  M_DrawTextBox will always act as if
 	//width is even. Also, the width and lines values are for the interior of the box,
@@ -1754,6 +1782,7 @@ void M_LanConfig_Key (int key)
 	switch (key)
 	{
 	case K_ESCAPE:
+	case K_BBUTTON:
 		M_Menu_Net_f ();
 		break;
 
@@ -1772,6 +1801,8 @@ void M_LanConfig_Key (int key)
 		break;
 
 	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
 		if (lanConfig_cursor == 0)
 			break;
 
@@ -1816,32 +1847,6 @@ void M_LanConfig_Key (int key)
 				lanConfig_joinname[strlen(lanConfig_joinname)-1] = 0;
 		}
 		break;
-
-	default:
-		if (key < 32 || key > 127)
-			break;
-
-		if (lanConfig_cursor == 2)
-		{
-			l = strlen(lanConfig_joinname);
-			if (l < 21)
-			{
-				lanConfig_joinname[l+1] = 0;
-				lanConfig_joinname[l] = key;
-			}
-		}
-
-		if (key < '0' || key > '9')
-			break;
-		if (lanConfig_cursor == 0)
-		{
-			l = strlen(lanConfig_portname);
-			if (l < 5)
-			{
-				lanConfig_portname[l+1] = 0;
-				lanConfig_portname[l] = key;
-			}
-		}
 	}
 
 	if (StartingGame && lanConfig_cursor == 2)
@@ -1858,6 +1863,40 @@ void M_LanConfig_Key (int key)
 	else
 		lanConfig_port = l;
 	sprintf(lanConfig_portname, "%u", lanConfig_port);
+}
+
+
+void M_LanConfig_Char (int key)
+{
+	int l;
+
+	switch (lanConfig_cursor)
+	{
+	case 0:
+		if (key < '0' || key > '9')
+			return;
+		l = strlen(lanConfig_portname);
+		if (l < 5)
+		{
+			lanConfig_portname[l+1] = 0;
+			lanConfig_portname[l] = key;
+		}
+		break;
+	case 2:
+		l = strlen(lanConfig_joinname);
+		if (l < 21)
+		{
+			lanConfig_joinname[l+1] = 0;
+			lanConfig_joinname[l] = key;
+		}
+		break;
+	}
+}
+
+
+qboolean M_LanConfig_TextEntry (void)
+{
+	return (lanConfig_cursor == 0 || lanConfig_cursor == 2);
 }
 
 //=============================================================================
@@ -2255,6 +2294,7 @@ void M_GameOptions_Key (int key)
 	switch (key)
 	{
 	case K_ESCAPE:
+	case K_BBUTTON:
 		M_Menu_Net_f ();
 		break;
 
@@ -2287,6 +2327,8 @@ void M_GameOptions_Key (int key)
 		break;
 
 	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
 		S_LocalSound ("misc/menu2.wav");
 		if (gameoptions_cursor == 0)
 		{
@@ -2418,6 +2460,7 @@ void M_ServerList_Key (int k)
 	switch (k)
 	{
 	case K_ESCAPE:
+	case K_BBUTTON:
 		M_Menu_LanConfig_f ();
 		break;
 
@@ -2442,6 +2485,8 @@ void M_ServerList_Key (int k)
 		break;
 
 	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
 		S_LocalSound ("misc/menu2.wav");
 		m_return_state = m_state;
 		m_return_onerror = true;
@@ -2475,7 +2520,6 @@ void M_Init (void)
 	Cmd_AddCommand ("menu_options", M_Menu_Options_f);
 	Cmd_AddCommand ("menu_keys", M_Menu_Keys_f);
 	Cmd_AddCommand ("menu_video", M_Menu_Video_f);
-	Cmd_AddCommand ("menu_vr", M_Menu_VR_f);
 	Cmd_AddCommand ("help", M_Menu_Help_f);
 	Cmd_AddCommand ("menu_quit", M_Menu_Quit_f);
 }
@@ -2546,10 +2590,6 @@ void M_Draw (void)
 
 	case m_video:
 		M_Video_Draw ();
-		break;
-
-	case m_vr:
-		M_VR_Draw ();
 		break;
 
 	case m_help:
@@ -2640,10 +2680,6 @@ void M_Keydown (int key)
 		M_Video_Key (key);
 		return;
 
-	case m_vr:
-		M_VR_Key (key);
-		break;
-
 	case m_help:
 		M_Help_Key (key);
 		return;
@@ -2667,6 +2703,41 @@ void M_Keydown (int key)
 	case m_slist:
 		M_ServerList_Key (key);
 		return;
+	}
+}
+
+
+void M_Charinput (int key)
+{
+	switch (m_state)
+	{
+	case m_setup:
+		M_Setup_Char (key);
+		return;
+	case m_quit:
+		M_Quit_Char (key);
+		return;
+	case m_lanconfig:
+		M_LanConfig_Char (key);
+		return;
+	default:
+		return;
+	}
+}
+
+
+qboolean M_TextEntry (void)
+{
+	switch (m_state)
+	{
+	case m_setup:
+		return M_Setup_TextEntry ();
+	case m_quit:
+		return M_Quit_TextEntry ();
+	case m_lanconfig:
+		return M_LanConfig_TextEntry ();
+	default:
+		return false;
 	}
 }
 

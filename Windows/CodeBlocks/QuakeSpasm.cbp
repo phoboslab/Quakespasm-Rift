@@ -32,25 +32,33 @@
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
-			<Add option="-DUSE_QS_CONBACK" />
 			<Add option="-DUSE_CODEC_MP3" />
 			<Add option="-DUSE_CODEC_VORBIS" />
 			<Add option="-DUSE_CODEC_WAVE" />
+			<Add option="-DUSE_CODEC_FLAC" />
+			<Add option="-DUSE_CODEC_OPUS" />
+			<Add option="-DUSE_CODEC_MIKMOD" />
+			<Add option="-DUSE_CODEC_UMX" />
 			<Add directory="..\codecs\include" />
-			<Add directory="C:\SDL\include" />
+			<Add directory="..\SDL\include" />
 		</Compiler>
 		<Linker>
+			<Add library="mingw32" />
 			<Add library="SDLmain" />
 			<Add library="SDL" />
 			<Add library="vorbisfile" />
 			<Add library="vorbis" />
+			<Add library="opusfile" />
+			<Add library="opus" />
+			<Add library="FLAC" />
 			<Add library="ogg" />
 			<Add library="mad" />
+			<Add library="mikmod" />
 			<Add library="winmm" />
 			<Add library="opengl32" />
 			<Add library="wsock32" />
 			<Add directory="..\codecs\x86" />
-			<Add directory="C:\SDL\lib" />
+			<Add directory="..\SDL\lib" />
 		</Linker>
 		<Unit filename="..\..\Quake\anorm_dots.h" />
 		<Unit filename="..\..\Quake\anorms.h" />
@@ -95,10 +103,6 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="..\..\Quake\common.h" />
-		<Unit filename="..\..\Quake\conback.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="..\..\Quake\conback.h" />
 		<Unit filename="..\..\Quake\console.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -262,19 +266,39 @@
 		<Unit filename="..\..\Quake\snd_dma.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="..\..\Quake\snd_flac.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="..\..\Quake\snd_flac.h" />
 		<Unit filename="..\..\Quake\snd_mem.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="..\..\Quake\snd_mikmod.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="..\..\Quake\snd_mikmod.h" />
 		<Unit filename="..\..\Quake\snd_mix.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="..\..\Quake\snd_modplug.c">
+		<Unit filename="..\..\Quake\snd_modplug.h" />
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="..\..\Quake\snd_mp3.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="..\..\Quake\snd_mp3.h" />
+		<Unit filename="..\..\Quake\snd_opus.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="..\..\Quake\snd_opus.h" />
 		<Unit filename="..\..\Quake\snd_sdl.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="..\..\Quake\snd_umx.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="..\..\Quake\snd_umx.h" />
 		<Unit filename="..\..\Quake\snd_vorbis.c">
 			<Option compilerVar="CC" />
 		</Unit>

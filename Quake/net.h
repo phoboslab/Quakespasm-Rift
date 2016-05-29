@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2009-2010 Ozkan Sezer
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -33,7 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define	NET_NAMELEN		64
 
-#define NET_MAXMESSAGE		32000	/* johnfitz -- was 8192 */
+#define NET_MAXMESSAGE		64000	/* ericw -- was 32000 */
 
 extern int		DEFAULTnet_hostport;
 extern int		net_hostport;
@@ -54,8 +55,8 @@ struct qsocket_s	*NET_CheckNewConnections (void);
 struct qsocket_s	*NET_Connect (const char *host);
 // called by client to connect to a host.  Returns -1 if not able to
 
-double NET_QSocketGetTime (struct qsocket_s *sock);
-const char *NET_QSocketGetAddressString (struct qsocket_s *sock);
+double NET_QSocketGetTime (const struct qsocket_s *sock);
+const char *NET_QSocketGetAddressString (const struct qsocket_s *sock);
 
 qboolean NET_CanSendMessage (struct qsocket_s *sock);
 // Returns true or false if the given qsocket can currently accept a

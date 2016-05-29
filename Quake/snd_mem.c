@@ -212,7 +212,7 @@ static void FindNextChunk (const char *name)
 		if (iff_chunk_len < 0 || iff_chunk_len > iff_end - data_p)
 		{
 			data_p = NULL;
-			Con_DPrintf("bad \"%s\" chunk length (%d)\n", name, iff_chunk_len);
+			Con_DPrintf2("bad \"%s\" chunk length (%d)\n", name, iff_chunk_len);
 			return;
 		}
 		last_chunk = data_p + ((iff_chunk_len + 1) & ~1);
@@ -297,7 +297,10 @@ wavinfo_t GetWavinfo (const char *name, byte *wav, int wavlength)
 	info.channels = GetLittleShort();
 	info.rate = GetLittleLong();
 	data_p += 4 + 2;
-	info.width = GetLittleShort() / 8;
+	i = GetLittleShort();
+	if (i != 8 && i != 16)
+		return info;
+	info.width = i / 8;
 
 // get cue chunk
 	FindChunk("cue ");

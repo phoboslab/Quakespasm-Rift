@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -25,7 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // quakedef.h -- primary header for client
 
-#define	QUAKE_GAME			// as opposed to utilities
+#define	QUAKE_GAME		// as opposed to utilities
 
 #define	VERSION			1.09
 #define	GLQUAKE_VERSION		1.00
@@ -35,9 +36,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define	X11_VERSION		1.10
 
 #define	FITZQUAKE_VERSION	0.85	//johnfitz
-#define	QUAKESPASM_VERSION	0.9
-#define	QUAKESPASM_VER_PATCH	9	// helper to print a string like 0.85.9
-#define	VRQUAKE_VERSION	2.0
+#define	QUAKESPASM_VERSION	0.91
+#define	QUAKESPASM_VER_PATCH	1	// helper to print a string like 0.91.0
 
 //define	PARANOID			// speed sapping error checking
 
@@ -46,51 +46,49 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "q_stdinc.h"
 
 // !!! if this is changed, it must be changed in d_ifacea.h too !!!
-#define CACHE_SIZE	32		// used to align key data structures
+#define CACHE_SIZE	32	// used to align key data structures
 
-#define UNUSED(x)	(x = x)	// for pesky compiler / lint warnings
+#define Q_UNUSED(x)	(x = x)	// for pesky compiler / lint warnings
 
-#define	MINIMUM_MEMORY		0x550000
+#define	MINIMUM_MEMORY	0x550000
 #define	MINIMUM_MEMORY_LEVELPAK	(MINIMUM_MEMORY + 0x100000)
 
 #define MAX_NUM_ARGVS	50
 
 // up / down
-#define	PITCH	0
+#define	PITCH		0
 
 // left / right
 #define	YAW		1
 
 // fall over
-#define	ROLL	2
+#define	ROLL		2
 
 
-#define	MAX_QPATH		64			// max length of a quake game pathname
-#define	MAX_OSPATH		256			// max length of a filesystem pathname
+#define	MAX_QPATH	64		// max length of a quake game pathname
 
-#define	ON_EPSILON		0.1			// point on plane side epsilon
+#define	ON_EPSILON	0.1		// point on plane side epsilon
 
-#define	DIST_EPSILON		(0.03125)		// 1/32 epsilon to keep floating point happy (moved from world.c)
+#define	DIST_EPSILON	(0.03125)	// 1/32 epsilon to keep floating point happy (moved from world.c)
 
-#define	MAX_MSGLEN		32000	// max length of a reliable message //johnfitz -- was 8000
-#define	MAX_DATAGRAM		32000	// max length of unreliable message //johnfitz -- was 1024
+#define	MAX_MSGLEN	64000		// max length of a reliable message //ericw -- was 32000
+#define	MAX_DATAGRAM	32000		// max length of unreliable message //johnfitz -- was 1024
 
-#define	DATAGRAM_MTU		1400	// johnfitz -- actual limit for unreliable messages to nonlocal clients
+#define	DATAGRAM_MTU	1400		// johnfitz -- actual limit for unreliable messages to nonlocal clients
 
 //
 // per-level limits
 //
-
-#define	MIN_EDICTS		256			// johnfitz -- lowest allowed value for max_edicts cvar
-#define	MAX_EDICTS		32000		// johnfitz -- highest allowed value for max_edicts cvar
-									// ents past 8192 can't play sounds in the standard protocol
+#define	MIN_EDICTS	256		// johnfitz -- lowest allowed value for max_edicts cvar
+#define	MAX_EDICTS	32000		// johnfitz -- highest allowed value for max_edicts cvar
+						// ents past 8192 can't play sounds in the standard protocol
 #define	MAX_LIGHTSTYLES	64
-#define	MAX_MODELS		2048		// johnfitz -- was 256
-#define	MAX_SOUNDS		2048		// johnfitz -- was 256
+#define	MAX_MODELS	2048		// johnfitz -- was 256
+#define	MAX_SOUNDS	2048		// johnfitz -- was 256
 
 #define	SAVEGAME_COMMENT_LENGTH	39
 
-#define	MAX_STYLESTRING	64
+#define	MAX_STYLESTRING		64
 
 //
 // stats are integers communicated to the client by the server
@@ -109,11 +107,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define	STAT_ACTIVEWEAPON	10
 #define	STAT_TOTALSECRETS	11
 #define	STAT_TOTALMONSTERS	12
-#define	STAT_SECRETS		13		// bumped on client side by svc_foundsecret
-#define	STAT_MONSTERS		14		// bumped by svc_killedmonster
+#define	STAT_SECRETS		13	// bumped on client side by svc_foundsecret
+#define	STAT_MONSTERS		14	// bumped by svc_killedmonster
 
 // stock defines
-
+//
 #define	IT_SHOTGUN		1
 #define	IT_SUPER_SHOTGUN	2
 #define	IT_NAILGUN		4
@@ -195,6 +193,7 @@ typedef struct
 	char	**argv;
 	void	*membase;
 	int	memsize;
+	int	numcpus;
 } quakeparms_t;
 
 #include "common.h"
@@ -215,11 +214,19 @@ typedef struct
 
 #include "platform.h"
 #if defined(SDL_FRAMEWORK) || defined(NO_SDL_CONFIG)
+#if defined(USE_SDL2)
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_opengl.h>
+#else
 #include <SDL/SDL.h>
 #include <SDL/SDL_opengl.h>
+#endif
 #else
 #include "SDL.h"
 #include "SDL_opengl.h"
+#endif
+#ifndef APIENTRY
+#define	APIENTRY
 #endif
 
 #include "console.h"
@@ -241,6 +248,7 @@ typedef struct
 #include "input.h"
 #include "keys.h"
 #include "menu.h"
+#include "cdaudio.h"
 #include "glquake.h"
 
 
@@ -286,10 +294,13 @@ void Host_WriteConfiguration (void);
 
 void ExtraMaps_Init (void);
 void Modlist_Init (void);
+void DemoList_Init (void);
 
-extern int		current_skill;		// skill level for currently loaded level (in case
-						//  the user changes the cvar while the level is
-						//  running, this reflects the level actually in use)
+void DemoList_Rebuild (void);
+
+extern int		current_skill;	// skill level for currently loaded level (in case
+					//  the user changes the cvar while the level is
+					//  running, this reflects the level actually in use)
 
 extern qboolean		isDedicated;
 

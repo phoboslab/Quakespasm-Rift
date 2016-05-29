@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -23,7 +24,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // screen.c -- master for refresh, status bar, console, chat, notify, etc
 
 #include "quakedef.h"
-#include "vr.h"
 
 /*
 
@@ -69,7 +69,6 @@ console is:
 	half
 	full
 
-
 */
 
 
@@ -88,11 +87,6 @@ cvar_t		scr_crosshairscale = {"scr_crosshairscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_showfps = {"scr_showfps", "0", CVAR_NONE};
 cvar_t		scr_clock = {"scr_clock", "0", CVAR_NONE};
 //johnfitz
-
-//phoboslab -- cvars for vr
-extern cvar_t vr_enabled;
-extern cvar_t vr_aimmode;
-//
 
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
 cvar_t		scr_fov = {"fov","90",CVAR_NONE};	// 10 - 170
@@ -189,6 +183,8 @@ void SCR_DrawCenterString (void) //actually do the drawing
 		y = 200*0.35;	//johnfitz -- 320x200 coordinate system
 	else
 		y = 48;
+	if (crosshair.value)
+		y -= 8;
 
 	do
 	{
@@ -317,17 +313,17 @@ static void SCR_CalcRefdef (void)
 	else
 		sb_lines = 48 * scale;
 
-	size = fmin(scr_viewsize.value, 100) / 100;
+	size = q_min(scr_viewsize.value, 100) / 100;
 	//johnfitz
 
 	//johnfitz -- rewrote this section
-	r_refdef.vrect.width = fmax(glwidth * size, 96); //no smaller than 96, for icons
-	r_refdef.vrect.height = fmin(glheight * size, glheight - sb_lines); //make room for sbar
+	r_refdef.vrect.width = q_max(glwidth * size, 96); //no smaller than 96, for icons
+	r_refdef.vrect.height = q_min(glheight * size, glheight - sb_lines); //make room for sbar
 	r_refdef.vrect.x = (glwidth - r_refdef.vrect.width)/2;
 	r_refdef.vrect.y = (glheight - sb_lines - r_refdef.vrect.height)/2;
 	//johnfitz
 
-	r_refdef.fov_x = AdaptFovx(scr_fov.value, r_refdef.vrect.width, r_refdef.vrect.height);
+	r_refdef.fov_x = AdaptFovx(scr_fov.value, vid.width, vid.height);
 	r_refdef.fov_y = CalcFovy (r_refdef.fov_x, r_refdef.vrect.width, r_refdef.vrect.height);
 
 	scr_vrect = r_refdef.vrect;
@@ -391,6 +387,7 @@ void SCR_LoadPics (void)
 	scr_net = Draw_PicFromWad ("net");
 	scr_turtle = Draw_PicFromWad ("turtle");
 }
+
 /*
 ==================
 SCR_Init
@@ -478,7 +475,6 @@ void SCR_DrawFPS (void)
 		Draw_String (x, y, st);
 		scr_tileclear_updates = 0;
 	}
-
 }
 
 /*
@@ -711,22 +707,17 @@ void SCR_SetUpToDrawConsole (void)
 
 	timescale = (host_timescale.value > 0) ? host_timescale.value : 1; //johnfitz -- timescale
 
-	// No console animation in VR mode
-	if (vr_enabled.value && scr_con_current != scr_conlines)
-	{
-		scr_con_current = scr_conlines;
-	}
-
 	if (scr_conlines < scr_con_current)
 	{
-		scr_con_current -= scr_conspeed.value*host_frametime/timescale; //johnfitz -- timescale
+		// ericw -- (glheight/600.0) factor makes conspeed resolution independent, using 800x600 as a baseline
+		scr_con_current -= scr_conspeed.value*(glheight/600.0)*host_frametime/timescale; //johnfitz -- timescale
 		if (scr_conlines > scr_con_current)
 			scr_con_current = scr_conlines;
-
 	}
 	else if (scr_conlines > scr_con_current)
 	{
-		scr_con_current += scr_conspeed.value*host_frametime/timescale; //johnfitz -- timescale
+		// ericw -- (glheight/600.0)
+		scr_con_current += scr_conspeed.value*(glheight/600.0)*host_frametime/timescale; //johnfitz -- timescale
 		if (scr_conlines < scr_con_current)
 			scr_con_current = scr_conlines;
 	}
@@ -761,7 +752,7 @@ void SCR_DrawConsole (void)
 /*
 ==============================================================================
 
-						SCREEN SHOTS
+SCREEN SHOTS
 
 ==============================================================================
 */
@@ -790,10 +781,16 @@ void SCR_ScreenShot_f (void)
 	{
 		Con_Printf ("SCR_ScreenShot_f: Couldn't find an unused filename\n");
 		return;
- 	}
+	}
 
 //get data
-	buffer = (byte *) malloc(glwidth*glheight*3);
+	if (!(buffer = (byte *) malloc(glwidth*glheight*3)))
+	{
+		Con_Printf ("SCR_ScreenShot_f: Couldn't allocate memory\n");
+		return;
+	}
+
+	glPixelStorei (GL_PACK_ALIGNMENT, 1);/* for widths that aren't a multiple of 4 */
 	glReadPixels (glx, gly, glwidth, glheight, GL_RGB, GL_UNSIGNED_BYTE, buffer);
 
 // now write the file
@@ -900,6 +897,7 @@ keypress.
 int SCR_ModalMessage (const char *text, float timeout) //johnfitz -- timeout
 {
 	double time1, time2; //johnfitz -- timeout
+	int lastkey, lastchar;
 
 	if (cls.state == ca_dedicated)
 		return true;
@@ -916,20 +914,20 @@ int SCR_ModalMessage (const char *text, float timeout) //johnfitz -- timeout
 	time1 = Sys_DoubleTime () + timeout; //johnfitz -- timeout
 	time2 = 0.0f; //johnfitz -- timeout
 
+	Key_BeginInputGrab ();
 	do
 	{
-		key_count = -1;		// wait for a key down and up
 		Sys_SendKeyEvents ();
-		Sys_Sleep(16);
+		Key_GetGrabbedInput (&lastkey, &lastchar);
+		Sys_Sleep (16);
 		if (timeout) time2 = Sys_DoubleTime (); //johnfitz -- zero timeout means wait forever.
-	} while (key_lastpress != 'y' &&
-			 key_lastpress != 'n' &&
-			 key_lastpress != K_ESCAPE &&
-			 time2 <= time1);
-
-	// make sure we don't ignore the next keypress
-	if (key_count < 0)
-		key_count = 0;
+	} while (lastchar != 'y' && lastchar != 'Y' &&
+		 lastchar != 'n' && lastchar != 'N' &&
+		 lastkey != K_ESCAPE &&
+		 lastkey != K_ABUTTON &&
+		 lastkey != K_BBUTTON &&
+		 time2 <= time1);
+	Key_EndInputGrab ();
 
 //	SCR_UpdateScreen (); //johnfitz -- commented out
 
@@ -938,7 +936,7 @@ int SCR_ModalMessage (const char *text, float timeout) //johnfitz -- timeout
 		return false;
 	//johnfitz
 
-	return key_lastpress == 'y';
+	return (lastchar == 'y' || lastchar == 'Y' || lastkey == K_ABUTTON);
 }
 
 
@@ -949,14 +947,16 @@ int SCR_ModalMessage (const char *text, float timeout) //johnfitz -- timeout
 
 /*
 ==================
-SCR_TileClear -- johnfitz -- modified to use glwidth/glheight instead of vid.width/vid.height
-                             also fixed the dimentions of right and top panels
-							 also added scr_tileclear_updates
+SCR_TileClear
+johnfitz -- modified to use glwidth/glheight instead of vid.width/vid.height
+	    also fixed the dimentions of right and top panels
+	    also added scr_tileclear_updates
 ==================
 */
 void SCR_TileClear (void)
 {
-	if (scr_tileclear_updates >= vid.numpages && !gl_clear.value)
+	//ericw -- added check for glsl gamma. TODO: remove this ugly optimization?
+	if (scr_tileclear_updates >= vid.numpages && !gl_clear.value && !(gl_glsl_gamma_able && vid_gamma.value != 1))
 		return;
 	scr_tileclear_updates++;
 
@@ -1000,71 +1000,6 @@ WARNING: be very careful calling this from elsewhere, because the refresh
 needs almost the entire 256k of stack space!
 ==================
 */
-
-void SCR_UpdateScreenContent (void)
-{
-
-//
-// do 3D refresh drawing, and then update the screen
-//
-	V_RenderView ();
-
-	// test draw in 3d
-	
-	if(vr_enabled.value && !con_forcedup)
-	{
-		VR_Draw2D();
-	}
-	else
-	{
-		GL_Set2D ();
-
-		//FIXME: only call this when needed
-		SCR_TileClear ();
-
-		if (scr_drawdialog) //new game confirm
-		{
-			if (con_forcedup)
-				Draw_ConsoleBackground ();
-			else
-				Sbar_Draw ();
-			Draw_FadeScreen ();
-			SCR_DrawNotifyString ();
-		}
-		else if (scr_drawloading) //loading
-		{
-			SCR_DrawLoading ();
-			Sbar_Draw ();
-		}
-		else if (cl.intermission == 1 && key_dest == key_game) //end of level
-		{
-			Sbar_IntermissionOverlay ();
-		}
-		else if (cl.intermission == 2 && key_dest == key_game) //end of episode
-		{
-			Sbar_FinaleOverlay ();
-			SCR_CheckDrawCenterString ();
-		}
-		else
-		{
-			SCR_DrawCrosshair (); //johnfitz
-			SCR_DrawRam ();
-			SCR_DrawNet ();
-			SCR_DrawTurtle ();
-			SCR_DrawPause ();
-			SCR_CheckDrawCenterString ();
-			Sbar_Draw ();
-			SCR_DrawDevStats (); //johnfitz
-			SCR_DrawFPS (); //johnfitz
-			SCR_DrawClock (); //johnfitz
-			SCR_DrawConsole ();
-			M_Draw ();
-		}
-	}
-
-	V_UpdateBlend (); //johnfitz -- V_UpdatePalette cleaned up and renamed
-}
-
 void SCR_UpdateScreen (void)
 {
 	vid.numpages = (gl_triplebuffer.value) ? 3 : 2;
@@ -1092,20 +1027,61 @@ void SCR_UpdateScreen (void)
 	if (vid.recalc_refdef)
 		SCR_CalcRefdef ();
 
+//
+// do 3D refresh drawing, and then update the screen
+//
 	SCR_SetUpToDrawConsole ();
-	
-	if (vr_enabled.value && !con_forcedup)
+
+	V_RenderView ();
+
+	GL_Set2D ();
+
+	//FIXME: only call this when needed
+	SCR_TileClear ();
+
+	if (scr_drawdialog) //new game confirm
 	{
-		VR_UpdateScreenContent(); // phoboslab
+		if (con_forcedup)
+			Draw_ConsoleBackground ();
+		else
+			Sbar_Draw ();
+		Draw_FadeScreen ();
+		SCR_DrawNotifyString ();
+	}
+	else if (scr_drawloading) //loading
+	{
+		SCR_DrawLoading ();
+		Sbar_Draw ();
+	}
+	else if (cl.intermission == 1 && key_dest == key_game) //end of level
+	{
+		Sbar_IntermissionOverlay ();
+	}
+	else if (cl.intermission == 2 && key_dest == key_game) //end of episode
+	{
+		Sbar_FinaleOverlay ();
+		SCR_CheckDrawCenterString ();
 	}
 	else
 	{
-		VectorCopy (cl.aimangles, cl.viewangles);
-		VectorCopy (cl.aimangles, r_refdef.viewangles);
-		VectorCopy (cl.aimangles, r_refdef.aimangles);
-
-		SCR_UpdateScreenContent();
+		SCR_DrawCrosshair (); //johnfitz
+		SCR_DrawRam ();
+		SCR_DrawNet ();
+		SCR_DrawTurtle ();
+		SCR_DrawPause ();
+		SCR_CheckDrawCenterString ();
+		Sbar_Draw ();
+		SCR_DrawDevStats (); //johnfitz
+		SCR_DrawFPS (); //johnfitz
+		SCR_DrawClock (); //johnfitz
+		SCR_DrawConsole ();
+		M_Draw ();
 	}
+
+	V_UpdateBlend (); //johnfitz -- V_UpdatePalette cleaned up and renamed
+
+	GLSLGamma_GammaCorrect ();
 
 	GL_EndRendering ();
 }
+

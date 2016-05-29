@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2005 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -23,15 +24,19 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include <windows.h>
 #if defined(SDL_FRAMEWORK) || defined(NO_SDL_CONFIG)
+#if defined(USE_SDL2)
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_syswm.h>
+#else
 #include <SDL/SDL.h>
 #include <SDL/SDL_syswm.h>
+#endif
 #else
 #include "SDL.h"
 #include "SDL_syswm.h"
 #endif
 
 static HICON icon;
-extern SDL_Window *VID_GetWindow();
 
 void PL_SetWindowIcon (void)
 {
@@ -47,11 +52,17 @@ void PL_SetWindowIcon (void)
 
 	SDL_VERSION(&wminfo.version);
 
-	
-	if (SDL_GetWindowWMInfo(VID_GetWindow(), &wminfo) != 1)
+#if defined(USE_SDL2)
+	if (SDL_GetWindowWMInfo((SDL_Window*) VID_GetWindow(), &wminfo) != SDL_TRUE)
 		return;	/* wrong SDL version */
 
 	hwnd = wminfo.info.win.window;
+#else
+	if (SDL_GetWMInfo(&wminfo) != 1)
+		return;	/* wrong SDL version */
+
+	hwnd = wminfo.window;
+#endif
 #ifdef _WIN64
 	SetClassLongPtr(hwnd, GCLP_HICON, (LONG_PTR) icon);
 #else

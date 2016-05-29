@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -84,6 +85,7 @@ void TexMgr_FreeTextures (unsigned int flags, unsigned int mask);
 void TexMgr_FreeTexturesForOwner (qmodel_t *owner);
 void TexMgr_NewGame (void);
 void TexMgr_Init (void);
+void TexMgr_DeleteTextureObjects (void);
 
 // IMAGE LOADING
 gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int height, enum srcformat format,
@@ -98,9 +100,11 @@ int TexMgr_PadConditional (int s);
 
 // TEXTURE BINDING & TEXTURE UNIT SWITCHING
 
+void GL_SelectTexture (GLenum target);
 void GL_DisableMultitexture (void); //selects texture unit 0
 void GL_EnableMultitexture (void); //selects texture unit 1
 void GL_Bind (gltexture_t *texture);
+void GL_ClearBindings (void);
 
 #endif	/* _GL_TEXMAN_H */
 

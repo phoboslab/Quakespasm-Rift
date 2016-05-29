@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -141,16 +142,26 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define K_MOUSE4		241
 #define K_MOUSE5		242
 
+// SDL2 game controller keys
+#define K_LTHUMB		243
+#define K_RTHUMB		244
+#define K_LSHOULDER		245
+#define K_RSHOULDER		246
+#define K_ABUTTON		247
+#define K_BBUTTON		248
+#define K_XBUTTON		249
+#define K_YBUTTON		250
+#define K_LTRIGGER		251
+#define K_RTRIGGER		252
+
+#define	MAX_KEYS		253
 
 #define	MAXCMDLINE	256
 
 typedef enum {key_game, key_console, key_message, key_menu} keydest_t;
 
 extern keydest_t	key_dest;
-extern	char	*keybindings[256];
-extern	int		key_repeats[256];
-extern	int		key_count;			// incremented every key event
-extern	int		key_lastpress;
+extern	char	*keybindings[MAX_KEYS];
 
 extern	char	key_lines[32][MAXCMDLINE];
 extern	int		edit_line;
@@ -164,7 +175,13 @@ void Key_Init (void);
 void Key_ClearStates (void);
 void Key_UpdateForDest (void);
 
+void Key_BeginInputGrab (void);
+void Key_EndInputGrab (void);
+void Key_GetGrabbedInput (int *lastkey, int *lastchar);
+
 void Key_Event (int key, qboolean down);
+void Char_Event (int key);
+qboolean Key_TextEntry (void);
 
 void Key_SetBinding (int keynum, const char *binding);
 const char *Key_KeynumToString (int keynum);

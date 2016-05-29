@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -22,7 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 
-#define	DYNAMIC_SIZE	0x60000	// 384*1024
+#define	DYNAMIC_SIZE	(4 * 1024 * 1024) // ericw -- was 512KB (64-bit) / 384KB (32-bit)
 
 #define	ZONEID	0x1d4a11
 #define MINFRAGMENT	64
@@ -32,8 +33,8 @@ typedef struct memblock_s
 	int	size;		// including the header and possibly tiny fragments
 	int	tag;		// a tag of 0 is a free block
 	int	id;		// should be ZONEID
-	struct	memblock_s	*next, *prev;
 	int	pad;		// pad to 64 bit boundary
+	struct	memblock_s	*next, *prev;
 } memblock_t;
 
 typedef struct
@@ -798,7 +799,6 @@ void Cache_Flush (void)
 	while (cache_head.next != &cache_head)
 		Cache_Free ( cache_head.next->user, true); // reclaim the space //johnfitz -- added second argument
 }
-
 
 /*
 ============

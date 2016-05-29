@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -30,23 +31,24 @@ gltexture_t *playertextures[MAX_SCOREBOARD]; //johnfitz -- changed to an array o
 
 #define NUMVERTEXNORMALS	162
 
-float	r_avertexnormals[NUMVERTEXNORMALS][3] = {
+float	r_avertexnormals[NUMVERTEXNORMALS][3] =
+{
 #include "anorms.h"
 };
-
-vec3_t	shadevector;
 
 extern vec3_t	lightcolor; //johnfitz -- replaces "float shadelight" for lit support
 
 // precalculated dot products for quantized angles
 #define SHADEDOT_QUANT 16
 float	r_avertexnormal_dots[SHADEDOT_QUANT][256] =
+{
 #include "anorm_dots.h"
-;
+};
 
 extern	vec3_t			lightspot;
 
 float	*shadedots = r_avertexnormal_dots[0];
+vec3_t	shadevector;
 
 float	entalpha; //johnfitz
 
@@ -63,6 +65,225 @@ typedef struct {
 	vec3_t angles;
 } lerpdata_t;
 //johnfitz
+
+static GLuint r_alias_program;
+
+// uniforms used in vert shader
+static GLuint blendLoc;
+static GLuint shadevectorLoc;
+static GLuint lightColorLoc;
+
+// uniforms used in frag shader
+static GLuint texLoc;
+static GLuint fullbrightTexLoc;
+static GLuint useFullbrightTexLoc;
+static GLuint useOverbrightLoc;
+
+static const GLint pose1VertexAttrIndex = 0;
+static const GLint pose1NormalAttrIndex = 1;
+static const GLint pose2VertexAttrIndex = 2;
+static const GLint pose2NormalAttrIndex = 3;
+static const GLint texCoordsAttrIndex = 4;
+
+/*
+=============
+GLARB_GetXYZOffset
+
+Returns the offset of the first vertex's meshxyz_t.xyz in the vbo for the given
+model and pose.
+=============
+*/
+static void *GLARB_GetXYZOffset (aliashdr_t *hdr, int pose)
+{
+	meshxyz_t dummy;
+	int xyzoffs = ((char*)&dummy.xyz - (char*)&dummy);
+	return (void *) (currententity->model->vboxyzofs + (hdr->numverts_vbo * pose * sizeof (meshxyz_t)) + xyzoffs);
+}
+
+/*
+=============
+GLARB_GetNormalOffset
+
+Returns the offset of the first vertex's meshxyz_t.normal in the vbo for the
+given model and pose.
+=============
+*/
+static void *GLARB_GetNormalOffset (aliashdr_t *hdr, int pose)
+{
+	meshxyz_t dummy;
+	int normaloffs = ((char*)&dummy.normal - (char*)&dummy);
+	return (void *)(currententity->model->vboxyzofs + (hdr->numverts_vbo * pose * sizeof (meshxyz_t)) + normaloffs);
+}
+
+/*
+=============
+GLAlias_CreateShaders
+=============
+*/
+void GLAlias_CreateShaders (void)
+{
+	const glsl_attrib_binding_t bindings[] = {
+		{ "TexCoords", texCoordsAttrIndex },
+		{ "Pose1Vert", pose1VertexAttrIndex },
+		{ "Pose1Normal", pose1NormalAttrIndex },
+		{ "Pose2Vert", pose2VertexAttrIndex },
+		{ "Pose2Normal", pose2NormalAttrIndex }
+	};
+
+	const GLchar *vertSource = \
+		"#version 110\n"
+		"\n"
+		"uniform float Blend;\n"
+		"uniform vec3 ShadeVector;\n"
+		"uniform vec4 LightColor;\n"
+		"attribute vec4 TexCoords; // only xy are used \n"
+		"attribute vec4 Pose1Vert;\n"
+		"attribute vec3 Pose1Normal;\n"
+		"attribute vec4 Pose2Vert;\n"
+		"attribute vec3 Pose2Normal;\n"
+		"float r_avertexnormal_dot(vec3 vertexnormal) // from MH \n"
+		"{\n"
+		"        float dot = dot(vertexnormal, ShadeVector);\n"
+		"        // wtf - this reproduces anorm_dots within as reasonable a degree of tolerance as the >= 0 case\n"
+		"        if (dot < 0.0)\n"
+		"            return 1.0 + dot * (13.0 / 44.0);\n"
+		"        else\n"
+		"            return 1.0 + dot;\n"
+		"}\n"
+		"void main()\n"
+		"{\n"
+		"	gl_TexCoord[0] = TexCoords;\n"
+		"	vec4 lerpedVert = mix(Pose1Vert, Pose2Vert, Blend);\n"
+		"	gl_Position = gl_ModelViewProjectionMatrix * lerpedVert;\n"
+		"	float dot1 = r_avertexnormal_dot(Pose1Normal);\n"
+		"	float dot2 = r_avertexnormal_dot(Pose2Normal);\n"
+		"	gl_FrontColor = LightColor * vec4(vec3(mix(dot1, dot2, Blend)), 1.0);\n"
+		"	// fog\n"
+		"	vec3 ecPosition = vec3(gl_ModelViewMatrix * lerpedVert);\n"
+		"	gl_FogFragCoord = abs(ecPosition.z);\n"
+		"}\n";
+
+	const GLchar *fragSource = \
+		"#version 110\n"
+		"\n"
+		"uniform sampler2D Tex;\n"
+		"uniform sampler2D FullbrightTex;\n"
+		"uniform bool UseFullbrightTex;\n"
+		"uniform bool UseOverbright;\n"
+		"void main()\n"
+		"{\n"
+		"	vec4 result = texture2D(Tex, gl_TexCoord[0].xy);\n"
+		"	result *= gl_Color;\n"
+		"	if (UseOverbright)\n"
+		"		result.rgb *= 2.0;\n"
+		"	if (UseFullbrightTex)\n"
+		"		result += texture2D(FullbrightTex, gl_TexCoord[0].xy);\n"
+		"	result = clamp(result, 0.0, 1.0);\n"
+		"	// apply GL_EXP2 fog (from the orange book)\n"
+		"	float fog = exp(-gl_Fog.density * gl_Fog.density * gl_FogFragCoord * gl_FogFragCoord);\n"
+		"	fog = clamp(fog, 0.0, 1.0);\n"
+		"	result = mix(gl_Fog.color, result, fog);\n"
+		"	result.a = gl_Color.a;\n"
+		"	gl_FragColor = result;\n"
+		"}\n";
+
+	if (!gl_glsl_alias_able)
+		return;
+
+	r_alias_program = GL_CreateProgram (vertSource, fragSource, sizeof(bindings)/sizeof(bindings[0]), bindings);
+
+	if (r_alias_program != 0)
+	{
+	// get uniform locations
+		blendLoc = GL_GetUniformLocation (&r_alias_program, "Blend");
+		shadevectorLoc = GL_GetUniformLocation (&r_alias_program, "ShadeVector");
+		lightColorLoc = GL_GetUniformLocation (&r_alias_program, "LightColor");
+		texLoc = GL_GetUniformLocation (&r_alias_program, "Tex");
+		fullbrightTexLoc = GL_GetUniformLocation (&r_alias_program, "FullbrightTex");
+		useFullbrightTexLoc = GL_GetUniformLocation (&r_alias_program, "UseFullbrightTex");
+		useOverbrightLoc = GL_GetUniformLocation (&r_alias_program, "UseOverbright");
+	}
+}
+
+/*
+=============
+GL_DrawAliasFrame_GLSL -- ericw
+
+Optimized alias model drawing codepath.
+Compared to the original GL_DrawAliasFrame, this makes 1 draw call,
+no vertex data is uploaded (it's already in the r_meshvbo and r_meshindexesvbo
+static VBOs), and lerping and lighting is done in the vertex shader.
+
+Supports optional overbright, optional fullbright pixels.
+
+Based on code by MH from RMQEngine
+=============
+*/
+void GL_DrawAliasFrame_GLSL (aliashdr_t *paliashdr, lerpdata_t lerpdata, gltexture_t *tx, gltexture_t *fb)
+{
+	float	blend;
+
+	if (lerpdata.pose1 != lerpdata.pose2)
+	{
+		blend = lerpdata.blend;
+	}
+	else // poses the same means either 1. the entity has paused its animation, or 2. r_lerpmodels is disabled
+	{
+		blend = 0;
+	}
+
+	GL_UseProgramFunc (r_alias_program);
+
+	GL_BindBuffer (GL_ARRAY_BUFFER, currententity->model->meshvbo);
+	GL_BindBuffer (GL_ELEMENT_ARRAY_BUFFER, currententity->model->meshindexesvbo);
+
+	GL_EnableVertexAttribArrayFunc (texCoordsAttrIndex);
+	GL_EnableVertexAttribArrayFunc (pose1VertexAttrIndex);
+	GL_EnableVertexAttribArrayFunc (pose2VertexAttrIndex);
+	GL_EnableVertexAttribArrayFunc (pose1NormalAttrIndex);
+	GL_EnableVertexAttribArrayFunc (pose2NormalAttrIndex);
+
+	GL_VertexAttribPointerFunc (texCoordsAttrIndex, 2, GL_FLOAT, GL_FALSE, 0, (void *)(intptr_t)currententity->model->vbostofs);
+	GL_VertexAttribPointerFunc (pose1VertexAttrIndex, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof (meshxyz_t), GLARB_GetXYZOffset (paliashdr, lerpdata.pose1));
+	GL_VertexAttribPointerFunc (pose2VertexAttrIndex, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof (meshxyz_t), GLARB_GetXYZOffset (paliashdr, lerpdata.pose2));
+// GL_TRUE to normalize the signed bytes to [-1 .. 1]
+	GL_VertexAttribPointerFunc (pose1NormalAttrIndex, 4, GL_BYTE, GL_TRUE, sizeof (meshxyz_t), GLARB_GetNormalOffset (paliashdr, lerpdata.pose1));
+	GL_VertexAttribPointerFunc (pose2NormalAttrIndex, 4, GL_BYTE, GL_TRUE, sizeof (meshxyz_t), GLARB_GetNormalOffset (paliashdr, lerpdata.pose2));
+
+// set uniforms
+	GL_Uniform1fFunc (blendLoc, blend);
+	GL_Uniform3fFunc (shadevectorLoc, shadevector[0], shadevector[1], shadevector[2]);
+	GL_Uniform4fFunc (lightColorLoc, lightcolor[0], lightcolor[1], lightcolor[2], entalpha);
+	GL_Uniform1iFunc (texLoc, 0);
+	GL_Uniform1iFunc (fullbrightTexLoc, 1);
+	GL_Uniform1iFunc (useFullbrightTexLoc, (fb != NULL) ? 1 : 0);
+	GL_Uniform1fFunc (useOverbrightLoc, overbright ? 1 : 0);
+
+// set textures
+	GL_SelectTexture (GL_TEXTURE0);
+	GL_Bind (tx);
+
+	if (fb)
+	{
+		GL_SelectTexture (GL_TEXTURE1);
+		GL_Bind (fb);
+	}
+
+// draw
+	glDrawElements (GL_TRIANGLES, paliashdr->numindexes, GL_UNSIGNED_SHORT, (void *)(intptr_t)currententity->model->vboindexofs);
+
+// clean up
+	GL_DisableVertexAttribArrayFunc (texCoordsAttrIndex);
+	GL_DisableVertexAttribArrayFunc (pose1VertexAttrIndex);
+	GL_DisableVertexAttribArrayFunc (pose2VertexAttrIndex);
+	GL_DisableVertexAttribArrayFunc (pose1NormalAttrIndex);
+	GL_DisableVertexAttribArrayFunc (pose2NormalAttrIndex);
+
+	GL_UseProgramFunc (0);
+	GL_SelectTexture (GL_TEXTURE0);
+
+	rs_aliaspasses += paliashdr->numtris;
+}
 
 /*
 =============
@@ -123,8 +344,8 @@ void GL_DrawAliasFrame (aliashdr_t *paliashdr, lerpdata_t lerpdata)
 			v = ((float *)commands)[1];
 			if (mtexenabled)
 			{
-				GL_MTexCoord2fFunc (TEXTURE0, u, v);
-				GL_MTexCoord2fFunc (TEXTURE1, u, v);
+				GL_MTexCoord2fFunc (GL_TEXTURE0_ARB, u, v);
+				GL_MTexCoord2fFunc (GL_TEXTURE1_ARB, u, v);
 			}
 			else
 				glTexCoord2f (u, v);
@@ -187,7 +408,7 @@ void R_SetupAliasFrame (aliashdr_t *paliashdr, int frame, lerpdata_t *lerpdata)
 
 	if ((frame >= paliashdr->numframes) || (frame < 0))
 	{
-		Con_DPrintf ("R_AliasSetupFrame: no such frame %d\n", frame);
+		Con_DPrintf ("R_AliasSetupFrame: no such frame %d for '%s'\n", frame, e->model->name);
 		frame = 0;
 	}
 
@@ -316,6 +537,8 @@ void R_SetupAliasLighting (entity_t	*e)
 	vec3_t		dist;
 	float		add;
 	int			i;
+	int		quantizedangle;
+	float		radiansangle;
 
 	R_LightPoint (e->origin);
 
@@ -372,8 +595,19 @@ void R_SetupAliasLighting (entity_t	*e)
 			lightcolor[2] = 256.0f;
 		}
 
-	shadedots = r_avertexnormal_dots[((int)(e->angles[1] * (SHADEDOT_QUANT / 360.0))) & (SHADEDOT_QUANT - 1)];
-	VectorScale(lightcolor, 1.0f / 200.0f, lightcolor);
+	quantizedangle = ((int)(e->angles[1] * (SHADEDOT_QUANT / 360.0))) & (SHADEDOT_QUANT - 1);
+
+//ericw -- shadevector is passed to the shader to compute shadedots inside the
+//shader, see GLAlias_CreateShaders()
+	radiansangle = (quantizedangle / 16.0) * 2.0 * 3.14159;
+	shadevector[0] = cos(-radiansangle);
+	shadevector[1] = sin(-radiansangle);
+	shadevector[2] = 1;
+	VectorNormalize(shadevector);
+//ericw --
+
+	shadedots = r_avertexnormal_dots[quantizedangle];
+	VectorScale (lightcolor, 1.0f / 200.0f, lightcolor);
 }
 
 /*
@@ -404,7 +638,7 @@ void R_DrawAliasModel (entity_t *e)
 	//
 	// transform it
 	//
-    glPushMatrix ();
+	glPushMatrix ();
 	R_RotateForEntity (lerpdata.origin, lerpdata.angles);
 	glTranslatef (paliashdr->scale_origin[0], paliashdr->scale_origin[1], paliashdr->scale_origin[2]);
 	glScalef (paliashdr->scale[0], paliashdr->scale[1], paliashdr->scale[2]);
@@ -446,8 +680,17 @@ void R_DrawAliasModel (entity_t *e)
 	//
 	GL_DisableMultitexture();
 	anim = (int)(cl.time*10) & 3;
-	tx = paliashdr->gltextures[e->skinnum][anim];
-	fb = paliashdr->fbtextures[e->skinnum][anim];
+	if ((e->skinnum >= paliashdr->numskins) || (e->skinnum < 0))
+	{
+		Con_DPrintf ("R_DrawAliasModel: no such skin # %d for '%s'\n", e->skinnum, e->model->name);
+		tx = NULL; // NULL will give the checkerboard texture
+		fb = NULL;
+	}
+	else
+	{
+		tx = paliashdr->gltextures[e->skinnum][anim];
+		fb = paliashdr->fbtextures[e->skinnum][anim];
+	} 
 	if (e->colormap != vid.colormap && !gl_nocolors.value)
 	{
 		i = e - cl_entities;
@@ -496,6 +739,12 @@ void R_DrawAliasModel (entity_t *e)
 		glColor3f(1,1,1);
 		GL_DrawAliasFrame (paliashdr, lerpdata);
 		glEnable (GL_TEXTURE_2D);
+	}
+// call fast path if possible. if the shader compliation failed for some reason,
+// r_alias_program will be 0.
+	else if (r_alias_program != 0)
+	{
+		GL_DrawAliasFrame_GLSL (paliashdr, lerpdata, tx, fb);
 	}
 	else if (overbright)
 	{
@@ -675,7 +924,7 @@ void GL_DrawAliasShadow (entity_t *e)
 	lheight = currententity->origin[2] - lightspot[2];
 
 // set up matrix
-    glPushMatrix ();
+	glPushMatrix ();
 	glTranslatef (lerpdata.origin[0],  lerpdata.origin[1],  lerpdata.origin[2]);
 	glTranslatef (0,0,-lheight);
 	glMultMatrixf (shadowmatrix);
@@ -719,7 +968,7 @@ void R_DrawAliasModel_ShowTris (entity_t *e)
 	R_SetupAliasFrame (paliashdr, e->frame, &lerpdata);
 	R_SetupEntityTransform (e, &lerpdata);
 
-    glPushMatrix ();
+	glPushMatrix ();
 	R_RotateForEntity (lerpdata.origin,lerpdata.angles);
 	glTranslatef (paliashdr->scale_origin[0], paliashdr->scale_origin[1], paliashdr->scale_origin[2]);
 	glScalef (paliashdr->scale[0], paliashdr->scale[1], paliashdr->scale[2]);

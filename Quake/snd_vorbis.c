@@ -39,6 +39,7 @@
 
 /* Vorbis codec can return the samples in a number of different
  * formats, we use the standard signed short format. */
+#define VORBIS_SAMPLEBITS 16
 #define VORBIS_SAMPLEWIDTH 2
 #define VORBIS_SIGNED_DATA 1
 
@@ -55,7 +56,7 @@ static int ovc_fseek (void *f, ogg_int64_t off, int whence)
 	return FS_fseek((fshandle_t *)f, (long) off, whence);
 }
 
-static const ov_callbacks ovc_qfs =
+static ov_callbacks ovc_qfs =
 {
 	(size_t (*)(void *, size_t, size_t, void *))	FS_fread,
 	(int (*)(void *, ogg_int64_t, int))		ovc_fseek,
@@ -74,39 +75,33 @@ static void S_VORBIS_CodecShutdown (void)
 {
 }
 
-static snd_stream_t *S_VORBIS_CodecOpenStream (const char *filename)
+static qboolean S_VORBIS_CodecOpenStream (snd_stream_t *stream)
 {
-	snd_stream_t *stream;
 	OggVorbis_File *ovFile;
 	vorbis_info *ovf_info;
 	long numstreams;
 	int res;
 
-	stream = S_CodecUtilOpen(filename, &vorbis_codec);
-	if (!stream)
-		return NULL;
-
 	ovFile = (OggVorbis_File *) Z_Malloc(sizeof(OggVorbis_File));
+	stream->priv = ovFile;
 	res = OV_OPEN_CALLBACKS(&stream->fh, ovFile, NULL, 0, ovc_qfs);
 	if (res != 0)
 	{
 		Con_Printf("%s is not a valid Ogg Vorbis file (error %i).\n",
-				filename, res);
+				stream->name, res);
 		goto _fail;
 	}
 
-	stream->priv = ovFile;
-
 	if (!ov_seekable(ovFile))
 	{
-		Con_Printf("Stream %s not seekable.\n", filename);
+		Con_Printf("Stream %s not seekable.\n", stream->name);
 		goto _fail;
 	}
 
 	ovf_info = ov_info(ovFile, 0);
 	if (!ovf_info)
 	{
-		Con_Printf("Unable to get stream info for %s.\n", filename);
+		Con_Printf("Unable to get stream info for %s.\n", stream->name);
 		goto _fail;
 	}
 
@@ -115,28 +110,28 @@ static snd_stream_t *S_VORBIS_CodecOpenStream (const char *filename)
 	if (numstreams != 1)
 	{
 		Con_Printf("More than one (%ld) stream in %s.\n",
-					numstreams, filename);
+					numstreams, stream->name);
 		goto _fail;
 	}
 
 	if (ovf_info->channels != 1 && ovf_info->channels != 2)
 	{
 		Con_Printf("Unsupported number of channels %d in %s\n",
-					ovf_info->channels, filename);
+					ovf_info->channels, stream->name);
 		goto _fail;
 	}
 
 	stream->info.rate = ovf_info->rate;
 	stream->info.channels = ovf_info->channels;
+	stream->info.bits = VORBIS_SAMPLEBITS;
 	stream->info.width = VORBIS_SAMPLEWIDTH;
 
-	return stream;
+	return true;
 _fail:
 	if (res == 0)
 		ov_clear(ovFile);
 	Z_Free(ovFile);
-	S_CodecUtilClose(&stream);
-	return NULL;
+	return false;
 }
 
 static int S_VORBIS_CodecReadStream (snd_stream_t *stream, int bytes, void *buffer)
@@ -174,7 +169,6 @@ static int S_VORBIS_CodecReadStream (snd_stream_t *stream, int bytes, void *buff
 
 	if (res < 0)
 		return res;
-
 	return cnt;
 }
 

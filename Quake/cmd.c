@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -164,9 +165,16 @@ void Cbuf_Execute (void)
 				break;
 		}
 
-
-		memcpy (line, text, i);
-		line[i] = 0;
+		if (i > (int)sizeof(line) - 1)
+		{
+			memcpy (line, text, sizeof(line) - 1);
+			line[sizeof(line) - 1] = 0;
+		}
+		else
+		{
+			memcpy (line, text, i);
+			line[i] = 0;
+		}
 
 // delete the text from the command buffer and move remaining commands down
 // this is necessary because commands (exec, alias) can insert data at the
@@ -715,7 +723,7 @@ void	Cmd_ExecuteString (const char *text, cmd_source_t src)
 // check functions
 	for (cmd=cmd_functions ; cmd ; cmd=cmd->next)
 	{
-		if (!Q_strcasecmp (cmd_argv[0],cmd->name))
+		if (!q_strcasecmp (cmd_argv[0],cmd->name))
 		{
 			cmd->function ();
 			return;
@@ -725,7 +733,7 @@ void	Cmd_ExecuteString (const char *text, cmd_source_t src)
 // check alias
 	for (a=cmd_alias ; a ; a=a->next)
 	{
-		if (!Q_strcasecmp (cmd_argv[0], a->name))
+		if (!q_strcasecmp (cmd_argv[0], a->name))
 		{
 			Cbuf_InsertText (a->value);
 			return;
@@ -758,7 +766,7 @@ void Cmd_ForwardToServer (void)
 		return;		// not really connected
 
 	MSG_WriteByte (&cls.message, clc_stringcmd);
-	if (Q_strcasecmp(Cmd_Argv(0), "cmd") != 0)
+	if (q_strcasecmp(Cmd_Argv(0), "cmd") != 0)
 	{
 		SZ_Print (&cls.message, Cmd_Argv(0));
 		SZ_Print (&cls.message, " ");
@@ -787,7 +795,7 @@ int Cmd_CheckParm (const char *parm)
 		Sys_Error ("Cmd_CheckParm: NULL");
 
 	for (i = 1; i < Cmd_Argc (); i++)
-		if (! Q_strcasecmp (parm, Cmd_Argv (i)))
+		if (! q_strcasecmp (parm, Cmd_Argv (i)))
 			return i;
 
 	return 0;

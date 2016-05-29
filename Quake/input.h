@@ -1,7 +1,6 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
-Copyright (C) 2002-2009 John Fitzgibbons and others
-Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -33,14 +32,14 @@ void IN_Commands (void);
 // oportunity for devices to stick commands on the script buffer
 
 // mouse moved by dx and dy pixels
-void IN_MouseMove(int dx, int dy);
+void IN_MouseMotion(int dx, int dy);
 
 
 void IN_SendKeyEvents (void);
 // used as a callback for Sys_SendKeyEvents() by some drivers
 
-void IN_UpdateForKeydest (void);
-// do stuff if key_dest changes matter to the keyboard driver
+void IN_UpdateInputMode (void);
+// do stuff if input mode (text/non-text) changes matter to the keyboard driver
 
 void IN_Move (usercmd_t *cmd);
 // add additional movement on top of the keyboard move cmd

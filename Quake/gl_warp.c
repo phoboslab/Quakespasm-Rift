@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -23,12 +24,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 extern cvar_t r_drawflat;
 
-cvar_t r_oldwater = {"r_oldwater", "1", CVAR_ARCHIVE};
+cvar_t r_oldwater = {"r_oldwater", "0", CVAR_ARCHIVE};
 cvar_t r_waterquality = {"r_waterquality", "8", CVAR_NONE};
 cvar_t r_waterwarp = {"r_waterwarp", "1", CVAR_NONE};
 
 int gl_warpimagesize;
-
 float load_subdivide_size; //johnfitz -- remember what subdivide_size value was when this map was loaded
 
 float	turbsin[] =
@@ -259,6 +259,9 @@ void R_UpdateWarpTextures (void)
 
 		tx->update_warp = false;
 	}
+
+	// ericw -- workaround for osx 10.6 driver bug when using FSAA. R_Clear only clears the warpimage part of the screen.
+	GL_SetCanvas(CANVAS_DEFAULT);
 
 	//if warp render went down into sbar territory, we need to be sure to refresh it next frame
 	if (gl_warpimagesize + sb_lines > glheight)

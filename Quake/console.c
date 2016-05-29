@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -106,14 +107,15 @@ void Con_ToggleConsole_f (void)
 {
 	if (key_dest == key_console/* || (key_dest == key_game && con_forcedup)*/)
 	{
+		key_lines[edit_line][1] = 0;	// clear any typing
+		key_linepos = 1;
+		con_backscroll = 0; //johnfitz -- toggleconsole should return you to the bottom of the scrollback
+		history_line = edit_line; //johnfitz -- it should also return you to the bottom of the command history
+
 		if (cls.state == ca_connected)
 		{
 			IN_Activate();
 			key_dest = key_game;
-			key_lines[edit_line][1] = 0;	// clear any typing
-			key_linepos = 1;
-			con_backscroll = 0; //johnfitz -- toggleconsole should return you to the bottom of the scrollback
-			history_line = edit_line; //johnfitz -- it should also return you to the bottom of the command history
 		}
 		else
 		{
@@ -155,31 +157,7 @@ static void Con_Dump_f (void)
 	char	buffer[1024];
 	char	name[MAX_OSPATH];
 
-#if 1
-	//johnfitz -- there is a security risk in writing files with an arbitrary filename. so,
-	//until stuffcmd is crippled to alleviate this risk, just force the default filename.
 	q_snprintf (name, sizeof(name), "%s/condump.txt", com_gamedir);
-#else
-	if (Cmd_Argc() > 2)
-	{
-		Con_Printf ("usage: condump <filename>\n");
-		return;
-	}
-
-	if (Cmd_Argc() > 1)
-	{
-		if (strstr(Cmd_Argv(1), ".."))
-		{
-			Con_Printf ("Relative pathnames are not allowed.\n");
-			return;
-		}
-		q_snprintf (name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
-		COM_DefaultExtension (name, ".txt", sizeof(name));
-	}
-	else
-		q_snprintf (name, sizeof(name), "%s/condump.txt", com_gamedir);
-#endif
-
 	COM_CreatePath (name);
 	f = fopen (name, "w");
 	if (!f)
@@ -543,6 +521,31 @@ void Con_Printf (const char *fmt, ...)
 
 /*
 ================
+Con_DWarning -- ericw
+ 
+same as Con_Warning, but only prints if "developer" cvar is set.
+use for "exceeds standard limit of" messages, which are only relevant for developers
+targetting vanilla engines
+================
+*/
+void Con_DWarning (const char *fmt, ...)
+{
+	va_list		argptr;
+	char		msg[MAXPRINTMSG];
+
+	if (!developer.value)
+		return;			// don't confuse non-developers with techie stuff...
+
+	va_start (argptr, fmt);
+	q_vsnprintf (msg, sizeof(msg), fmt, argptr);
+	va_end (argptr);
+
+	Con_SafePrintf ("\x02Warning: ");
+	Con_Printf ("%s", msg);
+}
+
+/*
+================
 Con_Warning -- johnfitz -- prints a warning to the console
 ================
 */
@@ -742,7 +745,6 @@ tablist is a doubly-linked loop, alphabetized by name
 // aka Linux Bash shell. -- S.A.
 static char	bash_partial[80];
 static qboolean	bash_singlematch;
-static qboolean	map_singlematch;
 
 void AddToTabList (const char *name, const char *type)
 {
@@ -805,44 +807,64 @@ void AddToTabList (const char *name, const char *type)
 }
 
 // This is redefined from host_cmd.c
-typedef struct extralevel_s
+typedef struct filelist_item_s
 {
 	char			name[32];
-	struct extralevel_s	*next;
-} extralevel_t;
+	struct filelist_item_s	*next;
+} filelist_item_t;
 
-extern extralevel_t	*extralevels;
+extern filelist_item_t	*extralevels;
+extern filelist_item_t	*modlist;
+extern filelist_item_t	*demolist;
+
+typedef struct arg_completion_type_s
+{
+	const char		*command;
+	filelist_item_t	**filelist;
+} arg_completion_type_t;
+
+static const arg_completion_type_t arg_completion_types[] =
+{
+	{ "map ", &extralevels },
+	{ "changelevel ", &extralevels },
+	{ "game ", &modlist },
+	{ "record ", &demolist },
+	{ "playdemo ", &demolist }
+};
+
+static const int num_arg_completion_types =
+	sizeof(arg_completion_types)/sizeof(arg_completion_types[0]);
 
 /*
 ============
-BuildMap -- stevenaaus
+FindCompletion -- stevenaaus
 ============
 */
-const char *BuildMapList (const char *partial)
+const char *FindCompletion (const char *partial, filelist_item_t *filelist, int *nummatches_out)
 {
-	static char matched[80];
+	static char matched[32];
 	char *i_matched, *i_name;
-	extralevel_t	*level;
+	filelist_item_t	*file;
 	int   init, match, plen;
 
-	memset(matched, 0, 80);
+	memset(matched, 0, sizeof(matched));
 	plen = strlen(partial);
 	match = 0;
 
-	for (level = extralevels, init = 0; level; level = level->next)
+	for (file = filelist, init = 0; file; file = file->next)
 	{
-		if (!strncmp(level->name, partial, plen))
+		if (!strncmp(file->name, partial, plen))
 		{
 			if (init == 0)
 			{
 				init = 1;
-				strncpy (matched, level->name, 79);
-				matched[79] = '\0';
+				strncpy (matched, file->name, sizeof(matched)-1);
+				matched[sizeof(matched)-1] = '\0';
 			}
 			else
 			{ // find max common
 				i_matched = matched;
-				i_name = level->name;
+				i_name = file->name;
 				while (*i_matched && (*i_matched == *i_name))
 				{
 					i_matched++;
@@ -854,14 +876,14 @@ const char *BuildMapList (const char *partial)
 		}
 	}
 
-	map_singlematch = (match == 1);
+	*nummatches_out = match;
 
 	if (match > 1)
 	{
-		for (level = extralevels; level; level = level->next)
+		for (file = filelist; file; file = file->next)
 		{
-			if (!strncmp(level->name, partial, plen))
-				Con_SafePrintf ("   %s\n", level->name);
+			if (!strncmp(file->name, partial, plen))
+				Con_SafePrintf ("   %s\n", file->name);
 		}
 		Con_SafePrintf ("\n");
 	}
@@ -933,28 +955,36 @@ void Con_TabComplete (void)
 
 // Map autocomplete function -- S.A
 // Since we don't have argument completion, this hack will do for now...
-	if (!strncmp (key_lines[edit_line] + 1, "map ",4) ||
-	    !strncmp (key_lines[edit_line] + 1, "changelevel ", 12))
+	for (i=0; i<num_arg_completion_types; i++)
 	{
-		const char *matched_map = BuildMapList(partial);
-		if (!*matched_map)
-			return;
-		q_strlcpy (partial, matched_map, MAXCMDLINE);
-		*c = '\0';
-		q_strlcat (key_lines[edit_line], partial, MAXCMDLINE);
-		key_linepos = c - key_lines[edit_line] + Q_strlen(matched_map); //set new cursor position
-		if (key_linepos >= MAXCMDLINE)
-			key_linepos = MAXCMDLINE - 1;
-		// if only one match, append a space
-		if (key_linepos < MAXCMDLINE - 1 &&
-		    key_lines[edit_line][key_linepos] == 0 && map_singlematch)
+	// arg_completion contains a command we can complete the arguments
+	// for (like "map ") and a list of all the maps.
+		arg_completion_type_t arg_completion = arg_completion_types[i];
+		const char *command_name = arg_completion.command;
+		
+		if (!strncmp (key_lines[edit_line] + 1, command_name, strlen(command_name)))
 		{
-			key_lines[edit_line][key_linepos] = ' ';
-			key_linepos++;
-			key_lines[edit_line][key_linepos] = 0;
+			int nummatches = 0;
+			const char *matched_map = FindCompletion(partial, *arg_completion.filelist, &nummatches);
+			if (!*matched_map)
+				return;
+			q_strlcpy (partial, matched_map, MAXCMDLINE);
+			*c = '\0';
+			q_strlcat (key_lines[edit_line], partial, MAXCMDLINE);
+			key_linepos = c - key_lines[edit_line] + Q_strlen(matched_map); //set new cursor position
+			if (key_linepos >= MAXCMDLINE)
+				key_linepos = MAXCMDLINE - 1;
+			// if only one match, append a space
+			if (key_linepos < MAXCMDLINE - 1 &&
+			    key_lines[edit_line][key_linepos] == 0 && (nummatches == 1))
+			{
+				key_lines[edit_line][key_linepos] = ' ';
+				key_linepos++;
+				key_lines[edit_line][key_linepos] = 0;
+			}
+			c = key_lines[edit_line] + key_linepos;
+			return;
 		}
-		c = key_lines[edit_line] + key_linepos;
-		return;
 	}
 
 //if partial is empty, return
@@ -1207,8 +1237,7 @@ void Con_DrawConsole (int lines, qboolean drawinput)
 
 //draw version number in bottom right
 	y += 8;
-	//sprintf (ver, "QuakeSpasm %1.2f.%d", (float)FITZQUAKE_VERSION, QUAKESPASM_VER_PATCH);
-	sprintf (ver, "VRQuake %1.2f", (float) VRQUAKE_VERSION);
+	sprintf (ver, "QuakeSpasm %1.2f.%d", (float)QUAKESPASM_VERSION, QUAKESPASM_VER_PATCH);
 	for (x = 0; x < (int)strlen(ver); x++)
 		Draw_Character ((con_linewidth - strlen(ver) + x + 2)<<3, y, ver[x] /*+ 128*/);
 }
@@ -1222,6 +1251,7 @@ Con_NotifyBox
 void Con_NotifyBox (const char *text)
 {
 	double		t1, t2;
+	int		lastkey, lastchar;
 
 // during startup for sound / cd warnings
 	Con_Printf ("\n\n%s", Con_Quakebar(40)); //johnfitz
@@ -1229,18 +1259,21 @@ void Con_NotifyBox (const char *text)
 	Con_Printf ("Press a key.\n");
 	Con_Printf ("%s", Con_Quakebar(40)); //johnfitz
 
-	key_count = -2;		// wait for a key down and up
 	IN_Deactivate(modestate == MS_WINDOWED);
 	key_dest = key_console;
 
+	Key_BeginInputGrab ();
 	do
 	{
 		t1 = Sys_DoubleTime ();
 		SCR_UpdateScreen ();
 		Sys_SendKeyEvents ();
+		Key_GetGrabbedInput (&lastkey, &lastchar);
+		Sys_Sleep (16);
 		t2 = Sys_DoubleTime ();
 		realtime += t2-t1;		// make the cursor blink
-	} while (key_count < 0);
+	} while (lastkey == -1 && lastchar == -1);
+	Key_EndInputGrab ();
 
 	Con_Printf ("\n");
 	IN_Activate();

@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -33,7 +34,7 @@ void Sbar_LoadPics (void);
 void Sbar_Changed (void);
 // call whenever any of the client stats represented on the sbar changes
 
-void Sbar_Draw ();
+void Sbar_Draw (void);
 // called every frame by screen
 
 void Sbar_IntermissionOverlay (void);

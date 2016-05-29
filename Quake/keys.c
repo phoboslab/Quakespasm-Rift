@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -31,8 +32,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 char		key_lines[CMDLINES][MAXCMDLINE];
 
 int		key_linepos;
-int		shift_down=false;
-int		key_lastpress;
 int		key_insert;	//johnfitz -- insert key toggle (for editing)
 double		key_blinktime; //johnfitz -- fudge cursor blinking to make it easier to spot in certain cases
 
@@ -41,14 +40,10 @@ int		history_line = 0;
 
 keydest_t	key_dest;
 
-int		key_count;			// incremented every key event
-
-char	*keybindings[256];
-int		keyshift[256];		// key to map to if shift held down in console
-int		key_repeats[256];	// if > 1, it is autorepeating
-qboolean	consolekeys[256];	// if true, can't be rebound while in console
-qboolean	menubound[256];	// if true, can't be rebound while in menu
-qboolean	keydown[256];
+char		*keybindings[MAX_KEYS];
+qboolean	consolekeys[MAX_KEYS];	// if true, can't be rebound while in console
+qboolean	menubound[MAX_KEYS];	// if true, can't be rebound while in menu
+qboolean	keydown[MAX_KEYS];
 
 typedef struct
 {
@@ -163,6 +158,20 @@ keyname_t keynames[] =
 
 	{"SEMICOLON", ';'},	// because a raw semicolon seperates commands
 
+	{"BACKQUOTE", '`'},	// because a raw backquote may toggle the console
+	{"TILDE", '~'},		// because a raw tilde may toggle the console
+
+	{"LTHUMB", K_LTHUMB},
+	{"RTHUMB", K_RTHUMB},
+	{"LSHOULDER", K_LSHOULDER},
+	{"RSHOULDER", K_RSHOULDER},
+	{"ABUTTON", K_ABUTTON},
+	{"BBUTTON", K_BBUTTON},
+	{"XBUTTON", K_XBUTTON},
+	{"YBUTTON", K_YBUTTON},
+	{"LTRIGGER", K_LTRIGGER},
+	{"RTRIGGER", K_RTRIGGER},
+
 	{NULL,		0}
 };
 
@@ -240,6 +249,7 @@ void Key_Console (int key)
 	switch (key)
 	{
 	case K_ENTER:
+	case K_KP_ENTER:
 		key_tabpartial[0] = 0;
 		Cbuf_AddText (workline + 1);	// skip the prompt
 		Cbuf_AddText ("\n");
@@ -263,7 +273,6 @@ void Key_Console (int key)
 		return;
 
 	case K_BACKSPACE:
-
 		key_tabpartial[0] = 0;
 		if (key_linepos > 1)
 		{
@@ -322,16 +331,14 @@ void Key_Console (int key)
 		return;
 
 	case K_PGUP:
-	// Mouse events never reach the console, especially in windowed mode
-	// when mouse is released to the window manager
-	// case K_MWHEELUP:
+	case K_MWHEELUP:
 		con_backscroll += keydown[K_CTRL] ? ((con_vislines>>3) - 4) : 2;
 		if (con_backscroll > con_totallines - (vid.height>>3) - 1)
 			con_backscroll = con_totallines - (vid.height>>3) - 1;
 		return;
 
 	case K_PGDN:
-	// case K_MWHEELDOWN:
+	case K_MWHEELDOWN:
 		con_backscroll -= keydown[K_CTRL] ? ((con_vislines>>3) - 4) : 2;
 		if (con_backscroll < 0)
 			con_backscroll = 0;
@@ -434,9 +441,12 @@ void Key_Console (int key)
 		}
 		break;
 	}
+}
 
-	if (key < 32 || key > 127)
-		return;	// non printable
+void Char_Console (int key)
+{
+	size_t		len;
+	char *workline = key_lines[edit_line];
 
 	if (key_linepos < MAXCMDLINE-1)
 	{
@@ -489,8 +499,10 @@ void Key_EndChat (void)
 
 void Key_Message (int key)
 {
-	if (key == K_ENTER)
+	switch (key)
 	{
+	case K_ENTER:
+	case K_KP_ENTER:
 		if (chat_team)
 			Cbuf_AddText ("say_team \"");
 		else
@@ -500,24 +512,20 @@ void Key_Message (int key)
 
 		Key_EndChat ();
 		return;
-	}
 
-	if (key == K_ESCAPE)
-	{
+	case K_ESCAPE:
 		Key_EndChat ();
 		return;
-	}
 
-	if (key == K_BACKSPACE)
-	{
+	case K_BACKSPACE:
 		if (chat_bufferlen)
 			chat_buffer[--chat_bufferlen] = 0;
 		return;
 	}
+}
 
-	if (key < 32 || key > 127)
-		return; // non printable
-
+void Char_Message (int key)
+{
 	if (chat_bufferlen == sizeof(chat_buffer) - 1)
 		return; // all full
 
@@ -548,7 +556,7 @@ int Key_StringToKeynum (const char *str)
 
 	for (kn=keynames ; kn->name ; kn++)
 	{
-		if (!Q_strcasecmp(str,kn->name))
+		if (!q_strcasecmp(str,kn->name))
 			return kn->keynum;
 	}
 	return -1;
@@ -605,7 +613,8 @@ void Key_SetBinding (int keynum, const char *binding)
 	}
 
 // allocate memory for new binding
-	keybindings[keynum] = Z_Strdup(binding);
+	if (binding)
+		keybindings[keynum] = Z_Strdup(binding);
 }
 
 /*
@@ -630,17 +639,17 @@ void Key_Unbind_f (void)
 		return;
 	}
 
-	Key_SetBinding (b, "");
+	Key_SetBinding (b, NULL);
 }
 
 void Key_Unbindall_f (void)
 {
 	int	i;
 
-	for (i = 0; i < 256; i++)
+	for (i = 0; i < MAX_KEYS; i++)
 	{
 		if (keybindings[i])
-			Key_SetBinding (i, "");
+			Key_SetBinding (i, NULL);
 	}
 }
 
@@ -654,7 +663,7 @@ void Key_Bindlist_f (void)
 	int	i, count;
 
 	count = 0;
-	for (i = 0; i < 256; i++)
+	for (i = 0; i < MAX_KEYS; i++)
 	{
 		if (keybindings[i] && *keybindings[i])
 		{
@@ -724,7 +733,7 @@ void Key_WriteBindings (FILE *f)
 	// unbindall before loading stored bindings:
 	if (cfg_unbindall.value)
 		fprintf (f, "unbindall\n");
-	for (i = 0; i < 256; i++)
+	for (i = 0; i < MAX_KEYS; i++)
 	{
 		if (keybindings[i] && *keybindings[i])
 			fprintf (f, "bind \"%s\" \"%s\"\n", Key_KeynumToString(i), keybindings[i]);
@@ -808,68 +817,59 @@ void Key_Init (void)
 {
 	int	i;
 
-#if 0 /* moved to History_Init() */
-	for (i = 0; i < 32; i++)
-	{
-		key_lines[i][0] = ']';
-		key_lines[i][1] = 0;
-	}
-	key_linepos = 1;
-#endif
 	History_Init ();
 
 	key_blinktime = realtime; //johnfitz
 
 //
-// init ascii characters in console mode
+// initialize consolekeys[]
 //
-	for (i = 32; i < 128; i++)
+	for (i = 32; i < 127; i++) // ascii characters
 		consolekeys[i] = true;
-	consolekeys[K_ENTER] = true;
-	consolekeys[K_TAB] = true;
-	consolekeys[K_LEFTARROW] = true;
-	consolekeys[K_RIGHTARROW] = true;
-	consolekeys[K_UPARROW] = true;
-	consolekeys[K_DOWNARROW] = true;
-	consolekeys[K_BACKSPACE] = true;
-	consolekeys[K_DEL] = true; //johnfitz
-	consolekeys[K_INS] = true; //johnfitz
-	consolekeys[K_HOME] = true; //johnfitz
-	consolekeys[K_END] = true; //johnfitz
-	consolekeys[K_PGUP] = true;
-	consolekeys[K_PGDN] = true;
-	consolekeys[K_SHIFT] = true;
-	consolekeys[K_MWHEELUP] = true;
-	consolekeys[K_MWHEELDOWN] = true;
 	consolekeys['`'] = false;
 	consolekeys['~'] = false;
+	consolekeys[K_TAB] = true;
+	consolekeys[K_ENTER] = true;
+	consolekeys[K_ESCAPE] = true;
+	consolekeys[K_BACKSPACE] = true;
+	consolekeys[K_UPARROW] = true;
+	consolekeys[K_DOWNARROW] = true;
+	consolekeys[K_LEFTARROW] = true;
+	consolekeys[K_RIGHTARROW] = true;
+	consolekeys[K_CTRL] = true;
+	consolekeys[K_SHIFT] = true;
+	consolekeys[K_INS] = true;
+	consolekeys[K_DEL] = true;
+	consolekeys[K_PGDN] = true;
+	consolekeys[K_PGUP] = true;
+	consolekeys[K_HOME] = true;
+	consolekeys[K_END] = true;
+	consolekeys[K_KP_NUMLOCK] = true;
+	consolekeys[K_KP_SLASH] = true;
+	consolekeys[K_KP_STAR] = true;
+	consolekeys[K_KP_MINUS] = true;
+	consolekeys[K_KP_HOME] = true;
+	consolekeys[K_KP_UPARROW] = true;
+	consolekeys[K_KP_PGUP] = true;
+	consolekeys[K_KP_PLUS] = true;
+	consolekeys[K_KP_LEFTARROW] = true;
+	consolekeys[K_KP_5] = true;
+	consolekeys[K_KP_RIGHTARROW] = true;
+	consolekeys[K_KP_END] = true;
+	consolekeys[K_KP_DOWNARROW] = true;
+	consolekeys[K_KP_PGDN] = true;
+	consolekeys[K_KP_ENTER] = true;
+	consolekeys[K_KP_INS] = true;
+	consolekeys[K_KP_DEL] = true;
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
+	consolekeys[K_COMMAND] = true;
+#endif
+	consolekeys[K_MWHEELUP] = true;
+	consolekeys[K_MWHEELDOWN] = true;
 
-	for (i = 0; i < 256; i++)
-		keyshift[i] = i;
-	for (i = 'a' ; i <= 'z'; i++)
-		keyshift[i] = i - 'a' + 'A';
-	keyshift['1'] = '!';
-	keyshift['2'] = '@';
-	keyshift['3'] = '#';
-	keyshift['4'] = '$';
-	keyshift['5'] = '%';
-	keyshift['6'] = '^';
-	keyshift['7'] = '&';
-	keyshift['8'] = '*';
-	keyshift['9'] = '(';
-	keyshift['0'] = ')';
-	keyshift['-'] = '_';
-	keyshift['='] = '+';
-	keyshift[','] = '<';
-	keyshift['.'] = '>';
-	keyshift['/'] = '?';
-	keyshift[';'] = ':';
-	keyshift['\''] = '"';
-	keyshift['['] = '{';
-	keyshift[']'] = '}';
-	keyshift['`'] = '~';
-	keyshift['\\'] = '|';
-
+//
+// initialize menubound[]
+//
 	menubound[K_ESCAPE] = true;
 	for (i = 0; i < 12; i++)
 		menubound[K_F1+i] = true;
@@ -881,6 +881,55 @@ void Key_Init (void)
 	Cmd_AddCommand ("bind",Key_Bind_f);
 	Cmd_AddCommand ("unbind",Key_Unbind_f);
 	Cmd_AddCommand ("unbindall",Key_Unbindall_f);
+}
+
+static struct {
+	qboolean active;
+	int lastkey;
+	int lastchar;
+} key_inputgrab = { false, -1, -1 };
+
+/*
+===================
+Key_BeginInputGrab
+===================
+*/
+void Key_BeginInputGrab (void)
+{
+	Key_ClearStates ();
+
+	key_inputgrab.active = true;
+	key_inputgrab.lastkey = -1;
+	key_inputgrab.lastchar = -1;
+
+	IN_UpdateInputMode ();
+}
+
+/*
+===================
+Key_EndInputGrab
+===================
+*/
+void Key_EndInputGrab (void)
+{
+	Key_ClearStates ();
+
+	key_inputgrab.active = false;
+
+	IN_UpdateInputMode ();
+}
+
+/*
+===================
+Key_GetGrabbedInput
+===================
+*/
+void Key_GetGrabbedInput (int *lastkey, int *lastchar)
+{
+	if (lastkey)
+		*lastkey = key_inputgrab.lastkey;
+	if (lastchar)
+		*lastchar = key_inputgrab.lastchar;
 }
 
 /*
@@ -896,37 +945,51 @@ void Key_Event (int key, qboolean down)
 	char	*kb;
 	char	cmd[1024];
 
-	keydown[key] = down;
+	if (key < 0 || key >= MAX_KEYS)
+		return;
 
-	if (!down)
-		key_repeats[key] = 0;
+// handle fullscreen toggle
+	if (down && (key == K_ENTER || key == K_KP_ENTER) && keydown[K_ALT])
+	{
+		VID_Toggle();
+		return;
+	}
 
-	key_lastpress = key;
-	key_count++;
-	if (key_count <= 0)
-		return;		// just catching keys for Con_NotifyBox
-
-// update auto-repeat status
+// handle autorepeats and stray key up events
 	if (down)
 	{
-		key_repeats[key]++;
-		if (key_repeats[key] > 1)
+		if (keydown[key])
 		{
 			if (key_dest == key_game && !con_forcedup)
-				return;	// ignore autorepeats in game mode
+				return; // ignore autorepeats in game mode
 		}
 		else if (key >= 200 && !keybindings[key])
 			Con_Printf ("%s is unbound, hit F4 to set.\n", Key_KeynumToString(key));
 	}
+	else if (!keydown[key])
+		return; // ignore stray key up events
 
-	if (key == K_SHIFT)
-		shift_down = down;
+	keydown[key] = down;
+
+	if (key_inputgrab.active)
+	{
+		if (down)
+			key_inputgrab.lastkey = key;
+		return;
+	}
 
 // handle escape specialy, so the user can never unbind it
 	if (key == K_ESCAPE)
 	{
 		if (!down)
 			return;
+
+		if (keydown[K_SHIFT])
+		{
+			Con_ToggleConsole_f();
+			return;
+		}
+
 		switch (key_dest)
 		{
 		case key_message:
@@ -942,6 +1005,7 @@ void Key_Event (int key, qboolean down)
 		default:
 			Sys_Error ("Bad key_dest");
 		}
+
 		return;
 	}
 
@@ -957,15 +1021,6 @@ void Key_Event (int key, qboolean down)
 		{
 			sprintf (cmd, "-%s %i\n", kb+1, key);
 			Cbuf_AddText (cmd);
-		}
-		if (keyshift[key] != key)
-		{
-			kb = keybindings[keyshift[key]];
-			if (kb && kb[0] == '+')
-			{
-				sprintf (cmd, "-%s %i\n", kb+1, key);
-				Cbuf_AddText (cmd);
-			}
 		}
 		return;
 	}
@@ -1002,9 +1057,6 @@ void Key_Event (int key, qboolean down)
 	if (!down)
 		return;		// other systems only care about key down events
 
-	if (shift_down)
-		key = keyshift[key];
-
 	switch (key_dest)
 	{
 	case key_message:
@@ -1025,6 +1077,78 @@ void Key_Event (int key, qboolean down)
 
 /*
 ===================
+Char_Event
+
+Called by the backend when the user has input a character.
+===================
+*/
+void Char_Event (int key)
+{
+	if (key < 32 || key > 126)
+		return;
+
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
+	if (keydown[K_COMMAND])
+		return;
+#endif
+	if (keydown[K_CTRL])
+		return;
+
+	if (key_inputgrab.active)
+	{
+		key_inputgrab.lastchar = key;
+		return;
+	}
+
+	switch (key_dest)
+	{
+	case key_message:
+		Char_Message (key);
+		break;
+	case key_menu:
+		M_Charinput (key);
+		break;
+	case key_game:
+		if (!con_forcedup)
+			break;
+		/* fallthrough */
+	case key_console:
+		Char_Console (key);
+		break;
+	default:
+		break;
+	}
+}
+
+/*
+===================
+Key_TextEntry
+===================
+*/
+qboolean Key_TextEntry (void)
+{
+	if (key_inputgrab.active)
+		return true;
+
+	switch (key_dest)
+	{
+	case key_message:
+		return true;
+	case key_menu:
+		return M_TextEntry();
+	case key_game:
+		if (!con_forcedup)
+			return false;
+		/* fallthrough */
+	case key_console:
+		return true;
+	default:
+		return false;
+	}
+}
+
+/*
+===================
 Key_ClearStates
 ===================
 */
@@ -1032,7 +1156,7 @@ void Key_ClearStates (void)
 {
 	int	i;
 
-	for (i = 0; i < 256; i++)
+	for (i = 0; i < MAX_KEYS; i++)
 	{
 		if (keydown[i])
 			Key_Event (i, false);
@@ -1074,7 +1198,5 @@ void Key_UpdateForDest (void)
 		forced = false;
 		break;
 	}
-
-	IN_UpdateForKeydest ();
 }
 

@@ -2,7 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
-Copyright (C) 2013 Dominic Szablewski
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -23,7 +23,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_misc.c
 
 #include "quakedef.h"
-#include "vr.h"
 
 //johnfitz -- new cvars
 extern cvar_t r_stereo;
@@ -45,9 +44,8 @@ extern cvar_t r_showbboxes;
 extern cvar_t r_lerpmodels;
 extern cvar_t r_lerpmove;
 extern cvar_t r_nolerp_list;
+extern cvar_t r_noshadow_list;
 //johnfitz
-
-
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
 
 extern gltexture_t *playertextures[MAX_SCOREBOARD]; //johnfitz
@@ -101,15 +99,73 @@ static void R_VisChanged (cvar_t *var)
 
 /*
 ===============
-R_NoLerpList_f -- johnfitz -- called when r_nolerp_list cvar changes
+R_Model_ExtraFlags_List_f -- johnfitz -- called when r_nolerp_list or r_noshadow_list cvar changes
 ===============
 */
-static void R_NoLerpList_f (cvar_t *var)
+static void R_Model_ExtraFlags_List_f (cvar_t *var)
 {
 	int i;
 	for (i=0; i < MAX_MODELS; i++)
 		Mod_SetExtraFlags (cl.model_precache[i]);
 }
+
+/*
+====================
+R_SetWateralpha_f -- ericw
+====================
+*/
+static void R_SetWateralpha_f (cvar_t *var)
+{
+	map_wateralpha = var->value;
+}
+
+/*
+====================
+R_SetLavaalpha_f -- ericw
+====================
+*/
+static void R_SetLavaalpha_f (cvar_t *var)
+{
+	map_lavaalpha = var->value;
+}
+
+/*
+====================
+R_SetTelealpha_f -- ericw
+====================
+*/
+static void R_SetTelealpha_f (cvar_t *var)
+{
+	map_telealpha = var->value;
+}
+
+/*
+====================
+R_SetSlimealpha_f -- ericw
+====================
+*/
+static void R_SetSlimealpha_f (cvar_t *var)
+{
+	map_slimealpha = var->value;
+}
+
+/*
+====================
+GL_WaterAlphaForSurfface -- ericw
+====================
+*/
+float GL_WaterAlphaForSurface (msurface_t *fa)
+{
+	if (fa->flags & SURF_DRAWLAVA)
+		return map_lavaalpha > 0 ? map_lavaalpha : map_wateralpha;
+	else if (fa->flags & SURF_DRAWTELE)
+		return map_telealpha > 0 ? map_telealpha : map_wateralpha;
+	else if (fa->flags & SURF_DRAWSLIME)
+		return map_slimealpha > 0 ? map_slimealpha : map_wateralpha;
+	else
+		return map_wateralpha;
+}
+
 
 /*
 ===============
@@ -130,10 +186,12 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_drawviewmodel);
 	Cvar_RegisterVariable (&r_shadows);
 	Cvar_RegisterVariable (&r_wateralpha);
+	Cvar_SetCallback (&r_wateralpha, R_SetWateralpha_f);
 	Cvar_RegisterVariable (&r_dynamic);
 	Cvar_RegisterVariable (&r_novis);
 	Cvar_SetCallback (&r_novis, R_VisChanged);
 	Cvar_RegisterVariable (&r_speeds);
+	Cvar_RegisterVariable (&r_pos);
 
 	Cvar_RegisterVariable (&gl_finish);
 	Cvar_RegisterVariable (&gl_clear);
@@ -169,17 +227,24 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_lerpmodels);
 	Cvar_RegisterVariable (&r_lerpmove);
 	Cvar_RegisterVariable (&r_nolerp_list);
-	Cvar_SetCallback (&r_nolerp_list, R_NoLerpList_f);
+	Cvar_SetCallback (&r_nolerp_list, R_Model_ExtraFlags_List_f);
+	Cvar_RegisterVariable (&r_noshadow_list);
+	Cvar_SetCallback (&r_noshadow_list, R_Model_ExtraFlags_List_f);
 	//johnfitz
-	
+
 	Cvar_RegisterVariable (&gl_zfix); // QuakeSpasm z-fighting fix
+	Cvar_RegisterVariable (&r_lavaalpha);
+	Cvar_RegisterVariable (&r_telealpha);
+	Cvar_RegisterVariable (&r_slimealpha);
+	Cvar_SetCallback (&r_lavaalpha, R_SetLavaalpha_f);
+	Cvar_SetCallback (&r_telealpha, R_SetTelealpha_f);
+	Cvar_SetCallback (&r_slimealpha, R_SetSlimealpha_f);
 
 	R_InitParticles ();
 	R_SetClearColor_f (&r_clearcolor); //johnfitz
 
 	Sky_Init (); //johnfitz
 	Fog_Init (); //johnfitz
-	VR_Init (); //phoboslab
 }
 
 /*
@@ -257,6 +322,61 @@ void R_NewGame (void)
 }
 
 /*
+=============
+R_ParseWorldspawn
+
+called at map load
+=============
+*/
+static void R_ParseWorldspawn (void)
+{
+	char key[128], value[4096];
+	const char *data;
+
+	map_wateralpha = r_wateralpha.value;
+	map_lavaalpha = r_lavaalpha.value;
+	map_telealpha = r_telealpha.value;
+	map_slimealpha = r_slimealpha.value;
+
+	data = COM_Parse(cl.worldmodel->entities);
+	if (!data)
+		return; // error
+	if (com_token[0] != '{')
+		return; // error
+	while (1)
+	{
+		data = COM_Parse(data);
+		if (!data)
+			return; // error
+		if (com_token[0] == '}')
+			break; // end of worldspawn
+		if (com_token[0] == '_')
+			strcpy(key, com_token + 1);
+		else
+			strcpy(key, com_token);
+		while (key[strlen(key)-1] == ' ') // remove trailing spaces
+			key[strlen(key)-1] = 0;
+		data = COM_Parse(data);
+		if (!data)
+			return; // error
+		strcpy(value, com_token);
+
+		if (!strcmp("wateralpha", key))
+			map_wateralpha = atof(value);
+
+		if (!strcmp("lavaalpha", key))
+			map_lavaalpha = atof(value);
+
+		if (!strcmp("telealpha", key))
+			map_telealpha = atof(value);
+
+		if (!strcmp("slimealpha", key))
+			map_slimealpha = atof(value);
+	}
+}
+
+
+/*
 ===============
 R_NewMap
 ===============
@@ -277,12 +397,15 @@ void R_NewMap (void)
 	R_ClearParticles ();
 
 	GL_BuildLightmaps ();
+	GL_BuildBModelVertexBuffer ();
+	//ericw -- no longer load alias models into a VBO here, it's done in Mod_LoadAliasModel
 
 	r_framecount = 0; //johnfitz -- paranoid?
 	r_visframecount = 0; //johnfitz -- paranoid?
 
 	Sky_NewMap (); //johnfitz -- skybox in worldspawn
 	Fog_NewMap (); //johnfitz -- global fog in worldspawn
+	R_ParseWorldspawn (); //ericw -- wateralpha, lavaalpha, telealpha, slimealpha in worldspawn
 
 	load_subdivide_size = gl_subdivide_size.value; //johnfitz -- is this the right place to set this?
 }
@@ -322,4 +445,206 @@ void R_TimeRefresh_f (void)
 
 void D_FlushCaches (void)
 {
+}
+
+static GLuint gl_programs[16];
+static int gl_num_programs;
+
+static qboolean GL_CheckShader (GLuint shader)
+{
+	GLint status;
+	GL_GetShaderivFunc (shader, GL_COMPILE_STATUS, &status);
+
+	if (status != GL_TRUE)
+	{
+		char infolog[1024];
+
+		memset(infolog, 0, sizeof(infolog));
+		GL_GetShaderInfoLogFunc (shader, sizeof(infolog), NULL, infolog);
+		
+		Con_Warning ("GLSL program failed to compile: %s", infolog);
+
+		return false;
+	}
+	return true;
+}
+
+static qboolean GL_CheckProgram (GLuint program)
+{
+	GLint status;
+	GL_GetProgramivFunc (program, GL_LINK_STATUS, &status);
+
+	if (status != GL_TRUE)
+	{
+		char infolog[1024];
+
+		memset(infolog, 0, sizeof(infolog));
+		GL_GetProgramInfoLogFunc (program, sizeof(infolog), NULL, infolog);
+
+		Con_Warning ("GLSL program failed to link: %s", infolog);
+
+		return false;
+	}
+	return true;
+}
+
+/*
+=============
+GL_GetUniformLocation
+=============
+*/
+GLint GL_GetUniformLocation (GLuint *programPtr, const char *name)
+{
+	GLint location;
+
+	if (!programPtr)
+		return -1;
+
+	location = GL_GetUniformLocationFunc(*programPtr, name);
+	if (location == -1)
+	{
+		Con_Warning("GL_GetUniformLocationFunc %s failed\n", name);
+		*programPtr = 0;
+	}
+	return location;
+}
+
+/*
+====================
+GL_CreateProgram
+
+Compiles and returns GLSL program.
+====================
+*/
+GLuint GL_CreateProgram (const GLchar *vertSource, const GLchar *fragSource, int numbindings, const glsl_attrib_binding_t *bindings)
+{
+	int i;
+	GLuint program, vertShader, fragShader;
+
+	if (!gl_glsl_able)
+		return 0;
+
+	vertShader = GL_CreateShaderFunc (GL_VERTEX_SHADER);
+	GL_ShaderSourceFunc (vertShader, 1, &vertSource, NULL);
+	GL_CompileShaderFunc (vertShader);
+	if (!GL_CheckShader (vertShader))
+	{
+		GL_DeleteShaderFunc (vertShader);
+		return 0;
+	}
+
+	fragShader = GL_CreateShaderFunc (GL_FRAGMENT_SHADER);
+	GL_ShaderSourceFunc (fragShader, 1, &fragSource, NULL);
+	GL_CompileShaderFunc (fragShader);
+	if (!GL_CheckShader (fragShader))
+	{
+		GL_DeleteShaderFunc (vertShader);
+		GL_DeleteShaderFunc (fragShader);
+		return 0;
+	}
+
+	program = GL_CreateProgramFunc ();
+	GL_AttachShaderFunc (program, vertShader);
+	GL_DeleteShaderFunc (vertShader);
+	GL_AttachShaderFunc (program, fragShader);
+	GL_DeleteShaderFunc (fragShader);
+	
+	for (i = 0; i < numbindings; i++)
+	{
+		GL_BindAttribLocationFunc (program, bindings[i].attrib, bindings[i].name);
+	}
+	
+	GL_LinkProgramFunc (program);
+
+	if (!GL_CheckProgram (program))
+	{
+		GL_DeleteProgramFunc (program);
+		return 0;
+	}
+	else
+	{
+		if (gl_num_programs == (sizeof(gl_programs)/sizeof(GLuint)))
+			Host_Error ("gl_programs overflow");
+
+		gl_programs[gl_num_programs] = program;
+		gl_num_programs++;
+
+		return program;
+	}
+}
+
+/*
+====================
+R_DeleteShaders
+
+Deletes any GLSL programs that have been created.
+====================
+*/
+void R_DeleteShaders (void)
+{
+	int i;
+
+	if (!gl_glsl_able)
+		return;
+
+	for (i = 0; i < gl_num_programs; i++)
+	{
+		GL_DeleteProgramFunc (gl_programs[i]);
+		gl_programs[i] = 0;
+	}
+	gl_num_programs = 0;
+}
+GLuint current_array_buffer, current_element_array_buffer;
+
+/*
+====================
+GL_BindBuffer
+
+glBindBuffer wrapper
+====================
+*/
+void GL_BindBuffer (GLenum target, GLuint buffer)
+{
+	GLuint *cache;
+
+	if (!gl_vbo_able)
+		return;
+	
+	switch (target)
+	{
+		case GL_ARRAY_BUFFER:
+			cache = &current_array_buffer;
+			break;
+		case GL_ELEMENT_ARRAY_BUFFER:
+			cache = &current_element_array_buffer;
+			break;
+		default:
+			Host_Error("GL_BindBuffer: unsupported target %d", (int)target);
+			return;
+	}
+	
+	if (*cache != buffer)
+	{
+		*cache = buffer;
+		GL_BindBufferFunc (target, *cache);
+	}
+}
+
+/*
+====================
+GL_ClearBufferBindings
+
+This must be called if you do anything that could make the cached bindings
+invalid (e.g. manually binding, destroying the context).
+====================
+*/
+void GL_ClearBufferBindings ()
+{
+	if (!gl_vbo_able)
+		return;
+
+	current_array_buffer = 0;
+	current_element_array_buffer = 0;
+	GL_BindBufferFunc (GL_ARRAY_BUFFER, 0);
+	GL_BindBufferFunc (GL_ELEMENT_ARRAY_BUFFER, 0);
 }

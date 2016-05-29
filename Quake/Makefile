@@ -1,18 +1,25 @@
-# GNU Makefile for QuakeSpasm unix targets, Oct. 25, 2012
+# GNU Makefile for QuakeSpasm unix targets, Sep. 10, 2014
 # You need the SDL library fully installed.
-# "make OVR_SDK=/path/to/LibOVR" (from the Oculus SDK) to build
 # "make DEBUG=1" to build a debug client.
 # "make SDL_CONFIG=/path/to/sdl-config" for unusual SDL installations.
-# "make SDLNET=1" to use SDL_net (NOT recommended) instead of platform
-# specific code.
+# "make DO_USERDIRS=1" to enable user directories support
 
-### Embed custom Quakespasm console background picture
-USE_QS_CONBACK=1
+# Enable/Disable user directories support
+DO_USERDIRS=0
+
+### Enable/Disable SDL2
+USE_SDL2=0
 
 ### Enable/Disable codecs for streaming music support
 USE_CODEC_WAVE=1
+USE_CODEC_FLAC=0
 USE_CODEC_MP3=1
 USE_CODEC_VORBIS=1
+USE_CODEC_OPUS=0
+# either mikmod (preferred) or modplug, not both
+USE_CODEC_MIKMOD=0
+USE_CODEC_MODPLUG=0
+USE_CODEC_UMX=0
 
 # which library to use for mp3 decoding: mad or mpg123
 MP3LIB=mad
@@ -30,13 +37,12 @@ check_gcc = $(shell if echo | $(CC) $(1) -Werror -S -o /dev/null -xc - > /dev/nu
 HOST_OS := $(shell uname|sed -e s/_.*//|tr '[:upper:]' '[:lower:]')
 
 DEBUG   ?= 0
-SDLNET  ?= 0
 
 # ---------------------------
 # build variables
 # ---------------------------
 
-CC = g++
+CC ?= gcc
 LINKER = $(CC)
 
 STRIP ?= strip
@@ -50,7 +56,6 @@ LDFLAGS =
 DFLAGS ?=
 CFLAGS ?= -Wall -Wno-trigraphs
 CFLAGS += $(CPUFLAGS)
-
 ifneq ($(DEBUG),0)
 DFLAGS += -DDEBUG
 CFLAGS += -g
@@ -66,14 +71,9 @@ define do_strip
 endef
 endif
 
-### OculusVR support
-CFLAGS  += -I$(LIBOVR)/Include/
-ifneq ($(DEBUG),0)
-LDFLAGS += -L$(LIBOVR)/Lib/Linux/Debug/x86_64/
-else
-LDFLAGS += -L$(LIBOVR)/Lib/Linux/Release/x86_64/
+ifeq ($(DO_USERDIRS),1)
+CFLAGS += -DDO_USERDIRS=1
 endif
-LDFLAGS += -lovr -lX11 -lpthread -ludev -lXinerama
 
 ### X11BASE only gets used if its in an unusual place
 
@@ -95,23 +95,22 @@ LDFLAGS+= -L$(X11BASE)/lib
 CFLAGS += -I$(X11BASE)/include
 endif
 
+ifeq ($(USE_SDL2),1)
+CFLAGS += -DUSE_SDL2
+endif
+
+ifeq ($(USE_SDL2),1)
+SDL_CONFIG ?= sdl2-config
+else
 SDL_CONFIG ?= sdl-config
+endif
 SDL_CFLAGS := $(shell $(SDL_CONFIG) --cflags)
 SDL_LIBS   := $(shell $(SDL_CONFIG) --libs)
 
-ifeq ($(SDLNET),1)
-NET_LIBS   :=-lSDL_net
-CFLAGS     +=-D_USE_SDLNET
-else
 ifeq ($(HOST_OS),sunos)
 NET_LIBS   :=-lsocket -lnsl -lresolv
 else
 NET_LIBS   :=
-endif
-endif
-
-ifeq ($(USE_QS_CONBACK),1)
-CFLAGS+= -DUSE_QS_CONBACK
 endif
 
 ifneq ($(VORBISLIB),vorbis)
@@ -145,6 +144,18 @@ CODECLIBS  :=
 ifeq ($(USE_CODEC_WAVE),1)
 CFLAGS+= -DUSE_CODEC_WAVE
 endif
+ifeq ($(USE_CODEC_FLAC),1)
+CFLAGS+= -DUSE_CODEC_FLAC
+CODECLIBS+= -lFLAC
+endif
+ifeq ($(USE_CODEC_OPUS),1)
+# opus and opusfile put their *.h under <includedir>/opus,
+# but they include the headers without the opus directory
+# prefix and rely on pkg-config. ewww...
+CFLAGS+= -DUSE_CODEC_OPUS
+CFLAGS+= $(shell pkg-config --cflags opusfile)
+CODECLIBS+= $(shell pkg-config --libs   opusfile)
+endif
 ifeq ($(USE_CODEC_VORBIS),1)
 CFLAGS+= -DUSE_CODEC_VORBIS $(cpp_vorbisdec)
 CODECLIBS+= $(lib_vorbisdec)
@@ -152,6 +163,17 @@ endif
 ifeq ($(USE_CODEC_MP3),1)
 CFLAGS+= -DUSE_CODEC_MP3
 CODECLIBS+= $(lib_mp3dec)
+endif
+ifeq ($(USE_CODEC_MIKMOD),1)
+CFLAGS+= -DUSE_CODEC_MIKMOD
+CODECLIBS+= -lmikmod
+endif
+ifeq ($(USE_CODEC_MODPLUG),1)
+CFLAGS+= -DUSE_CODEC_MODPLUG
+CODECLIBS+= -lmodplug
+endif
+ifeq ($(USE_CODEC_UMX),1)
+CFLAGS+= -DUSE_CODEC_UMX
 endif
 
 COMMON_LIBS:= -lm -lGL
@@ -173,28 +195,26 @@ DEFAULT_TARGET := quakespasm
 %.o:	%.c
 	$(CC) $(DFLAGS) -c $(CFLAGS) $(SDL_CFLAGS) -o $@ $^
 
-%.o:	%.cpp
-	$(CC) $(DFLAGS) -c $(CFLAGS) $(SDL_CFLAGS) -o $@ $^
-
 # ----------------------------------------------------------------------------
 # objects
 # ----------------------------------------------------------------------------
 
 MUSIC_OBJS:= bgmusic.o \
 	snd_codec.o \
+	snd_flac.o \
 	snd_wave.o \
 	snd_vorbis.o \
-	$(mp3_obj)
+	snd_opus.o \
+	$(mp3_obj) \
+	snd_mikmod.o \
+	snd_modplug.o \
+	snd_umx.o
 COMOBJ_SND := snd_dma.o snd_mix.o snd_mem.o $(MUSIC_OBJS)
 SYSOBJ_SND := snd_sdl.o
 SYSOBJ_CDA := cd_sdl.o
 SYSOBJ_INPUT := in_sdl.o
 SYSOBJ_GL_VID:= gl_vidsdl.o
-ifeq ($(SDLNET),1)
-SYSOBJ_NET := net_sdl.o net_sdlnet.o
-else
 SYSOBJ_NET := net_bsd.o net_udp.o
-endif
 SYSOBJ_SYS := pl_linux.o sys_sdl_unix.o
 SYSOBJ_MAIN:= main_sdl.o
 SYSOBJ_RES :=
@@ -218,7 +238,6 @@ GLOBJS = \
 	r_sprite.o \
 	r_alias.o \
 	r_brush.o \
-	vr.o \
 	gl_model.o
 
 OBJS := strlcat.o \
@@ -252,7 +271,6 @@ OBJS := strlcat.o \
 	host.o \
 	host_cmd.o \
 	mathlib.o \
-	vr_ovr.o \
 	pr_cmds.o \
 	pr_edict.o \
 	pr_exec.o \
@@ -261,7 +279,6 @@ OBJS := strlcat.o \
 	sv_phys.o \
 	sv_user.o \
 	world.o \
-	conback.o \
 	zone.o \
 	$(SYSOBJ_SYS) $(SYSOBJ_MAIN) $(SYSOBJ_RES)
 
@@ -280,3 +297,5 @@ debug:
 clean:
 	rm -f $(shell find . \( -name '*~' -o -name '#*#' -o -name '*.o' -o -name '*.res' -o -name $(DEFAULT_TARGET) \) -print)
 
+install:	quakespasm
+	cp quakespasm /usr/local/games/quake

@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -128,7 +129,7 @@ edict_t *ED_Alloc (void)
 
 	sv.num_edicts++;
 	e = EDICT_NUM(i);
-	ED_ClearEdict (e);
+	memset(e, 0, pr_edict_size); // ericw -- switched sv.edicts to malloc(), so we are accessing uninitialized memory and must fully zero it, not just ED_ClearEdict
 
 	return e;
 }
@@ -1186,7 +1187,7 @@ int NUM_FOR_EDICT(edict_t *e)
 static void PR_AllocStringSlots (void)
 {
 	pr_maxknownstrings += PR_STRING_ALLOCSLOTS;
-	Con_DPrintf("PR_AllocStringSlots: realloc'ing for %d slots\n", pr_maxknownstrings);
+	Con_DPrintf2("PR_AllocStringSlots: realloc'ing for %d slots\n", pr_maxknownstrings);
 	pr_knownstrings = (const char **) Z_Realloc ((void *)pr_knownstrings, pr_maxknownstrings * sizeof(char *));
 }
 

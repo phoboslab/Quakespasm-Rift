@@ -2,6 +2,7 @@
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
 Copyright (C) 2007-2008 Kristian Duske
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -39,7 +40,9 @@ gltexture_t		*notexture, *nulltexture;
 
 unsigned int d_8to24table[256];
 unsigned int d_8to24table_fbright[256];
+unsigned int d_8to24table_fbright_fence[256];
 unsigned int d_8to24table_nobright[256];
+unsigned int d_8to24table_nobright_fence[256];
 unsigned int d_8to24table_conchars[256];
 unsigned int d_8to24table_shirt[256];
 unsigned int d_8to24table_pants[256];
@@ -144,7 +147,7 @@ static void TexMgr_TextureMode_f (cvar_t *var)
 
 	for (i = 0; i < NUM_GLMODES; i++)
 	{
-		if (!Q_strcasecmp (glmodes[i].name, gl_texturemode.string))
+		if (!q_strcasecmp (glmodes[i].name, gl_texturemode.string))
 		{
 			Cvar_SetQuick (&gl_texturemode, glmodes[i].name);
 			return;
@@ -338,6 +341,11 @@ gltexture_t *TexMgr_NewTexture (void)
 	return glt;
 }
 
+static void GL_DeleteTexture (gltexture_t *texture);
+
+//ericw -- workaround for preventing TexMgr_FreeTexture during TexMgr_ReloadImages
+static qboolean in_reload_images;
+
 /*
 ================
 TexMgr_FreeTexture
@@ -347,6 +355,9 @@ void TexMgr_FreeTexture (gltexture_t *kill)
 {
 	gltexture_t *glt;
 
+	if (in_reload_images)
+		return;
+	
 	if (kill == NULL)
 	{
 		Con_Printf ("TexMgr_FreeTexture: NULL texture\n");
@@ -359,7 +370,7 @@ void TexMgr_FreeTexture (gltexture_t *kill)
 		kill->next = free_gltextures;
 		free_gltextures = kill;
 
-		glDeleteTextures(1, &kill->texnum);
+		GL_DeleteTexture(kill);
 		numgltextures--;
 		return;
 	}
@@ -372,7 +383,7 @@ void TexMgr_FreeTexture (gltexture_t *kill)
 			kill->next = free_gltextures;
 			free_gltextures = kill;
 
-			glDeleteTextures(1, &kill->texnum);
+			GL_DeleteTexture(kill);
 			numgltextures--;
 			return;
 		}
@@ -414,6 +425,21 @@ void TexMgr_FreeTexturesForOwner (qmodel_t *owner)
 		next = glt->next;
 		if (glt && glt->owner == owner)
 			TexMgr_FreeTexture (glt);
+	}
+}
+
+/*
+================
+TexMgr_DeleteTextureObjects
+================
+*/
+void TexMgr_DeleteTextureObjects (void)
+{
+	gltexture_t *glt;
+
+	for (glt = active_gltextures; glt; glt = glt->next)
+	{
+		GL_DeleteTexture (glt);
 	}
 }
 
@@ -491,6 +517,14 @@ void TexMgr_LoadPalette (void)
 		dst[2] = dst[1] = dst[0] = 0;
 	}
 
+	//fullbright palette, for fence textures
+	memcpy(d_8to24table_fbright_fence, d_8to24table_fbright, 256*4);
+	d_8to24table_fbright_fence[255] = 0; // Alpha of zero.
+
+	//nobright palette, for fence textures
+	memcpy(d_8to24table_nobright_fence, d_8to24table_nobright, 256*4);
+	d_8to24table_nobright_fence[255] = 0; // Alpha of zero.
+
 	//conchars palette, 0 and 255 are transparent
 	memcpy(d_8to24table_conchars, d_8to24table, 256*4);
 	((byte *) &d_8to24table_conchars[0]) [3] = 0;
@@ -507,10 +541,6 @@ void TexMgr_NewGame (void)
 {
 	TexMgr_FreeTextures (0, TEXPREF_PERSIST); //deletes all textures where TEXPREF_PERSIST is unset
 	TexMgr_LoadPalette ();
-#if defined(USE_QS_CONBACK)
-	/* QuakeSpasm customization: */
-	Draw_CheckConback ();
-#endif	/* USE_QS_CONBACK */
 }
 
 /*
@@ -538,9 +568,11 @@ void TexMgr_RecalcWarpImageSize (void)
 	while (gl_warpimagesize > vid.height)
 		gl_warpimagesize >>= 1;
 
-	if (gl_warpimagesize == oldsize)
-		return;
-
+	// ericw -- removed early exit if (gl_warpimagesize == oldsize).
+	// after vid_restart TexMgr_ReloadImage reloads textures
+	// to tx->source_width/source_height, which might not match oldsize.
+	// fixes: https://sourceforge.net/p/quakespasm/bugs/13/
+	
 	//
 	// resize the textures in opengl
 	//
@@ -639,7 +671,8 @@ TexMgr_SafeTextureSize -- return a size with hardware and user prefs in mind
 */
 int TexMgr_SafeTextureSize (int s)
 {
-	s = TexMgr_Pad(s);
+	if (!gl_texture_NPOT)
+		s = TexMgr_Pad(s);
 	if ((int)gl_max_size.value > 0)
 		s = q_min(TexMgr_Pad((int)gl_max_size.value), s);
 	s = q_min(gl_hardware_maxsize, s);
@@ -981,10 +1014,13 @@ static void TexMgr_LoadImage32 (gltexture_t *glt, unsigned *data)
 {
 	int	internalformat,	miplevel, mipwidth, mipheight, picmip;
 
-	// resample up
-	data = TexMgr_ResampleTexture (data, glt->width, glt->height, glt->flags & TEXPREF_ALPHA);
-	glt->width = TexMgr_Pad(glt->width);
-	glt->height = TexMgr_Pad(glt->height);
+	if (!gl_texture_NPOT)
+	{
+		// resample up
+		data = TexMgr_ResampleTexture (data, glt->width, glt->height, glt->flags & TEXPREF_ALPHA);
+		glt->width = TexMgr_Pad(glt->width);
+		glt->height = TexMgr_Pad(glt->height);
+	}
 
 	// mipmap down
 	picmip = (glt->flags & TEXPREF_NOPICMIP) ? 0 : q_max((int)gl_picmip.value, 0);
@@ -1073,12 +1109,18 @@ static void TexMgr_LoadImage8 (gltexture_t *glt, byte *data)
 	// choose palette and padbyte
 	if (glt->flags & TEXPREF_FULLBRIGHT)
 	{
-		usepal = d_8to24table_fbright;
+		if (glt->flags & TEXPREF_ALPHA)
+			usepal = d_8to24table_fbright_fence;
+		else
+			usepal = d_8to24table_fbright;
 		padbyte = 0;
 	}
 	else if (glt->flags & TEXPREF_NOBRIGHT && gl_fullbrights.value)
 	{
-		usepal = d_8to24table_nobright;
+		if (glt->flags & TEXPREF_ALPHA)
+			usepal = d_8to24table_nobright_fence;
+		else
+			usepal = d_8to24table_nobright;
 		padbyte = 0;
 	}
 	else if (glt->flags & TEXPREF_CONCHARS)
@@ -1356,11 +1398,23 @@ void TexMgr_ReloadImages (void)
 {
 	gltexture_t *glt;
 
+// ericw -- tricky bug: if the hunk is almost full, an allocation in TexMgr_ReloadImage
+// triggers cache items to be freed, which calls back into TexMgr to free the
+// texture. If this frees 'glt' in the loop below, the active_gltextures
+// list gets corrupted.
+// A test case is jam3_tronyn.bsp with -heapsize 65536, and do several mode
+// switches/fullscreen toggles
+// 2015-09-04 -- Cache_Flush workaround was causing issues (http://sourceforge.net/p/quakespasm/bugs/10/)
+// switching to a boolean flag.
+	in_reload_images = true;
+
 	for (glt = active_gltextures; glt; glt = glt->next)
 	{
 		glGenTextures(1, &glt->texnum);
 		TexMgr_ReloadImage (glt, -1, -1);
 	}
+	
+	in_reload_images = false;
 }
 
 /*
@@ -1385,8 +1439,8 @@ void TexMgr_ReloadNobrightImages (void)
 ================================================================================
 */
 
-static GLuint	currenttexture = (GLuint)-1; // to avoid unnecessary texture sets
-GLenum		TEXTURE0, TEXTURE1; //johnfitz
+static GLuint	currenttexture[3] = {GL_UNUSED_TEXTURE, GL_UNUSED_TEXTURE, GL_UNUSED_TEXTURE}; // to avoid unnecessary texture sets
+static GLenum	currenttarget = GL_TEXTURE0_ARB;
 qboolean	mtexenabled = false;
 
 /*
@@ -1394,27 +1448,12 @@ qboolean	mtexenabled = false;
 GL_SelectTexture -- johnfitz -- rewritten
 ================
 */
-static void GL_SelectTexture (GLenum target)
+void GL_SelectTexture (GLenum target)
 {
-	static GLenum currenttarget;
-	static GLuint ct0, ct1;
-
 	if (target == currenttarget)
 		return;
-
+		
 	GL_SelectTextureFunc(target);
-
-	if (target == TEXTURE0)
-	{
-		ct1 = currenttexture;
-		currenttexture = ct0;
-	}
-	else //target == TEXTURE1
-	{
-		ct0 = currenttexture;
-		currenttexture = ct1;
-	}
-
 	currenttarget = target;
 }
 
@@ -1428,7 +1467,7 @@ void GL_DisableMultitexture(void)
 	if (mtexenabled)
 	{
 		glDisable(GL_TEXTURE_2D);
-		GL_SelectTexture(TEXTURE0); //johnfitz -- no longer SGIS specific
+		GL_SelectTexture(GL_TEXTURE0_ARB);
 		mtexenabled = false;
 	}
 }
@@ -1442,7 +1481,7 @@ void GL_EnableMultitexture(void)
 {
 	if (gl_mtexable)
 	{
-		GL_SelectTexture(TEXTURE1); //johnfitz -- no longer SGIS specific
+		GL_SelectTexture(GL_TEXTURE1_ARB);
 		glEnable(GL_TEXTURE_2D);
 		mtexenabled = true;
 	}
@@ -1458,10 +1497,47 @@ void GL_Bind (gltexture_t *texture)
 	if (!texture)
 		texture = nulltexture;
 
-	if (texture->texnum != currenttexture)
+	if (texture->texnum != currenttexture[currenttarget - GL_TEXTURE0_ARB])
 	{
-		currenttexture = texture->texnum;
-		glBindTexture (GL_TEXTURE_2D, currenttexture);
+		currenttexture[currenttarget - GL_TEXTURE0_ARB] = texture->texnum;
+		glBindTexture (GL_TEXTURE_2D, texture->texnum);
 		texture->visframe = r_framecount;
+	}
+}
+
+/*
+================
+GL_DeleteTexture -- ericw
+
+Wrapper around glDeleteTextures that also clears the given texture number
+from our per-TMU cached texture binding table.
+================
+*/
+static void GL_DeleteTexture (gltexture_t *texture)
+{
+	glDeleteTextures (1, &texture->texnum);
+
+	if (texture->texnum == currenttexture[0]) currenttexture[0] = GL_UNUSED_TEXTURE;
+	if (texture->texnum == currenttexture[1]) currenttexture[1] = GL_UNUSED_TEXTURE;
+	if (texture->texnum == currenttexture[2]) currenttexture[2] = GL_UNUSED_TEXTURE;
+
+	texture->texnum = 0;
+}
+
+/*
+================
+GL_ClearBindings -- ericw
+ 
+Invalidates cached bindings, so the next GL_Bind calls for each TMU will
+make real glBindTexture calls.
+Call this after changing the binding outside of GL_Bind.
+================
+*/
+void GL_ClearBindings(void)
+{
+	int i;
+	for (i = 0; i < 3; i++)
+	{
+		currenttexture[i] = GL_UNUSED_TEXTURE;
 	}
 }

@@ -1,6 +1,6 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
-Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -18,8 +18,6 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
-
-// net_main.c
 
 #include "q_stdinc.h"
 #include "arch_def.h"
@@ -156,13 +154,13 @@ void NET_FreeQSocket(qsocket_t *sock)
 }
 
 
-double NET_QSocketGetTime (qsocket_t *s)
+double NET_QSocketGetTime (const qsocket_t *s)
 {
 	return s->connecttime;
 }
 
 
-const char *NET_QSocketGetAddressString (qsocket_t *s)
+const char *NET_QSocketGetAddressString (const qsocket_t *s)
 {
 	return s->address;
 }
@@ -427,7 +425,7 @@ qsocket_t *NET_Connect (const char *host)
 
 	if (host)
 	{
-		if (Q_strcasecmp (host, "local") == 0)
+		if (q_strcasecmp (host, "local") == 0)
 		{
 			numdrivers = 1;
 			goto JustDoIt;
@@ -436,7 +434,7 @@ qsocket_t *NET_Connect (const char *host)
 		if (hostCacheCount)
 		{
 			for (n = 0; n < hostCacheCount; n++)
-				if (Q_strcasecmp (host, hostcache[n].name) == 0)
+				if (q_strcasecmp (host, hostcache[n].name) == 0)
 				{
 					host = hostcache[n].cname;
 					break;
@@ -464,7 +462,7 @@ qsocket_t *NET_Connect (const char *host)
 	{
 		for (n = 0; n < hostCacheCount; n++)
 		{
-			if (Q_strcasecmp (host, hostcache[n].name) == 0)
+			if (q_strcasecmp (host, hostcache[n].name) == 0)
 			{
 				host = hostcache[n].cname;
 				break;

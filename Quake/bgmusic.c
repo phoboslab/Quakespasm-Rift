@@ -29,7 +29,9 @@
 #define MUSIC_DIRNAME	"music"
 
 qboolean	bgmloop;
+cvar_t		bgm_extmusic = {"bgm_extmusic", "1", CVAR_ARCHIVE};
 
+static qboolean	no_extmusic= false;
 static float	old_volume = -1.0f;
 
 typedef enum _bgm_player
@@ -52,9 +54,15 @@ typedef struct music_handler_s
 static music_handler_t wanted_handlers[] =
 {
 	{ CODECTYPE_VORBIS,BGM_STREAMER,-1,  "ogg", MUSIC_DIRNAME, NULL },
+	{ CODECTYPE_OPUS, BGM_STREAMER, -1, "opus", MUSIC_DIRNAME, NULL },
 	{ CODECTYPE_MP3,  BGM_STREAMER, -1,  "mp3", MUSIC_DIRNAME, NULL },
 	{ CODECTYPE_FLAC, BGM_STREAMER, -1, "flac", MUSIC_DIRNAME, NULL },
 	{ CODECTYPE_WAV,  BGM_STREAMER, -1,  "wav", MUSIC_DIRNAME, NULL },
+	{ CODECTYPE_MOD,  BGM_STREAMER, -1,  "it",  MUSIC_DIRNAME, NULL },
+	{ CODECTYPE_MOD,  BGM_STREAMER, -1,  "s3m", MUSIC_DIRNAME, NULL },
+	{ CODECTYPE_MOD,  BGM_STREAMER, -1,  "xm",  MUSIC_DIRNAME, NULL },
+	{ CODECTYPE_MOD,  BGM_STREAMER, -1,  "mod", MUSIC_DIRNAME, NULL },
+	{ CODECTYPE_UMX,  BGM_STREAMER, -1,  "umx", MUSIC_DIRNAME, NULL },
 	{ CODECTYPE_NONE, BGM_NONE,     -1,   NULL,         NULL,  NULL }
 };
 
@@ -93,13 +101,13 @@ static void BGM_Loop_f (void)
 {
 	if (Cmd_Argc() == 2)
 	{
-		if (Q_strcasecmp(Cmd_Argv(1),  "0") == 0 ||
-		    Q_strcasecmp(Cmd_Argv(1),"off") == 0)
+		if (q_strcasecmp(Cmd_Argv(1),  "0") == 0 ||
+		    q_strcasecmp(Cmd_Argv(1),"off") == 0)
 			bgmloop = false;
-		else if (Q_strcasecmp(Cmd_Argv(1), "1") == 0 ||
-		         Q_strcasecmp(Cmd_Argv(1),"on") == 0)
+		else if (q_strcasecmp(Cmd_Argv(1), "1") == 0 ||
+		         q_strcasecmp(Cmd_Argv(1),"on") == 0)
 			bgmloop = true;
-		else if (Q_strcasecmp(Cmd_Argv(1),"toggle") == 0)
+		else if (q_strcasecmp(Cmd_Argv(1),"toggle") == 0)
 			bgmloop = !bgmloop;
 	}
 
@@ -118,12 +126,16 @@ qboolean BGM_Init (void)
 {
 	music_handler_t *handlers = NULL;
 	int i;
-	
+
+	Cvar_RegisterVariable(&bgm_extmusic);
 	Cmd_AddCommand("music", BGM_Play_f);
 	Cmd_AddCommand("music_pause", BGM_Pause_f);
 	Cmd_AddCommand("music_resume", BGM_Resume_f);
 	Cmd_AddCommand("music_loop", BGM_Loop_f);
 	Cmd_AddCommand("music_stop", BGM_Stop_f);
+
+	if (COM_CheckParm("-noextmusic") != 0)
+		no_extmusic = true;
 
 	bgmloop = true;
 
@@ -132,7 +144,7 @@ qboolean BGM_Init (void)
 		switch (wanted_handlers[i].player)
 		{
 		case BGM_MIDIDRV:
-			/* not supported in quake */
+		/* not supported in quake */
 			break;
 		case BGM_STREAMER:
 			wanted_handlers[i].is_available =
@@ -191,7 +203,7 @@ static void BGM_Play_noext (const char *filename, unsigned int allowed_types)
 		switch (handler->player)
 		{
 		case BGM_MIDIDRV:
-			/* not supported in quake */
+		/* not supported in quake */
 			break;
 		case BGM_STREAMER:
 			bgmstream = S_CodecOpenStreamType(tmp, handler->type);
@@ -236,7 +248,7 @@ void BGM_Play (const char *filename)
 	while (handler)
 	{
 		if (handler->is_available &&
-		    !Q_strcasecmp(ext, handler->ext))
+		    !q_strcasecmp(ext, handler->ext))
 			break;
 		handler = handler->next;
 	}
@@ -249,7 +261,7 @@ void BGM_Play (const char *filename)
 	switch (handler->player)
 	{
 	case BGM_MIDIDRV:
-		/* not supported in quake */
+	/* not supported in quake */
 		break;
 	case BGM_STREAMER:
 		bgmstream = S_CodecOpenStreamType(tmp, handler->type);
@@ -279,8 +291,13 @@ void BGM_PlayCDtrack (byte track, qboolean looping)
 	music_handler_t *handler;
 
 	BGM_Stop();
+	if (CDAudio_Play(track, looping) == 0)
+		return;			/* success */
 
 	if (music_handlers == NULL)
+		return;
+
+	if (no_extmusic || !bgm_extmusic.value)
 		return;
 
 	prev_id = 0;
@@ -403,8 +420,10 @@ static void BGM_UpdateStream (void)
 		{
 			if (bgmloop)
 			{
-				if (S_CodecRewindStream(bgmstream) < 0)
+				res = S_CodecRewindStream(bgmstream);
+				if (res != 0)
 				{
+					Con_Printf("Stream seek error (%i), stopping.\n", res);
 					BGM_Stop();
 					return;
 				}

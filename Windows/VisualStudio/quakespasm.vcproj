@@ -20,8 +20,8 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)Build-$(ProjectName)\x86\$(ConfigurationName)"
+			IntermediateDirectory="Build-$(ProjectName)\x86\$(ConfigurationName)"
 			ConfigurationType="1"
 			CharacterSet="0"
 			>
@@ -40,8 +40,8 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="C:\SDL\include;..\codecs\include;..\..\Quake;.;.."
-				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_QS_CONBACK;USE_CODEC_MP3;USE_CODEC_VORBIS;USE_CODEC_WAVE"
+				AdditionalIncludeDirectories="..\SDL\include;..\codecs\include;..\misc\include;..\..\Quake"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_CODEC_MP3;USE_CODEC_VORBIS;USE_CODEC_WAVE;USE_CODEC_FLAC;USE_CODEC_OPUS;USE_CODEC_MIKMOD;USE_CODEC_UMX"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -61,9 +61,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="libvorbisfile.lib libvorbis.lib libogg.lib libmad.lib WSOCK32.lib OPENGL32.lib winmm.lib SDL.lib SDLmain.lib"
+				AdditionalDependencies="libvorbisfile.lib libvorbis.lib libopusfile.lib libopus.lib libFLAC.lib libogg.lib libmad.lib libmikmod.lib wsock32.lib opengl32.lib winmm.lib SDL.lib SDLmain.lib"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="..\codecs\x86;C:\SDL\lib"
+				AdditionalLibraryDirectories="..\codecs\x86;..\SDL\lib"
 				IgnoreDefaultLibraryNames="msvcrt.lib"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -89,12 +89,13 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				CommandLine="copy &quot;$(SolutionDir)\..\codecs\x86\*.dll&quot; &quot;$(TargetDir)&quot;&#x0D;&#x0A;copy &quot;$(SolutionDir)\..\SDL\lib\*.dll&quot; &quot;$(TargetDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)Build-$(ProjectName)\x86\$(ConfigurationName)"
+			IntermediateDirectory="Build-$(ProjectName)\x86\$(ConfigurationName)"
 			ConfigurationType="1"
 			CharacterSet="0"
 			WholeProgramOptimization="1"
@@ -115,8 +116,8 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="C:\SDL\include;..\codecs\include;..\..\Quake;.;.."
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_QS_CONBACK;USE_CODEC_MP3;USE_CODEC_VORBIS;USE_CODEC_WAVE"
+				AdditionalIncludeDirectories="..\SDL\include;..\codecs\include;..\misc\include;..\..\Quake"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_CODEC_MP3;USE_CODEC_VORBIS;USE_CODEC_WAVE;USE_CODEC_FLAC;USE_CODEC_OPUS;USE_CODEC_MIKMOD;USE_CODEC_UMX"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
@@ -135,9 +136,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="libvorbisfile.lib libvorbis.lib libogg.lib libmad.lib WSOCK32.lib OPENGL32.lib winmm.lib SDL.lib SDLmain.lib"
+				AdditionalDependencies="libvorbisfile.lib libvorbis.lib libopusfile.lib libopus.lib libFLAC.lib libogg.lib libmad.lib libmikmod.lib wsock32.lib opengl32.lib winmm.lib SDL.lib SDLmain.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="..\codecs\x86;C:\SDL\lib"
+				AdditionalLibraryDirectories="..\codecs\x86;..\SDL\lib"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				OptimizeReferences="2"
@@ -164,12 +165,13 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				CommandLine="copy &quot;$(SolutionDir)\..\codecs\x86\*.dll&quot; &quot;$(TargetDir)&quot;&#x0D;&#x0A;copy &quot;$(SolutionDir)\..\SDL\lib\*.dll&quot; &quot;$(TargetDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Debug|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)Build-$(ProjectName)\$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="Build-$(ProjectName)\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="1"
 			CharacterSet="0"
 			>
@@ -189,8 +191,8 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="C:\SDL\include;..\codecs\include;..\..\Quake;.;.."
-				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USE_WINSOCK2;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_QS_CONBACK;USE_CODEC_MP3;USE_CODEC_VORBIS;USE_CODEC_WAVE"
+				AdditionalIncludeDirectories="..\SDL\include;..\codecs\include;..\misc\include;..\..\Quake"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USE_WINSOCK2;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_CODEC_MP3;USE_CODEC_VORBIS;USE_CODEC_WAVE;USE_CODEC_FLAC;USE_CODEC_OPUS;USE_CODEC_MIKMOD;USE_CODEC_UMX"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -210,9 +212,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="libvorbisfile.lib libvorbis.lib libogg.lib libmad.lib WS2_32.lib OPENGL32.lib winmm.lib SDL.lib SDLmain.lib"
+				AdditionalDependencies="libvorbisfile.lib libvorbis.lib libopusfile.lib libopus.lib libFLAC.lib libogg.lib libmad.lib libmikmod.lib ws2_32.lib opengl32.lib winmm.lib SDL.lib SDLmain.lib"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="..\codecs\x64;C:\SDL\lib64"
+				AdditionalLibraryDirectories="..\codecs\x64;..\SDL\lib64"
 				IgnoreDefaultLibraryNames="msvcrt.lib"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -238,12 +240,13 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				CommandLine="copy &quot;$(SolutionDir)\..\codecs\x64\*.dll&quot; &quot;$(TargetDir)&quot;&#x0D;&#x0A;copy &quot;$(SolutionDir)\..\SDL\lib64\*.dll&quot; &quot;$(TargetDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Release|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)Build-$(ProjectName)\$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="Build-$(ProjectName)\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="1"
 			CharacterSet="0"
 			WholeProgramOptimization="1"
@@ -265,8 +268,8 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="C:\SDL\include;..\codecs\include;..\..\Quake;.;.."
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USE_WINSOCK2;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_QS_CONBACK;USE_CODEC_MP3;USE_CODEC_VORBIS;USE_CODEC_WAVE"
+				AdditionalIncludeDirectories="..\SDL\include;..\codecs\include;..\misc\include;..\..\Quake"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USE_WINSOCK2;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_CODEC_MP3;USE_CODEC_VORBIS;USE_CODEC_WAVE;USE_CODEC_FLAC;USE_CODEC_OPUS;USE_CODEC_MIKMOD;USE_CODEC_UMX"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
@@ -285,9 +288,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="libvorbisfile.lib libvorbis.lib libogg.lib libmad.lib WS2_32.lib OPENGL32.lib winmm.lib SDL.lib SDLmain.lib"
+				AdditionalDependencies="libvorbisfile.lib libvorbis.lib libopusfile.lib libopus.lib libFLAC.lib libogg.lib libmad.lib libmikmod.lib ws2_32.lib opengl32.lib winmm.lib SDL.lib SDLmain.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="..\codecs\x64;C:\SDL\lib64"
+				AdditionalLibraryDirectories="..\codecs\x64;..\SDL\lib64"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				OptimizeReferences="2"
@@ -314,6 +317,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				CommandLine="copy &quot;$(SolutionDir)\..\codecs\x64\*.dll&quot; &quot;$(TargetDir)&quot;&#x0D;&#x0A;copy &quot;$(SolutionDir)\..\SDL\lib64\*.dll&quot; &quot;$(TargetDir)&quot;"
 			/>
 		</Configuration>
 	</Configurations>
@@ -370,10 +374,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\Quake\conback.c"
-				>
-			</File>
-			<File
 				RelativePath="..\..\Quake\console.c"
 				>
 			</File>
@@ -383,10 +383,6 @@
 			</File>
 			<File
 				RelativePath="..\..\Quake\cvar.c"
-				>
-			</File>
-			<File
-				RelativePath=".\dirent.c"
 				>
 			</File>
 			<File
@@ -546,7 +542,15 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\Quake\snd_flac.c"
+				>
+			</File>
+			<File
 				RelativePath="..\..\Quake\snd_mem.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\Quake\snd_mikmod.c"
 				>
 			</File>
 			<File
@@ -554,11 +558,23 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\Quake\snd_modplug.c"
+				>
+			</File>
+			<File
 				RelativePath="..\..\Quake\snd_mp3.c"
 				>
 			</File>
 			<File
+				RelativePath="..\..\Quake\snd_opus.c"
+				>
+			</File>
+			<File
 				RelativePath="..\..\Quake\snd_sdl.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\Quake\snd_umx.c"
 				>
 			</File>
 			<File
@@ -656,10 +672,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\Quake\conback.h"
-				>
-			</File>
-			<File
 				RelativePath="..\..\Quake\console.h"
 				>
 			</File>
@@ -673,10 +685,6 @@
 			</File>
 			<File
 				RelativePath="..\..\Quake\cvar.h"
-				>
-			</File>
-			<File
-				RelativePath=".\dirent.h"
 				>
 			</File>
 			<File
@@ -816,7 +824,27 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\Quake\snd_flac.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\Quake\snd_mikmod.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\Quake\snd_modplug.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\Quake\snd_mp3.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\Quake\snd_opus.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\Quake\snd_umx.h"
 				>
 			</File>
 			<File

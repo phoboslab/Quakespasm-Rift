@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -49,7 +50,7 @@ static char *PR_GetTempString (void)
 static char *PF_VarString (int	first)
 {
 	int		i;
-	static char out[384];
+	static char out[1024];
 	size_t s;
 
 	out[0] = 0;
@@ -63,8 +64,8 @@ static char *PF_VarString (int	first)
 			return out;
 		}
 	}
-	if (s > 255 && developer.value)
-		Con_Warning("PF_VarString: %i characters exceeds standard limit of 255.\n", (int) s);
+	if (s > 255)
+		Con_DWarning("PF_VarString: %i characters exceeds standard limit of 255.\n", (int) s);
 	return out;
 }
 
@@ -684,15 +685,16 @@ static void PF_traceline (void)
 	if (developer.value) {
 	  if (IS_NAN(v1[0]) || IS_NAN(v1[1]) || IS_NAN(v1[2]) ||
 	      IS_NAN(v2[0]) || IS_NAN(v2[1]) || IS_NAN(v2[2])) {
-	   Host_Error("NAN in traceline:\nv1(%f %f %f) v2(%f %f %f)\nentity %d",
+	    Con_Warning ("NAN in traceline:\nv1(%f %f %f) v2(%f %f %f)\nentity %d\n",
 		      v1[0], v1[1], v1[2], v2[0], v2[1], v2[2], NUM_FOR_EDICT(ent));
 	  }
-	} else {
-	  if (IS_NAN(v1[0]) || IS_NAN(v1[1]) || IS_NAN(v1[2]))
-		v1[0] = v1[1] = v1[2] = 0;
-	  if (IS_NAN(v2[0]) || IS_NAN(v2[1]) || IS_NAN(v2[2]))
-		v2[0] = v2[1] = v2[2] = 0;
 	}
+
+	if (IS_NAN(v1[0]) || IS_NAN(v1[1]) || IS_NAN(v1[2]))
+		v1[0] = v1[1] = v1[2] = 0;
+	if (IS_NAN(v2[0]) || IS_NAN(v2[1]) || IS_NAN(v2[2]))
+		v2[0] = v2[1] = v2[2] = 0;
+
 	trace = SV_Move (v1, vec3_origin, vec3_origin, v2, nomonsters, ent);
 
 	pr_global_struct->trace_allsolid = trace.allsolid;
@@ -1325,7 +1327,7 @@ Pick a vector for the player to shoot along
 vector aim(entity, missilespeed)
 =============
 */
-cvar_t	sv_aim = {"sv_aim", "0.93", CVAR_NONE};
+cvar_t	sv_aim = {"sv_aim", "1", CVAR_NONE}; // ericw -- turn autoaim off by default. was 0.93
 static void PF_aim (void)
 {
 	edict_t	*ent, *check, *bestent;

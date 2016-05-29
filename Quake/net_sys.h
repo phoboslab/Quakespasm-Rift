@@ -21,35 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#if defined(_USE_SDLNET)
-
-/* can not use the IP banning mechanism in net_dgrm.c with
-   limited SDL_net functionality. */
-#undef	BAN_TEST
-
-#undef	HAVE_SA_LEN
-
-#define	sys_socket_t	int
-#define	INVALID_SOCKET	(-1)
-#define	SOCKET_ERROR	(-1)
-
-#ifndef MAXHOSTNAMELEN
-#define MAXHOSTNAMELEN	256
-#endif
-#ifndef AF_INET
-#define AF_INET		2		/* internet */
-#endif
-#ifndef INADDR_LOOPBACK
-#define INADDR_LOOPBACK	0x7f000001	/* 127.0.0.1 */
-#endif
-
-#ifndef __NET_SYS_H__
-#define __NET_SYS_H__	/* the rest below are not needed. */
-#endif
-
-#endif	/* _USE_SDLNET */
-
-
 #ifndef __NET_SYS_H__
 #define __NET_SYS_H__
 
@@ -133,10 +104,16 @@ typedef int	sys_socket_t;
 #define	INVALID_SOCKET	(-1)
 #define	SOCKET_ERROR	(-1)
 
-#if !defined(__AROS__)
-typedef int	socklen_t;
+#if !(defined(__AROS__) || defined(__amigaos4__))
+typedef LONG	socklen_t;	/* int32_t */
 #endif
+#if !defined(__amigaos4__)
+#if (LONG_MAX <= 2147483647L)
+typedef unsigned long	in_addr_t;	/* u_int32_t */
+#else
 typedef unsigned int	in_addr_t;	/* u_int32_t */
+#endif
+#endif
 
 #define	SOCKETERRNO	Errno()
 #define	ioctlsocket	IoctlSocket
@@ -144,6 +121,10 @@ typedef unsigned int	in_addr_t;	/* u_int32_t */
 #define	selectsocket(_N,_R,_W,_E,_T)		\
 	WaitSelect((_N),(_R),(_W),(_E),(_T),NULL)
 #define	IOCTLARG_P(x)	(char *) x
+#if defined(__AMIGA__) && !defined(__MORPHOS__)
+#define	inet_ntoa(x) Inet_NtoA((ULONG *)&x)
+#define	h_errno Errno()
+#endif
 
 #define	NET_EWOULDBLOCK		EWOULDBLOCK
 #define	NET_ECONNREFUSED	ECONNREFUSED

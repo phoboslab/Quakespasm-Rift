@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1996-2001 Id Software, Inc.
 Copyright (C) 2002-2009 John Fitzgibbons and others
+Copyright (C) 2010-2014 QuakeSpasm developers
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -118,6 +119,7 @@ void CL_Disconnect (void)
 // stop sounds (especially looping!)
 	S_StopAllSounds (true);
 	BGM_Stop();
+	CDAudio_Stop();
 
 // if running a local server, shut it down
 	if (cls.demoplayback)
@@ -140,6 +142,7 @@ void CL_Disconnect (void)
 	}
 
 	cls.demoplayback = cls.timedemo = false;
+	cls.demopaused = false;
 	cls.signon = 0;
 	cl.intermission = 0;
 }
@@ -150,8 +153,6 @@ void CL_Disconnect_f (void)
 	if (sv.active)
 		Host_ShutdownServer (false);
 }
-
-
 
 
 /*
@@ -193,7 +194,7 @@ void CL_SignonReply (void)
 {
 	char 	str[8192];
 
-Con_DPrintf ("CL_SignonReply: %i\n", cls.signon);
+	Con_DPrintf ("CL_SignonReply: %i\n", cls.signon);
 
 	switch (cls.signon)
 	{
@@ -281,8 +282,6 @@ void CL_PrintEntities_f (void)
 		,ent->model->name,ent->frame, ent->origin[0], ent->origin[1], ent->origin[2], ent->angles[0], ent->angles[1], ent->angles[2]);
 	}
 }
-
-//johnfitz -- deleted SetPal()
 
 /*
 ===============
@@ -445,7 +444,7 @@ void CL_RelinkEntities (void)
 				d -= 360;
 			else if (d < -180)
 				d += 360;
-			cl.viewangles[j] = cl.aimangles[j] = cl.mviewangles[1][j] + frac*d;
+			cl.viewangles[j] = cl.mviewangles[1][j] + frac*d;
 		}
 	}
 
@@ -507,7 +506,6 @@ void CL_RelinkEntities (void)
 					d += 360;
 				ent->angles[j] = ent->msg_angles[1][j] + f*d;
 			}
-
 		}
 
 // rotate binary objects locally
@@ -635,13 +633,13 @@ int CL_ReadFromServer (void)
 
 	//visedicts
 	if (cl_numvisedicts > 256 && dev_peakstats.visedicts <= 256)
-		Con_Warning ("%i visedicts exceeds standard limit of 256.\n", cl_numvisedicts);
+		Con_DWarning ("%i visedicts exceeds standard limit of 256.\n", cl_numvisedicts);
 	dev_stats.visedicts = cl_numvisedicts;
 	dev_peakstats.visedicts = q_max(cl_numvisedicts, dev_peakstats.visedicts);
 
 	//temp entities
 	if (num_temp_entities > 64 && dev_peakstats.tempents <= 64)
-		Con_Warning ("%i tempentities exceeds standard limit of 64.\n", num_temp_entities);
+		Con_DWarning ("%i tempentities exceeds standard limit of 64.\n", num_temp_entities);
 	dev_stats.tempents = num_temp_entities;
 	dev_peakstats.tempents = q_max(num_temp_entities, dev_peakstats.tempents);
 
@@ -650,7 +648,7 @@ int CL_ReadFromServer (void)
 		if (b->model && b->endtime >= cl.time)
 			num_beams++;
 	if (num_beams > 24 && dev_peakstats.beams <= 24)
-		Con_Warning ("%i beams exceeded standard limit of 24.\n", num_beams);
+		Con_DWarning ("%i beams exceeded standard limit of 24.\n", num_beams);
 	dev_stats.beams = num_beams;
 	dev_peakstats.beams = q_max(num_beams, dev_peakstats.beams);
 
@@ -659,7 +657,7 @@ int CL_ReadFromServer (void)
 		if (l->die >= cl.time && l->radius)
 			num_dlights++;
 	if (num_dlights > 32 && dev_peakstats.dlights <= 32)
-		Con_Warning ("%i dlights exceeded standard limit of 32.\n", num_dlights);
+		Con_DWarning ("%i dlights exceeded standard limit of 32.\n", num_dlights);
 	dev_stats.dlights = num_dlights;
 	dev_peakstats.dlights = q_max(num_dlights, dev_peakstats.dlights);
 
@@ -693,7 +691,6 @@ void CL_SendCmd (void)
 
 	// send the unreliable message
 		CL_SendMove (&cmd);
-
 	}
 
 	if (cls.demoplayback)
@@ -729,7 +726,7 @@ void CL_Tracepos_f (void)
 {
 	vec3_t	v, w;
 
-	VectorScale(vpn, 8192.0, v);
+	VectorMA(r_refdef.vieworg, 8192.0, vpn, v);
 	TraceLine(r_refdef.vieworg, v, w);
 
 	if (VectorLength(w) == 0)
