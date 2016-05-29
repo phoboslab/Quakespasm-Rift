@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "cfgfile.h"
 #include "bgmusic.h"
 #include "resource.h"
+#include "vr.h"
 #if defined(SDL_FRAMEWORK) || defined(NO_SDL_CONFIG)
 #if defined(USE_SDL2)
 #include <SDL2/SDL.h>
@@ -155,6 +156,8 @@ static cvar_t	vid_borderless = {"vid_borderless", "0", CVAR_ARCHIVE}; // QuakeSp
 cvar_t		vid_gamma = {"gamma", "1", CVAR_ARCHIVE}; //johnfitz -- moved here from view.c
 cvar_t		vid_contrast = {"contrast", "1", CVAR_ARCHIVE}; //QuakeSpasm, MarkV
 
+extern cvar_t  vr_enabled; //phoboslab
+
 //==========================================================================
 //
 //  HARDWARE GAMMA -- johnfitz
@@ -175,6 +178,11 @@ static unsigned short vid_sysgamma_blue[256];
 
 static qboolean	gammaworks = false;	// whether hw-gamma works
 static int fsaa;
+
+void VID_Refocus() {
+	SDL_SetRelativeMouseMode(SDL_FALSE);
+	SDL_SetRelativeMouseMode(SDL_TRUE);
+}
 
 /*
 ================
@@ -732,6 +740,9 @@ static void VID_Restart (void)
 	if (vid_locked || !vid_changed)
 		return;
 
+	if (vr_enabled.value)
+		VR_Disable();
+
 	width = (int)vid_width.value;
 	height = (int)vid_height.value;
 	bpp = (int)vid_bpp.value;
@@ -794,6 +805,9 @@ static void VID_Restart (void)
 		else if (modestate == MS_FULLSCREEN)
 			IN_Activate();
 	}
+
+	if (vr_enabled.value)
+		VR_Enable();
 }
 
 /*

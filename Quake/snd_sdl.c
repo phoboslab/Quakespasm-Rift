@@ -36,6 +36,10 @@
 
 static int	buffersize;
 
+static int audio_device_index;
+qboolean audio_device_is_default;
+extern cvar_t snd_device;
+
 
 static void paint_audio (void *unused, Uint8 *stream, int len)
 {
@@ -78,11 +82,17 @@ static void paint_audio (void *unused, Uint8 *stream, int len)
 		shm->samplepos = 0;
 }
 
+qboolean SNDDMA_UsesDefaultDevice()
+{
+	return audio_device_is_default;
+}
+
 qboolean SNDDMA_Init (dma_t *dma)
 {
 	SDL_AudioSpec desired, obtained;
-	int		tmp, val;
+	int		tmp, val, i, num_audio_devices;
 	char	drivername[128];
+	const char *desired_device_name = NULL;
 
 	if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0)
 	{
@@ -107,13 +117,50 @@ qboolean SNDDMA_Init (dma_t *dma)
 	desired.callback = paint_audio;
 	desired.userdata = NULL;
 
-	/* Open the audio device */
-	if (SDL_OpenAudio(&desired, &obtained) == -1)
-	{
-		Con_Printf("Couldn't open SDL audio: %s\n", SDL_GetError());
-		SDL_QuitSubSystem(SDL_INIT_AUDIO);
-		return false;
-	}
+	#if defined(USE_SDL2)
+		// Check if we have an audio device with the desired name
+		if (strlen(snd_device.string) != 0 && strcmp("default", snd_device.string) != 0)
+		{
+			num_audio_devices = SDL_GetNumAudioDevices(0);
+			for (i = 0; i < num_audio_devices; ++i) {
+				if (strstr(SDL_GetAudioDeviceName(i, 0), snd_device.string) != NULL) {
+					desired_device_name = SDL_GetAudioDeviceName(i, 0);
+					break;
+				}
+			}
+
+			// Desired device not found - print a warning and list all available devices
+			if (!desired_device_name)
+			{
+				Con_Printf("Sound Device not found: \"%s\"; Available devices:\n", snd_device.string);
+				for (i = 0; i < num_audio_devices; ++i) {
+					Con_Printf(" - %s\n", SDL_GetAudioDeviceName(i, 0));
+				}
+				audio_device_is_default = true;
+				Cvar_SetQuick(&snd_device, "default");
+			}
+		}
+
+		audio_device_is_default = !desired_device_name;
+
+		/* Open the audio device */
+		Con_Printf("SDL audio device: %s\n", desired_device_name ? desired_device_name : "default");
+		audio_device_index = SDL_OpenAudioDevice(desired_device_name, 0, &desired, &obtained, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
+		if (!audio_device_index)
+		{
+			Con_Printf("Couldn't open SDL audio: %s\n", SDL_GetError());
+			SDL_QuitSubSystem(SDL_INIT_AUDIO);
+			return false;
+		}
+	#else
+		/* Open the audio device */
+		if (SDL_OpenAudio(&desired, &obtained) == -1)
+		{
+			Con_Printf("Couldn't open SDL audio: %s\n", SDL_GetError());
+			SDL_QuitSubSystem(SDL_INIT_AUDIO);
+			return false;
+		}
+	#endif
 
 	/* Make sure we can support the audio format */
 	switch (obtained.format)
@@ -125,7 +172,11 @@ qboolean SNDDMA_Init (dma_t *dma)
 		break;
 	default:
 		Con_Printf ("Unsupported audio format received (%u)\n", obtained.format);
-		SDL_CloseAudio();
+		#if defined(USE_SDL2)
+			SDL_CloseAudioDevice(audio_device_index);
+		#else
+			SDL_CloseAudio();
+		#endif
 		SDL_QuitSubSystem(SDL_INIT_AUDIO);
 		return false;
 	}
@@ -173,14 +224,23 @@ qboolean SNDDMA_Init (dma_t *dma)
 	shm->buffer = (unsigned char *) calloc (1, buffersize);
 	if (!shm->buffer)
 	{
-		SDL_CloseAudio();
+		#if defined(USE_SDL2)
+			SDL_CloseAudioDevice(audio_device_index);
+		#else
+			SDL_CloseAudio();
+		#endif
 		SDL_QuitSubSystem(SDL_INIT_AUDIO);
 		shm = NULL;
 		Con_Printf ("Failed allocating memory for SDL audio\n");
 		return false;
 	}
 
-	SDL_PauseAudio(0);
+	#if defined(USE_SDL2)
+		SDL_PauseAudioDevice(audio_device_index, 0);
+	#else
+		SDL_PauseAudio(0);
+	#endif
+	
 
 	return true;
 }
@@ -194,8 +254,12 @@ void SNDDMA_Shutdown (void)
 {
 	if (shm)
 	{
-		Con_Printf ("Shutting down SDL sound\n");
-		SDL_CloseAudio();
+		Con_Printf("Shutting down SDL sound\n");
+		#if defined(USE_SDL2)
+			SDL_CloseAudioDevice(audio_device_index);
+		#else
+			SDL_CloseAudio();
+		#endif
 		SDL_QuitSubSystem(SDL_INIT_AUDIO);
 		if (shm->buffer)
 			free (shm->buffer);

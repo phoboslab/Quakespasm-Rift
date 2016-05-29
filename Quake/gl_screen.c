@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // screen.c -- master for refresh, status bar, console, chat, notify, etc
 
 #include "quakedef.h"
+#include "vr.h"
 
 /*
 
@@ -98,6 +99,11 @@ cvar_t		scr_showturtle = {"showturtle","0",CVAR_NONE};
 cvar_t		scr_showpause = {"showpause","1",CVAR_NONE};
 cvar_t		scr_printspeed = {"scr_printspeed","8",CVAR_NONE};
 cvar_t		gl_triplebuffer = {"gl_triplebuffer", "1", CVAR_ARCHIVE};
+
+//phoboslab -- cvars for vr
+extern cvar_t vr_enabled;
+extern cvar_t vr_aimmode;
+//
 
 extern	cvar_t	crosshair;
 
@@ -989,6 +995,66 @@ void SCR_TileClear (void)
 	}
 }
 
+void SCR_UpdateScreenContent(void)
+{
+	V_RenderView();
+
+	if (vr_enabled.value && !con_forcedup)
+	{
+		VR_Draw2D();
+	}
+	else
+	{
+		GL_Set2D();
+
+		//FIXME: only call this when needed
+		SCR_TileClear();
+
+		if (scr_drawdialog) //new game confirm
+		{
+			if (con_forcedup)
+				Draw_ConsoleBackground();
+			else
+				Sbar_Draw();
+			Draw_FadeScreen();
+			SCR_DrawNotifyString();
+		}
+		else if (scr_drawloading) //loading
+		{
+			SCR_DrawLoading();
+			Sbar_Draw();
+		}
+		else if (cl.intermission == 1 && key_dest == key_game) //end of level
+		{
+			Sbar_IntermissionOverlay();
+		}
+		else if (cl.intermission == 2 && key_dest == key_game) //end of episode
+		{
+			Sbar_FinaleOverlay();
+			SCR_CheckDrawCenterString();
+		}
+		else
+		{
+			SCR_DrawCrosshair(); //johnfitz
+			SCR_DrawRam();
+			SCR_DrawNet();
+			SCR_DrawTurtle();
+			SCR_DrawPause();
+			SCR_CheckDrawCenterString();
+			Sbar_Draw();
+			SCR_DrawDevStats(); //johnfitz
+			SCR_DrawFPS(); //johnfitz
+			SCR_DrawClock(); //johnfitz
+			SCR_DrawConsole();
+			M_Draw();
+		}
+	}
+
+	V_UpdateBlend(); //johnfitz -- V_UpdatePalette cleaned up and renamed
+
+	GLSLGamma_GammaCorrect();
+}
+
 /*
 ==================
 SCR_UpdateScreen
@@ -1032,55 +1098,18 @@ void SCR_UpdateScreen (void)
 //
 	SCR_SetUpToDrawConsole ();
 
-	V_RenderView ();
-
-	GL_Set2D ();
-
-	//FIXME: only call this when needed
-	SCR_TileClear ();
-
-	if (scr_drawdialog) //new game confirm
+	if (vr_enabled.value && !con_forcedup)
 	{
-		if (con_forcedup)
-			Draw_ConsoleBackground ();
-		else
-			Sbar_Draw ();
-		Draw_FadeScreen ();
-		SCR_DrawNotifyString ();
-	}
-	else if (scr_drawloading) //loading
-	{
-		SCR_DrawLoading ();
-		Sbar_Draw ();
-	}
-	else if (cl.intermission == 1 && key_dest == key_game) //end of level
-	{
-		Sbar_IntermissionOverlay ();
-	}
-	else if (cl.intermission == 2 && key_dest == key_game) //end of episode
-	{
-		Sbar_FinaleOverlay ();
-		SCR_CheckDrawCenterString ();
+		VR_UpdateScreenContent(); // phoboslab
 	}
 	else
 	{
-		SCR_DrawCrosshair (); //johnfitz
-		SCR_DrawRam ();
-		SCR_DrawNet ();
-		SCR_DrawTurtle ();
-		SCR_DrawPause ();
-		SCR_CheckDrawCenterString ();
-		Sbar_Draw ();
-		SCR_DrawDevStats (); //johnfitz
-		SCR_DrawFPS (); //johnfitz
-		SCR_DrawClock (); //johnfitz
-		SCR_DrawConsole ();
-		M_Draw ();
+		VectorCopy(cl.aimangles, cl.viewangles);
+		VectorCopy(cl.aimangles, r_refdef.viewangles);
+		VectorCopy(cl.aimangles, r_refdef.aimangles);
+
+		SCR_UpdateScreenContent();
 	}
-
-	V_UpdateBlend (); //johnfitz -- V_UpdatePalette cleaned up and renamed
-
-	GLSLGamma_GammaCorrect ();
 
 	GL_EndRendering ();
 }

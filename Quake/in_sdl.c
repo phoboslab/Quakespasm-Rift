@@ -677,17 +677,17 @@ void IN_JoyMove (usercmd_t *cmd)
 	cmd->sidemove += (cl_sidespeed.value * speed * moveEased.x);
 	cmd->forwardmove -= (cl_forwardspeed.value * speed * moveEased.y);
 
-	cl.viewangles[YAW] -= lookEased.x * joy_sensitivity_yaw.value * host_frametime;
-	cl.viewangles[PITCH] += lookEased.y * joy_sensitivity_pitch.value * (joy_invert.value ? -1.0 : 1.0) * host_frametime;
+	cl.aimangles[YAW] -= lookEased.x * joy_sensitivity_yaw.value * host_frametime;
+	cl.aimangles[PITCH] += lookEased.y * joy_sensitivity_pitch.value * (joy_invert.value ? -1.0 : 1.0) * host_frametime;
 
 	if (lookEased.x != 0 || lookEased.y != 0)
 		V_StopPitchDrift();
 
 	/* johnfitz -- variable pitch clamping */
-	if (cl.viewangles[PITCH] > cl_maxpitch.value)
-		cl.viewangles[PITCH] = cl_maxpitch.value;
-	if (cl.viewangles[PITCH] < cl_minpitch.value)
-		cl.viewangles[PITCH] = cl_minpitch.value;
+	if (cl.aimangles[PITCH] > cl_maxpitch.value)
+		cl.aimangles[PITCH] = cl_maxpitch.value;
+	if (cl.aimangles[PITCH] < cl_minpitch.value)
+		cl.aimangles[PITCH] = cl_minpitch.value;
 #endif
 }
 
@@ -704,7 +704,7 @@ void IN_MouseMove(usercmd_t *cmd)
 	if ( (in_strafe.state & 1) || (lookstrafe.value && (in_mlook.state & 1) ))
 		cmd->sidemove += m_side.value * dmx;
 	else
-		cl.viewangles[YAW] -= m_yaw.value * dmx;
+		cl.aimangles[YAW] -= m_yaw.value * dmx;
 
 	if (in_mlook.state & 1)
 	{
@@ -714,12 +714,12 @@ void IN_MouseMove(usercmd_t *cmd)
 
 	if ( (in_mlook.state & 1) && !(in_strafe.state & 1))
 	{
-		cl.viewangles[PITCH] += m_pitch.value * dmy;
+		cl.aimangles[PITCH] += m_pitch.value * dmy;
 		/* johnfitz -- variable pitch clamping */
-		if (cl.viewangles[PITCH] > cl_maxpitch.value)
-			cl.viewangles[PITCH] = cl_maxpitch.value;
-		if (cl.viewangles[PITCH] < cl_minpitch.value)
-			cl.viewangles[PITCH] = cl_minpitch.value;
+		if (cl.aimangles[PITCH] > cl_maxpitch.value)
+			cl.aimangles[PITCH] = cl_maxpitch.value;
+		if (cl.aimangles[PITCH] < cl_minpitch.value)
+			cl.aimangles[PITCH] = cl_minpitch.value;
 	}
 	else
 	{

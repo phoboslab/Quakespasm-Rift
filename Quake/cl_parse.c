@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "bgmusic.h"
+#include "vr.h"
 
 const char *svc_strings[] =
 {
@@ -1022,8 +1023,9 @@ void CL_ParseServerMessage (void)
 			break;
 
 		case svc_setangle:
-			for (i=0 ; i<3 ; i++)
-				cl.viewangles[i] = MSG_ReadAngle ();
+			for (i = 0; i<3; i++)
+				cl.viewangles[i] = MSG_ReadAngle();
+			VR_SetAngles(cl.viewangles);
 			break;
 
 		case svc_setview:

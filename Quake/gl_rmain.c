@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_main.c
 
 #include "quakedef.h"
+#include "vr.h"
 
 qboolean	r_cache_thrash;		// compatability
 
@@ -101,6 +102,11 @@ cvar_t	r_noshadow_list = {"r_noshadow_list", "progs/flame2.mdl,progs/flame.mdl,p
 
 extern cvar_t	r_vfog;
 //johnfitz
+
+//phoboslab -- cvars for vr
+extern cvar_t vr_enabled;
+extern cvar_t vr_crosshair;
+//phoboslab
 
 cvar_t	gl_zfix = {"gl_zfix", "0", CVAR_NONE}; // QuakeSpasm z-fighting fix
 
@@ -437,6 +443,9 @@ void R_SetFrustum (float fovx, float fovy)
 	if (r_stereo.value)
 		fovx += 10; //silly hack so that polygons don't drop out becuase of stereo skew
 
+	if (vr_enabled.value)
+		fovx += 25; // meh
+
 	TurnVector(frustum[0].normal, vpn, vright, fovx/2 - 90); //left plane
 	TurnVector(frustum[1].normal, vpn, vright, 90 - fovx/2); //right plane
 	TurnVector(frustum[2].normal, vpn, vup, 90 - fovy/2); //bottom plane
@@ -472,28 +481,34 @@ R_SetupGL
 */
 void R_SetupGL (void)
 {
-	//johnfitz -- rewrote this section
-	glMatrixMode(GL_PROJECTION);
-    glLoadIdentity ();
-	glViewport (glx + r_refdef.vrect.x,
-				gly + glheight - r_refdef.vrect.y - r_refdef.vrect.height,
-				r_refdef.vrect.width,
-				r_refdef.vrect.height);
-	//johnfitz
+	if (vr_enabled.value) {
+		VR_SetMatrices();
+	}
+	else
+	{
+		//johnfitz -- rewrote this section
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		glViewport(glx + r_refdef.vrect.x,
+			gly + glheight - r_refdef.vrect.y - r_refdef.vrect.height,
+			r_refdef.vrect.width,
+			r_refdef.vrect.height);
+		//johnfitz
 
-    GL_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
+		GL_SetFrustum(r_fovx, r_fovy); //johnfitz -- use r_fov* vars
 
-//	glCullFace(GL_BACK); //johnfitz -- glquake used CCW with backwards culling -- let's do it right
+	//	glCullFace(GL_BACK); //johnfitz -- glquake used CCW with backwards culling -- let's do it right
 
-	glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity ();
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
 
-    glRotatef (-90,  1, 0, 0);	    // put Z going up
-    glRotatef (90,  0, 0, 1);	    // put Z going up
-    glRotatef (-r_refdef.viewangles[2],  1, 0, 0);
-    glRotatef (-r_refdef.viewangles[0],  0, 1, 0);
-    glRotatef (-r_refdef.viewangles[1],  0, 0, 1);
-    glTranslatef (-r_refdef.vieworg[0],  -r_refdef.vieworg[1],  -r_refdef.vieworg[2]);
+		glRotatef(-90, 1, 0, 0);	    // put Z going up
+		glRotatef(90, 0, 0, 1);	    // put Z going up
+		glRotatef(-r_refdef.viewangles[2], 1, 0, 0);
+		glRotatef(-r_refdef.viewangles[0], 0, 1, 0);
+		glRotatef(-r_refdef.viewangles[1], 0, 0, 1);
+		glTranslatef(-r_refdef.vieworg[0], -r_refdef.vieworg[1], -r_refdef.vieworg[2]);
+	}
 
 	//
 	// set drawing parms
@@ -661,6 +676,9 @@ void R_DrawViewModel (void)
 
 	if (cl.items & IT_INVISIBILITY || cl.stats[STAT_HEALTH] <= 0)
 		return;
+
+	if (vr_enabled.value && vr_crosshair.value)
+		VR_ShowCrosshair();
 
 	currententity = &cl.viewent;
 	if (!currententity->model)

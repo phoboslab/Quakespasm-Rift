@@ -166,6 +166,8 @@ typedef struct
 								// between these
 	vec3_t		viewangles;
 
+	vec3_t		aimangles;
+
 	vec3_t		mvelocity[2];	// update by server, used for lean+bob
 								// (0 is newest)
 	vec3_t		velocity;		// lerped between mvelocity[0] and [1]
@@ -368,6 +370,7 @@ extern	cvar_t	chase_active;
 
 void Chase_Init (void);
 void TraceLine (vec3_t start, vec3_t end, vec3_t impact);
+void TraceLineToEntity(vec3_t start, vec3_t end, vec3_t impact, edict_t *ent);
 void Chase_UpdateForClient (void);	//johnfitz
 void Chase_UpdateForDrawing (void);	//johnfitz
 

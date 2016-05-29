@@ -444,7 +444,7 @@ void CL_RelinkEntities (void)
 				d -= 360;
 			else if (d < -180)
 				d += 360;
-			cl.viewangles[j] = cl.mviewangles[1][j] + frac*d;
+			cl.viewangles[j] = cl.aimangles[j] = cl.mviewangles[1][j] + frac*d;
 		}
 	}
 

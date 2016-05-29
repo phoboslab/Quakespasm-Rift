@@ -79,6 +79,8 @@ cvar_t		loadas8bit = {"loadas8bit", "0", CVAR_NONE};
 cvar_t		sndspeed = {"sndspeed", "11025", CVAR_NONE};
 cvar_t		snd_mixspeed = {"snd_mixspeed", "44100", CVAR_NONE};
 
+cvar_t		snd_device = { "snd_device", "default", CVAR_ARCHIVE };
+
 #if defined(_WIN32)
 #define SND_FILTERQUALITY_DEFAULT "5"
 #else
@@ -125,6 +127,17 @@ static void SND_Callback_snd_filterquality (cvar_t *var)
 	{
 		Con_Printf ("snd_filterquality must be between 1 and 5\n");
 		Cvar_SetQuick (&snd_filterquality, SND_FILTERQUALITY_DEFAULT);
+	}
+}
+
+static void S_Device_f(cvar_t *var)
+{
+	if (!sound_started || !shm)
+		return;
+
+	if (!SNDDMA_UsesDefaultDevice() || !(strlen(var->string) == 0 || strcmp("default", var->string) == 0)) {
+		SNDDMA_Shutdown();
+		S_Startup();
 	}
 }
 
@@ -182,6 +195,8 @@ void S_Init (void)
 	Cvar_RegisterVariable(&sndspeed);
 	Cvar_RegisterVariable(&snd_mixspeed);
 	Cvar_RegisterVariable(&snd_filterquality);
+	Cvar_RegisterVariable(&snd_device);
+	Cvar_SetCallback(&snd_device, S_Device_f);
 	
 	if (safemode || COM_CheckParm("-nosound"))
 		return;
