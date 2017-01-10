@@ -28,6 +28,8 @@ build/
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
 
+*.db
+*.opendb
 *_i.c
 *_p.c
 *.ilk
