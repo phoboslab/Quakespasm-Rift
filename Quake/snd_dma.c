@@ -924,7 +924,7 @@ static void S_Update_ (void)
 		return;
 
 	SNDDMA_LockBuffer ();
-	if (! shm->buffer)
+	if (!shm || ! shm->buffer)
 		return;
 
 // Updates DMA time

@@ -11,6 +11,13 @@
 #include "OVR_CAPI_GL.h"
 #include "OVR_CAPI_Audio.h"
 
+#if SDL_MAJOR_VERSION < 2
+FILE *__iob_func() {
+  FILE result[3] = { *stdin,*stdout,*stderr };
+  return result;
+}
+#endif
+
 extern void VID_Refocus();
 
 typedef struct {
@@ -359,7 +366,11 @@ qboolean VR_Enable()
 		MMRESULT mmr = waveOutGetDevCaps(ovr_audio_id, &caps, sizeof(caps));
 		if (mmr == MMSYSERR_NOERROR)
 		{
-			char *name = SDL_iconv_string("UTF-8", "UTF-16LE", (char *)(caps.szPname), (SDL_wcslen((WCHAR *)caps.szPname)+1)*sizeof(WCHAR));
+#if SDL_MAJOR_VERSION >= 2
+      char *name = SDL_iconv_string("UTF-8", "UTF-16LE", (char *)(caps.szPname), (SDL_wcslen((WCHAR *)caps.szPname)+1)*sizeof(WCHAR));
+#else
+      char *name = SDL_iconv_string("UTF-8", "UTF-16LE", (char *)(caps.szPname), (wcslen((WCHAR *)caps.szPname) + 1) * sizeof(WCHAR));
+#endif
 			Cvar_SetQuick(&snd_device, name);
 		}
 	}
